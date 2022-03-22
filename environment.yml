@@ -1,0 +1,15 @@
+name: qibochem
+channels:
+- conda-forge
+- psi4
+- defaults
+dependencies:
+- python=3.9
+- psi4
+- numpy
+- sympy
+- scipy
+- pip 
+- pip:
+  - openfermion
+  - qibo
