@@ -1,7 +1,7 @@
 import psi4
 import numpy as np
 
-class psi4_driver():
+class psi4_molecule():
     
     def __init__(self, geometry, opts):
         
@@ -10,7 +10,8 @@ class psi4_driver():
         
         
     def run(self, output='output.dat', method='scf', memory='500 MB'):
-        molecule = psi4.geometry(self.geometry)
+
+        molecule_geometry = psi4.geometry(self.geometry)
         opts = self.opts
         psi4.core.clean()
         psi4.set_memory(memory)
@@ -35,4 +36,4 @@ class psi4_driver():
         self.pb = np.asarray(wfn.Db())
         self.fa = np.asarray(wfn.Fa()) # AO Fock
         self.fb = np.asarray(wfn.Fb())
-        self.enuc = molecule.nuclear_repulsion_energy()
+        self.enuc = molecule_geometry.nuclear_repulsion_energy()
