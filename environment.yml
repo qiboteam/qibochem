@@ -13,3 +13,4 @@ dependencies:
 - pip:
   - openfermion
   - qibo
+  - pyscf
