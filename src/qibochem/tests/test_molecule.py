@@ -5,6 +5,8 @@ Test Molecule class functions
 import numpy as np
 import pytest
 
+from qibo import models, gates
+
 from qibochem.driver.molecule import Molecule
 
 
@@ -35,3 +37,23 @@ def test_run_psi4():
     assert np.allclose(h2.hcore, h2_ref_hcore)
 
 
+def test_expectation_value():
+    """Tests generation of molecular Hamiltonian and its expectation value using a JW-HF circuit"""
+    # Hardcoded benchmark results
+    h2_ref_energy = -1.117349035
+
+    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])
+    try:
+        h2.run_pyscf()
+    except ModuleNotFoundError:
+        h2.run_psi4()
+
+    # JW-HF circuit
+    circuit = models.Circuit(h2.nso)
+    circuit.add(gates.X(_i) for _i in range(sum(h2.nelec)))
+    # Molecular Hamiltonian and the HF expectation value
+    mol_hamiltonian = h2.symbolic_hamiltonian()
+    hf_energy = h2.expectation_value(circuit, mol_hamiltonian)
+
+    # assert h2.e_hf == pytest.approx(hf_energy)
+    assert h2_ref_energy == pytest.approx(hf_energy)
