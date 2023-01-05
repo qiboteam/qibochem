@@ -2,6 +2,7 @@
 Driver for obtaining molecular integrals from either PySCF or PSI4
 """
 
+from pathlib import Path
 
 import numpy as np
 import openfermion as of
@@ -19,7 +20,7 @@ class Molecule():
     Class representing a single molecule
     """
 
-    def __init__(self, geometry, charge=0, multiplicity=1, basis=None):#  rhf=None):
+    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None):
         """
         Args:
             geometry: Molecular coordinates in OpenFermion format
@@ -27,15 +28,23 @@ class Molecule():
             charge: Net charge of molecule
             multiplicity: Spin multiplicity of molecule
             basis: Atomic orbital basis set, used for the PySCF/PSI4 calculations
+            xyz_file: .xyz file containing the molecular coordinates
+                Comment line should follow "{charge} {multiplicity}"
 
         Example:
             .. testcode::
                 TODO
         """
         # Basic properties
-        self.geometry = geometry
-        self.charge = charge
-        self.multiplicity = multiplicity
+        # Define using the function arguments if xyz_file not given
+        if xyz_file is None:
+            self.geometry = geometry
+            self.charge = charge
+            self.multiplicity = multiplicity
+        else:
+            # Check if xyz_file exists, then fill in the Molecule attributes
+            assert Path(f"./{xyz_file}").exists(), f"{xyz_file} not found!"
+            self.process_xyz_file(xyz_file)
         # if rhf is None:
         #     rhf = (multiplicity == 1) # bool(multiplicity == 1)
         # self.rhf = rhf # Reference wave function is restricted Hartree-Fock
@@ -69,6 +78,33 @@ class Molecule():
         self.ka = None
         self.kb = None
         self.aoeri = None
+
+
+    def process_xyz_file(self, xyz_file):
+        """
+        Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
+            charge, and multiplicity
+
+        Args:
+            xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
+        """
+        with open(xyz_file, "r", encoding='utf-8') as file_handler:
+            # First two lines: # atoms and comment line (charge, multiplicity)
+            _n_atoms = int(file_handler.readline()) # Not needed/used
+            _charge, _multiplicity = [int(_num) for _num in file_handler.readline().split()]
+
+            # Start reading xyz coordinates from the 3rd line onwards
+            _geometry = []
+            for line in file_handler:
+                split_line = line.split()
+                # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
+                atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
+                _geometry.append(tuple(atom_xyz))
+
+        # Set the class attributes
+        self.charge = _charge
+        self.multiplicity = _multiplicity
+        self.geometry = _geometry
 
 
     def run_pyscf(self, basis='sto-3g'):# output='pyscf_output.out'):# output not used
