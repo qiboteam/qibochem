@@ -17,9 +17,10 @@ def measure_rotate_basis(pauli_op, nqubits):
         if p[1] == 'Z':
             mqc.add(gates.M(p[0]))
         elif p[1] == 'Y':
-            mqc.add(gates.RX(p[0], np.pi/2))
+            mqc.add(gates.S(p[0]).dagger())
+            mqc.add(gates.H(p[0]))
             mqc.add(gates.M(p[0]))
         elif p[1] == 'X':
-            mqc.add(gates.RY(p[0], np.pi/2))
+            mqc.add(gates.H(p[0]))
             mqc.add(gates.M(p[0]))
     return mqc
