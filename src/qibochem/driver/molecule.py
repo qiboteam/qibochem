@@ -107,7 +107,7 @@ class Molecule():
         self.geometry = _geometry
 
 
-    def run_pyscf(self, basis='sto-3g'):# output='pyscf_output.out'):# output not used
+    def run_pyscf(self, max_scf_cycles=50):
         """
         Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
             molecular integrals
@@ -124,9 +124,12 @@ class Molecule():
         pyscf_mol = pyscf.gto.M(charge=self.charge,
                                 spin=spin,
                                 atom=geom_string,
-                                basis=basis,
+                                basis=self.basis,
                                 symmetry='C1')
-        pyscf_job = pyscf.scf.RHF(pyscf_mol).run()
+        
+        pyscf_job = pyscf.scf.RHF(pyscf_mol)
+        pyscf_job.max_cycle = max_scf_cycles
+        pyscf_job.run()
         #print(dir(pyscf_job))
 
         # Save results from HF calculation
