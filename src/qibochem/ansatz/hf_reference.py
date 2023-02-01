@@ -32,6 +32,9 @@ def bk_matrix_power2(n: int):
 
 def bk_matrix(n: int):
     """Exact Brayvi-Kitaev matrix of size n
+    TODO: Update the occupation number vector using the update, parity, and flip set instead?
+        Not sure if necessary; i.e. size of BK matrix probably not comparable to the memory needed
+        for a classical simulation?
 
     Args:
         n: Size of BK matrix
@@ -61,7 +64,7 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
     if ferm_qubit_map is None:
         ferm_qubit_map = 'jw'
     if ferm_qubit_map not in ('jw', 'bk'):
-        raise KeyError(f"Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
     # Occupation number of SOs
     occ_n = np.concatenate((np.ones(n_electrons), np.zeros(n_qubits-n_electrons)))
