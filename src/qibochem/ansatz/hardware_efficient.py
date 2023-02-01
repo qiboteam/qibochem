@@ -1,26 +1,25 @@
 from qibo import gates
-from qibo.models import Circuit
 
 def hea_su2(nlayers, nqubits):
     '''
     implements a hardware-efficient ansatz SU2
     inputs:
     '''
-    qc = Circuit(nqubits)
-    
+    gate_list = []
+
     for ilayer in range(nlayers):
         for iqubit in range(nqubits):
-            qc.add(gates.RY(iqubit, theta=0))
+            gate_list.append(gates.RY(iqubit, theta=0))
         for iqubit in range(nqubits):
-            qc.add(gates.RZ(iqubit, theta=0))
+            gate_list.append(gates.RZ(iqubit, theta=0))
         #entanglement
         for iqubit in range(nqubits-1):
-            qc.add(gates.CNOT(iqubit, iqubit+1))
-        qc.add(gates.CNOT(nqubits-1, 0))
+            gate_list.append(gates.CNOT(iqubit, iqubit+1))
+        gate_list.append(gates.CNOT(nqubits-1, 0))
         
     for iqubit in range(nqubits):
-        qc.add(gates.RY(iqubit, theta=0))
+        gate_list.append(gates.RY(iqubit, theta=0))
     for iqubit in range(nqubits):
-        qc.add(gates.RZ(iqubit, theta=0))
-        
-    return qc
+        gate_list.append(gates.RZ(iqubit, theta=0))    
+
+    return gate_list
