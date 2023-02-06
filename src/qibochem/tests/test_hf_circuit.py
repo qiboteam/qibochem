@@ -32,7 +32,7 @@ def test_jw_circuit():
 
 
 def test_bk_circuit_1():
-    """Tests the HF circuit with the Brayvi-Kitaev mapping"""
+    """Tests the HF circuit with the Brayvi-Kitaev mapping for H2"""
     # Hardcoded benchmark results
     h2_ref_energy = -1.117349035
 
@@ -54,7 +54,7 @@ def test_bk_circuit_1():
 
 
 def test_bk_circuit_2():
-    """Tests the HF circuit with the Brayvi-Kitaev mapping"""
+    """Tests the HF circuit with the Brayvi-Kitaev mapping for LiH"""
     # Hardcoded benchmark results
     lih = Molecule([('Li', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 1.3))])
     try:

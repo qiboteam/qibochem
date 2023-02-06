@@ -17,21 +17,23 @@ def bk_matrix_power2(n: int):
     assert n > 0, "Dimension of BK matrix must be at least 1"
     # Base case
     if n == 1:
-        return np.ones((1, 1))
+        return np.ones((1, 1), dtype=np.int8)
     # Recursive definition
     smaller_bk_matrix = bk_matrix_power2(n-1)
-    top_right = np.zeros((2**(n-2), 2**(n-2)))
+    top_right = np.zeros((2**(n-2), 2**(n-2)), dtype=np.int8)
     top_half = np.concatenate((smaller_bk_matrix, top_right), axis=1)
 
-    bottom_left = np.concatenate((np.zeros(((2**(n-2))-1, 2**(n-2))),
-                                  np.ones((1, 2**(n-2)))),
+    bottom_left = np.concatenate((np.zeros(((2**(n-2))-1, 2**(n-2)), dtype=np.int8),
+                                  np.ones((1, 2**(n-2)), dtype=np.int8)),
                                  axis=0)
     bottom_half = np.concatenate((bottom_left, smaller_bk_matrix), axis=1)
     # Combine top and bottom half
     return np.concatenate((top_half, bottom_half), axis=0)
 
 def bk_matrix(n: int):
-    """Exact Brayvi-Kitaev matrix of size n
+    """Exact Brayvi-Kitaev matrix of size n, obtained by slicing a larger BK matrix
+        with dimension 2**m > n
+
     TODO: Update the occupation number vector using the update, parity, and flip set instead?
         Not sure if necessary; i.e. size of BK matrix probably not comparable to the memory needed
         for a classical simulation?
