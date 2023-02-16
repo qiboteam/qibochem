@@ -24,8 +24,10 @@ def test_jw_circuit():
     circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map=None)
 
     # Molecular Hamiltonian and the HF expectation value
-    mol_hamiltonian = h2.symbolic_hamiltonian()
-    hf_energy = h2.expectation_value(circuit, mol_hamiltonian)
+    ferm_ham = h2.fermionic_hamiltonian()
+    qubit_ham = h2.qubit_hamiltonian(ferm_ham)
+    sym_ham = h2.symbolic_hamiltonian(qubit_ham)
+    hf_energy = h2.expectation_value(circuit, sym_ham)
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
@@ -46,8 +48,10 @@ def test_bk_circuit_1():
     circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map='bk')
 
     # Molecular Hamiltonian and the HF expectation value
-    mol_hamiltonian = h2.symbolic_hamiltonian(ferm_qubit_map='bk')
-    hf_energy = h2.expectation_value(circuit, mol_hamiltonian)
+    ferm_ham = h2.fermionic_hamiltonian()
+    qubit_ham = h2.qubit_hamiltonian(ferm_ham, ferm_qubit_map='bk')
+    sym_ham = h2.symbolic_hamiltonian(qubit_ham)
+    hf_energy = h2.expectation_value(circuit, sym_ham)
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
@@ -66,7 +70,9 @@ def test_bk_circuit_2():
     circuit = hf_circuit(lih.nso, sum(lih.nelec), ferm_qubit_map='bk')
 
     # Molecular Hamiltonian and the HF expectation value
-    mol_hamiltonian = lih.symbolic_hamiltonian(ferm_qubit_map='bk')
-    hf_energy = lih.expectation_value(circuit, mol_hamiltonian)
+    ferm_ham = lih.fermionic_hamiltonian()
+    qubit_ham = lih.qubit_hamiltonian(ferm_ham, ferm_qubit_map='bk')
+    sym_ham = lih.symbolic_hamiltonian(qubit_ham)
+    hf_energy = lih.expectation_value(circuit, sym_ham)
 
     assert lih.e_hf == pytest.approx(hf_energy)
