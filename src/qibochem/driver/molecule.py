@@ -44,7 +44,7 @@ class Molecule():
             self.multiplicity = multiplicity
         else:
             # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"./{xyz_file}").exists(), f"{xyz_file} not found!"
+            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
             self.process_xyz_file(xyz_file)
         if basis is None:
             # Default bais is STO-3G
@@ -53,11 +53,8 @@ class Molecule():
             self.basis = basis
 
         self.ca = None
-        # self.cb = None
         self.pa = None
-        # self.pb = None
         self.da = None
-        # self.db = None
         self.nelec = None
         self.nalpha = None
         self.nbeta = None
@@ -65,18 +62,14 @@ class Molecule():
         self.tei = None
         self.e_hf = None
         self.e_nuc = None
-        # self.nbf = None
         self.norb = None
         self.nso = None
         self.overlap = None
         self.eps = None
         self.fa = None
-        # self.fb = None
         self.hcore = None
         self.ja = None
-        # self.jb = None
         self.ka = None
-        # self.kb = None
         self.aoeri = None
 
         # For HF embedding
@@ -129,7 +122,7 @@ class Molecule():
         # Set up and run PySCF calculation
         geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1])
                               for _atom in self.geometry)
-        spin = int((self.multiplicity - 1) // 2)
+        spin = self.multiplicity - 1 # PySCF spin is 2S
         pyscf_mol = pyscf.gto.M(charge=self.charge,
                                 spin=spin,
                                 atom=geom_string,
@@ -142,34 +135,14 @@ class Molecule():
         #print(dir(pyscf_job))
 
         # Save results from HF calculation
-        ehf = pyscf_job.e_tot # HF energy
-
-        ca = np.asarray(pyscf_job.mo_coeff) # MO coeffcients
-
-        # 1-electron integrals
-        oei = np.asarray(pyscf_mol.intor('int1e_kin')) + np.asarray(pyscf_mol.intor('int1e_nuc'))
-        #oei = np.asarray(pyscf_mol.get_hcore())
-        oei = np.einsum("ab,bc->ac", oei, ca)
-        oei = np.einsum("ab,ac->bc", ca, oei)
-
-        # Two electron integrals
-        #tei = np.asarray(pyscf_mol.intor('int2e'))
-        eri = pyscf.ao2mo.kernel(pyscf_mol, ca)
-        eri4 = pyscf.ao2mo.restore('s1', eri, ca.shape[1])
-        tei = np.einsum("pqrs->prsq", eri4)
-
-        # Fill in the class attributes
-        self.ca = ca
+        self.ca = np.asarray(pyscf_job.mo_coeff) # MO coeffcients
         self.nelec = pyscf_mol.nelec
         self.nalpha = self.nelec[0]
         self.nbeta = self.nelec[1]
-        self.e_hf = ehf
+        self.e_hf = pyscf_job.e_tot # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
-        # self.nbf = ca.shape[0]
-        self.norb = ca.shape[1]
-        self.nso = 2*ca.shape[1]
-        self.oei = oei
-        self.tei = tei
+        self.norb = self.ca.shape[1]
+        self.nso = 2*self.norb
         self.overlap = np.asarray(pyscf_mol.intor('int1e_ovlp'))
         self.eps = np.asarray(pyscf_job.mo_energy)
         self.fa = pyscf_job.get_fock()
@@ -178,23 +151,31 @@ class Molecule():
         self.ka = pyscf_job.get_k()
         self.aoeri = np.asarray(pyscf_mol.intor('int2e'))
 
-        ca_occ = ca[:, 0:self.nalpha]
-        pa = ca_occ @ ca_occ.T
-        self.pa = pa
+        ca_occ = self.ca[:, 0:self.nalpha]
+        self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
-        # if self.multiplicity == 1:
-        #     self.cb = ca
-        #     self.db = da
-        #     #self.fb = fa
+
+        # 1-electron integrals
+        oei = np.asarray(pyscf_mol.intor('int1e_kin')) + np.asarray(pyscf_mol.intor('int1e_nuc'))
+        #oei = np.asarray(pyscf_mol.get_hcore())
+        oei = np.einsum("ab,bc->ac", oei, self.ca)
+        oei = np.einsum("ab,ac->bc", self.ca, oei)
+        self.oei = oei
+
+        # Two electron integrals
+        #tei = np.asarray(pyscf_mol.intor('int2e'))
+        eri = pyscf.ao2mo.kernel(pyscf_mol, self.ca)
+        eri4 = pyscf.ao2mo.restore('s1', eri, self.norb)
+        tei = np.einsum("pqrs->prsq", eri4)
+        self.tei = tei
 
 
-    def run_psi4(self, output=None):# 'psi4_output.out'):
+    def run_psi4(self, output=None):
         """
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
 
         Args:
-            basis: Atomic orbital basis set
             output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
                 and uses 'psi4_output.dat' otherwise
         """
@@ -237,7 +218,7 @@ class Molecule():
 
         # 2- electron integrals
         mints = psi4.core.MintsHelper(wavefn.basisset())
-        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))
+        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca)) # Need original C_a array, not a np.array
         tei = np.einsum("pqrs->prsq", tei)
 
         # Fill in the class attributes
@@ -246,9 +227,8 @@ class Molecule():
         self.nbeta = self.nelec[1]
         self.e_hf = ehf
         self.e_nuc = psi4_mol.nuclear_repulsion_energy()
-        # self.nbf = ca.shape[0]
         self.norb = wavefn.nmo()
-        self.nso = 2*wavefn.nmo()
+        self.nso = 2*self.norb
         self.oei = oei
         self.tei = tei
         self.aoeri = np.asarray(mints.ao_eri())
@@ -257,15 +237,12 @@ class Molecule():
         self.fa = np.asarray(wavefn.Fa())
         self.hcore = np.asarray(wavefn.H())
 
-        ja = np.asarray(wavefn.jk().J()[0])
-        ka = np.asarray(wavefn.jk().K()[0])
+        self.ja = np.asarray(wavefn.jk().J()[0])
+        self.ka = np.asarray(wavefn.jk().K()[0])
 
         ca_occ = self.ca[:, 0:self.nalpha]
         self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
-        # if self.multiplicity == 1:
-        #     self.cb = ca
-        #     self.db = da
 
 
     # HF embedding functions
@@ -377,10 +354,10 @@ class Molecule():
         ferm_qubit_map: str = "jw"
     ) -> openfermion.QubitOperator:
         """
-        Converts the molecular Hamiltonian from a FermionOperator to a QubitOperator
+        Converts the molecular Hamiltonian to a QubitOperator
 
         Args:
-            fermion_hamiltonian: Molecular Hamiltonian as a FermionOperator
+            fermion_hamiltonian: Molecular Hamiltonian as a InteractionOperator/FermionOperator
             ferm_qubit_map: Which Fermion->Qubit mapping to use
 
         Returns:
