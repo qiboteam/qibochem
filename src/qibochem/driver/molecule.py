@@ -5,7 +5,7 @@ Driver for obtaining molecular integrals from either PySCF or PSI4
 from pathlib import Path
 
 import numpy as np
-import openfermion as of
+import openfermion
 
 # import psi4
 # import pyscf
@@ -53,11 +53,11 @@ class Molecule():
             self.basis = 'sto-3g'
 
         self.ca = None
-        self.cb = None
+        # self.cb = None
         self.pa = None
-        self.pb = None
+        # self.pb = None
         self.da = None
-        self.db = None
+        # self.db = None
         self.nelec = None
         self.nalpha = None
         self.nbeta = None
@@ -71,12 +71,12 @@ class Molecule():
         self.overlap = None
         self.eps = None
         self.fa = None
-        self.fb = None
+        # self.fb = None
         self.hcore = None
         self.ja = None
-        self.jb = None
+        # self.jb = None
         self.ka = None
-        self.kb = None
+        # self.kb = None
         self.aoeri = None
 
 
@@ -126,7 +126,7 @@ class Molecule():
                                 atom=geom_string,
                                 basis=self.basis,
                                 symmetry='C1')
-        
+
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
         pyscf_job.max_cycle = max_scf_cycles
         pyscf_job.run()
@@ -172,15 +172,14 @@ class Molecule():
         ca_occ = ca[:, 0:self.nalpha]
         pa = ca_occ @ ca_occ.T
         self.pa = pa
-        da = ca.T @ self.overlap @ pa @ self.overlap @ ca
-        self.da = da
-        if self.multiplicity == 1:
-            self.cb = ca
-            self.db = da
-            #self.fb = fa
+        self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+        # if self.multiplicity == 1:
+        #     self.cb = ca
+        #     self.db = da
+        #     #self.fb = fa
 
 
-    def run_psi4(self, basis='sto-3g', output=None):# 'psi4_output.out'):
+    def run_psi4(self, output=None):# 'psi4_output.out'):
         """
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
@@ -199,7 +198,7 @@ class Molecule():
         opt1_string = "\n\nunits angstrom\nsymmetry c1\n"
         mol_string = f"{chgmul_string}{geom_string}{opt1_string}"
         # PSI4 calculation options
-        opts = {'basis': basis, 'scf_type': 'direct'} #, 'reference': 'rhf'} # Default: RHF?
+        opts = {'basis': self.basis, 'scf_type': 'direct', 'reference': 'rhf', 'save_jk': True}
         psi4.core.clean()
         psi4.set_memory('500 MB')
         psi4.set_options(opts)
@@ -209,7 +208,7 @@ class Molecule():
             # See: https://psicode.org/psi4manual/master/api/psi4.core.be_quiet.html
             try:
                 psi4.core.be_quiet()
-            except:
+            except RuntimeError:
                 psi4.core.set_output_file('psi4_output.dat', False)
         else:
             psi4.core.set_output_file(output, False)
@@ -219,22 +218,20 @@ class Molecule():
         ehf, wavefn = psi4.energy('hf', return_wfn=True)
 
         # Save 1- and 2-body integrals
-        # 1- electron integrals
         ca = wavefn.Ca() # MO coefficients
+        self.ca = np.asarray(ca)
+        # 1- electron integrals
         oei = wavefn.H() # 'Core' (potential + kinetic) integrals
         # Convert from AO->MO basis
-        oei = np.einsum("ab,bc->ac", oei, np.asarray(ca))
-        oei = np.einsum("ab,ac->bc", np.asarray(ca), oei)
-        #print(oei)
+        oei = np.einsum("ab,bc->ac", oei, self.ca)
+        oei = np.einsum("ab,ac->bc", self.ca, oei)
 
         # 2- electron integrals
         mints = psi4.core.MintsHelper(wavefn.basisset())
         tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))
         tei = np.einsum("pqrs->prsq", tei)
-        #print(tei)
 
         # Fill in the class attributes
-        self.ca = np.asarray(ca)
         self.nelec = (wavefn.nalpha(), wavefn.nbeta())
         self.nalpha = self.nelec[0]
         self.nbeta = self.nelec[1]
@@ -251,86 +248,83 @@ class Molecule():
         self.fa = np.asarray(wavefn.Fa())
         self.hcore = np.asarray(wavefn.H())
 
-        da = np.asarray(wavefn.Da())
-        # db = np.asarray(wavefn.Db())
-        ja = np.einsum('pqrs,rs->pq', self.aoeri, da, optimize=True)
-        ka = np.einsum('prqs,rs->pq', self.aoeri, da, optimize=True)
-        self.ja = ja
-        self.ka = ka
+        ja = np.asarray(wavefn.jk().J()[0])
+        ka = np.asarray(wavefn.jk().K()[0])
 
         ca_occ = self.ca[:, 0:self.nalpha]
-        pa = ca_occ @ ca_occ.T
-        self.pa = pa
-        da = self.ca.T @ self.overlap @ pa @ self.overlap @ self.ca
-        self.da = da
-        if self.multiplicity == 1:
-            self.cb = ca
-            self.db = da
+        self.pa = ca_occ @ ca_occ.T
+        self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+        # if self.multiplicity == 1:
+        #     self.cb = ca
+        #     self.db = da
 
 
-    def get_ofdata(self):
+    def fermionic_hamiltonian(
+        self,
+        oei=None,
+        tei=None,
+        constant=None,
+    ) -> openfermion.InteractionOperator:
         """
-        Creates an OpenFermion MolecularData object using PySCF or PSI4 data
-        """
-
-        if self.e_hf is None:
-            raise Exception('Run PySCF or PSI4 first to obtain molecular data')
-
-        # Initialize OpenFermion MolecularData object
-        molecule_data = of.chem.MolecularData(self.geometry,
-                                              basis=self.basis,
-                                              multiplicity=self.multiplicity,
-                                              charge=self.charge)
-
-        molecule_data.one_body_integrals = self.oei
-        molecule_data.two_body_integrals = self.tei
-
-        molecule_data.hf_energy = self.e_hf
-        molecule_data.nuclear_repulsion = self.e_nuc
-        molecule_data.n_orbitals = self.norb
-        molecule_data.n_qubits = 2 * molecule_data.n_orbitals
-
-        molecule_data.overlap_integrals = self.overlap
-        molecule_data.orbital_energies = self.eps
-
-        return molecule_data
-
-
-    # Functions to obtain the molecular Hamiltonian and convert it to a Qibo SymbolicHamiltonian
-    def qubit_molecular_hamiltonian(self, ferm_qubit_map: str) -> of.QubitOperator:
-        """
-        Converts the molecular Hamiltonian to a OpenFermion QubitOperator
+        Molecular Hamiltonian using the OEI/TEI given in MO basis
 
         Args:
-            ferm_qubit_map (str): Which Fermion->Qubit mapping to use
+            oei: 1-electron integrals in OpenFermion notation. Default: self.oei
+            tei: 2-electron integrals in OpenFermion notation. Default: self.tei
+            constant: For inactive Fock energy if embedding used. Default: 0.0
 
         Returns:
-            qubit_operator (of.QubitOperator): Molecular Hamiltonian as a QubitOperator
+            hamiltonian (InteractionOperator): Molecular Hamiltonian
         """
-        # Build the OpenFermion MolecularData class and get the Hamiltonian
-        molecular_data = self.get_ofdata()
-        fermion_hamiltonian = molecular_data.get_molecular_hamiltonian()
+        # Define default variables
+        if oei is None:
+            oei = self.oei
+        if tei is None:
+            tei = self.tei
+        if constant is None:
+            constant = 0.0
 
+        # Convert the 1-/2- electron integrals from MO basis to SO basis
+        oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(oei, tei)
+        # tei_so already multiplied by 0.5, no need to include in InteractionOperator
+        return openfermion.InteractionOperator(self.e_nuc+constant, oei_so, tei_so)
+
+
+    @staticmethod
+    def qubit_hamiltonian(
+        fermion_hamiltonian,
+        ferm_qubit_map: str = "jw"
+    ) -> openfermion.QubitOperator:
+        """
+        Converts the molecular Hamiltonian from a FermionOperator to a QubitOperator
+
+        Args:
+            fermion_hamiltonian: Molecular Hamiltonian as a FermionOperator
+            ferm_qubit_map: Which Fermion->Qubit mapping to use
+
+        Returns:
+            qubit_operator : Molecular Hamiltonian as a QubitOperator
+        """
         # Map the fermionic molecular Hamiltonian to a QubitHamiltonian
         if ferm_qubit_map == "jw":
-            qubit_hamiltonian = of.jordan_wigner(fermion_hamiltonian)
+            q_hamiltonian = openfermion.jordan_wigner(fermion_hamiltonian)
         elif ferm_qubit_map == "bk": # Not tested!
-            qubit_hamiltonian = of.bravyi_kitaev(fermion_hamiltonian)
+            q_hamiltonian = openfermion.bravyi_kitaev(fermion_hamiltonian)
         else:
-            raise Exception("Unknown fermion->qubit mapping!")
+            raise NameError("Unknown fermion->qubit mapping!")
 
-        return qubit_hamiltonian
+        return q_hamiltonian
 
 
+    @staticmethod
     def symbolic_hamiltonian(
-        self,
-        ferm_qubit_map: str="jw"
+        q_hamiltonian: openfermion.QubitOperator
     ) -> qibo.hamiltonians.SymbolicHamiltonian:
         """
         Returns the molecular Hamiltonian as a Qibo SymbolicHamiltonian object
 
         Args:
-            ferm_qubit_map (str): Which Fermion->Qubit mapping to use
+            q_hamiltonian: Molecular Hamiltonian given as a QubitOperator
 
         Returns:
             qibo.hamiltonians.SymbolicHamiltonian
@@ -365,13 +359,10 @@ class Molecule():
                 qibo_pauli_string = coeff
             return qibo_pauli_string
 
-        # Molecular Hamiltonian as a QubitOperator
-        qubit_hamiltonian = self.qubit_molecular_hamiltonian(ferm_qubit_map)
-
         # Sums over each individual Pauli string in the QubitOperator
         symbolic_ham = sum(parse_pauli_string(pauli_string, coeff)
                            # Iterate over all operators
-                           for operator in qubit_hamiltonian.get_operators()
+                           for operator in q_hamiltonian.get_operators()
                            # .terms gives one operator as a dictionary with one entry
                            for pauli_string, coeff in operator.terms.items()
                            )
@@ -407,24 +398,26 @@ class Molecule():
         return hamiltonian.expectation(state_ket)
 
 
-    def exact_eigenvalues(self, hamiltonian: of.QubitOperator):
+    def exact_eigenvalues(self, hamiltonian: openfermion.QubitOperator):
         """
         Exact eigenvalues of a QubitOperator Hamiltonian
-        Note: Probably only needed for Qibo 0.1.8?
+        Note: Probably only needed for Qibo <0.1.10?
 
         Args:
-            hamiltonian (of.QubitOperator): Molecular Hamiltonian
+            hamiltonian (openfermion.QubitOperator): Molecular Hamiltonian
         """
         # Bug in Qibo 0.1.8 and 0.1.9: See comment in expectation_value function
         if qibo.__version__ in ('0.1.8', '0.1.9'):
             # Use the scipy sparse matrix library
             from scipy.sparse import linalg
 
-            hamiltonian_matrix = of.get_sparse_operator(hamiltonian)
+            hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
             eigenvalues, _ = linalg.eigsh(hamiltonian_matrix, k=6, which="SA")
         # Otherwise, the expectation method of a Hamiltonian can be used directly
         else:
-            sym_hamiltonian = self.symbolic_hamiltonian()
+            ferm_ham = self.fermionic_hamiltonian()
+            qubit_ham = self.qubit_hamiltonian(ferm_ham)
+            sym_hamiltonian = self.symbolic_hamiltonian(qubit_ham)
             eigenvalues = sym_hamiltonian.eigenvalues()
 
         return eigenvalues
