@@ -26,12 +26,12 @@ def expi_pauli(n_qubits, theta, pauli_string):
     coeff = -2.*np.real(_coeff * -1.j)
 
     # Generate the list of basis change gates using the p_letters list
-    basis_changes = [gates.H(_qubit) if _gate == 'X' else gates.RX(_qubit, -0.5*np.pi)
+    basis_changes = [gates.H(_qubit) if _gate == 'X' else gates.RX(_qubit, -0.5*np.pi, trainable=False)
                      for _qubit, _gate in p_letters
                      if _gate != "Z"
                     ]
 
-    # Apply the gates corresponding to exp(i ...) to a quantum circuit
+    # Build the circuit
     circuit = models.Circuit(n_qubits)
     # 1. Change to X/Y where necessary
     circuit.add(_gate for _gate in basis_changes)
@@ -44,12 +44,15 @@ def expi_pauli(n_qubits, theta, pauli_string):
     circuit.add(gates.CNOT(_qubit2, _qubit1)
                 for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters, p_letters[1:]))
     # 3. Change back to the Z basis
-    circuit.add(_gate.dagger() for _gate in basis_changes)
-
+    # circuit.add(_gate.dagger() for _gate in basis_changes) # .dagger() doesn't keep trainable=False
+    for _gate in basis_changes:
+        gate = _gate.dagger()
+        gate.trainable = False
+        circuit.add(gate)
     return circuit
 
 
-def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, mapping=None):
+def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None):
     '''
     Build circuit corresponding to the full unitary coupled-cluster ansatz
 
@@ -60,7 +63,7 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, mapping=None):
             e.g. [0, 1, 2, 3] represents the excitation of electrons in orbitals (0, 1) to (2, 3)
         trotter_steps: number of Trotter steps
             -> i.e. number of times the UCC ansatz is applied with theta=theta/trotter_steps
-        mapping: fermion->qubit transformation. Default is Jordan-Wigner (jw)
+        ferm_qubit_map: fermion->qubit transformation. Default is Jordan-Wigner (jw)
     '''
     # Check size of orbitals input
     n_orbitals = len(orbitals)
@@ -69,8 +72,8 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, mapping=None):
     sorted_orbitals = sorted(orbitals, reverse=True)
 
     # Define default mapping
-    if mapping is None:
-        mapping = 'jw'
+    if ferm_qubit_map is None:
+        ferm_qubit_map = 'jw'
 
     # Define the UCC excitation operator corresponding to the given list of orbitals
     fermion_op_str_template = f"{(n_orbitals//2)*'{}^ '}{(n_orbitals//2)*'{} '}"
@@ -80,10 +83,10 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, mapping=None):
     ucc_operator = (fermion_operator - openfermion.hermitian_conjugated(fermion_operator))
 
     # Map the FermionOperator to a QubitOperator
-    if mapping == 'jw':
+    if ferm_qubit_map == 'jw':
         qubit_ucc_operator = openfermion.jordan_wigner(ucc_operator)
     # ZC note: Just putting in ATM, not using
-    elif mapping == 'bk':
+    elif ferm_qubit_map == 'bk':
         qubit_ucc_operator = openfermion.bravyi_kitaev(ucc_operator)
     else:
         raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
