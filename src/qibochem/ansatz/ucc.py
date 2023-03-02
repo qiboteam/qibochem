@@ -8,6 +8,31 @@ import openfermion
 from qibo import models, gates
 
 
+def mp2_amplitude(orbitals, orbital_energies, tei):
+    """
+    Calculate the MP2 guess amplitudes to be used in the UCC doubles ansatz
+        t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)
+
+    Args:
+        orbitals: list of spin-orbitals representing a double excitation, must have exactly
+            4 elements
+        orbital_energies: eigenvalues of the Fock operator, i.e. orbital energies
+        tei: Two-electron integrals in MO basis and second quantization notation
+    """
+    # Checks orbitals
+    assert len(orbitals) = 4, f"{orbitals} must have only 4 orbitals for a double excitation"
+    # Convert orbital_energies and tei to be in SO basis
+    so_energies = np.repeat(orbital_energies, 2)
+    _oei = np.zeros(tei.shape[0]) # Temporary array to use get_tensors_from_integrals
+    _oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(_oei, tei)
+
+    # Split calculation in numerator and denominator for clarity
+    numerator = (tei_so[tuple(orbitals[:2] + orbitals[2:])]
+                 - tei_so[tuple(orbitals[:2] + orbitals[::-1][2:])])
+    denominator = sum(so_energies[orbitals[:2]]) - sum(so_energies[orbitals[2:]])
+    return numerator / denominator
+
+
 def expi_pauli(n_qubits, theta, pauli_string):
     """
     Build circuit representing exp(i*theta*pauli_string) to a circuit
