@@ -31,6 +31,7 @@ class Molecule():
             basis: Atomic orbital basis set, used for the PySCF/PSI4 calculations
             xyz_file: .xyz file containing the molecular coordinates
                 Comment line should follow "{charge} {multiplicity}"
+            active: Iterable representing the set of MOs to be included in the quantum simulation
 
         Example:
             .. testcode::
@@ -75,11 +76,13 @@ class Molecule():
         # For HF embedding
         self.active = active # List of active MOs included in the active space
         self.frozen = None
-        self.n_active_e = None
 
         self.inactive_energy = None
         self.embed_oei = None
         self.embed_tei = None
+
+        self.n_active_e = None
+        self.n_active_orbs = None
 
 
     def process_xyz_file(self, xyz_file):
@@ -278,7 +281,6 @@ class Molecule():
             frozen: Iterable representing the occupied orbitals to be removed from the simulation
         """
         # Default arguments for active and frozen
-        # TODO: Logic for default active/frozen spaces can be improved?
         if active is None:
             if self.active is None:
                 active = list(range(self.norb))
@@ -314,6 +316,7 @@ class Molecule():
         # Update class attributes
         self.active = active
         self.frozen = frozen
+        self.n_active_orbs = len(active)
         self.n_active_e = sum(self.nelec) - 2*len(self.frozen)
 
 
