@@ -20,7 +20,8 @@ class Molecule():
     Class representing a single molecule
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None):
+    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None,
+                 active=None):
         """
         Args:
             geometry: Molecular coordinates in OpenFermion format
@@ -30,6 +31,7 @@ class Molecule():
             basis: Atomic orbital basis set, used for the PySCF/PSI4 calculations
             xyz_file: .xyz file containing the molecular coordinates
                 Comment line should follow "{charge} {multiplicity}"
+            active: Iterable representing the set of MOs to be included in the quantum simulation
 
         Example:
             .. testcode::
@@ -43,21 +45,17 @@ class Molecule():
             self.multiplicity = multiplicity
         else:
             # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"./{xyz_file}").exists(), f"{xyz_file} not found!"
+            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
             self.process_xyz_file(xyz_file)
-        # if rhf is None:
-        #     rhf = (multiplicity == 1) # bool(multiplicity == 1)
-        # self.rhf = rhf # Reference wave function is restricted Hartree-Fock
         if basis is None:
             # Default bais is STO-3G
             self.basis = 'sto-3g'
+        else:
+            self.basis = basis
 
         self.ca = None
-        # self.cb = None
         self.pa = None
-        # self.pb = None
         self.da = None
-        # self.db = None
         self.nelec = None
         self.nalpha = None
         self.nbeta = None
@@ -65,19 +63,26 @@ class Molecule():
         self.tei = None
         self.e_hf = None
         self.e_nuc = None
-        self.nbf = None
         self.norb = None
         self.nso = None
         self.overlap = None
         self.eps = None
         self.fa = None
-        # self.fb = None
         self.hcore = None
         self.ja = None
-        # self.jb = None
         self.ka = None
-        # self.kb = None
         self.aoeri = None
+
+        # For HF embedding
+        self.active = active # List of active MOs included in the active space
+        self.frozen = None
+
+        self.inactive_energy = None
+        self.embed_oei = None
+        self.embed_tei = None
+
+        self.n_active_e = None
+        self.n_active_orbs = None
 
 
     def process_xyz_file(self, xyz_file):
@@ -120,7 +125,7 @@ class Molecule():
         # Set up and run PySCF calculation
         geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1])
                               for _atom in self.geometry)
-        spin = int((self.multiplicity - 1) // 2)
+        spin = self.multiplicity - 1 # PySCF spin is 2S
         pyscf_mol = pyscf.gto.M(charge=self.charge,
                                 spin=spin,
                                 atom=geom_string,
@@ -133,34 +138,14 @@ class Molecule():
         #print(dir(pyscf_job))
 
         # Save results from HF calculation
-        ehf = pyscf_job.e_tot # HF energy
-
-        ca = np.asarray(pyscf_job.mo_coeff) # MO coeffcients
-
-        # 1-electron integrals
-        oei = np.asarray(pyscf_mol.intor('int1e_kin')) + np.asarray(pyscf_mol.intor('int1e_nuc'))
-        #oei = np.asarray(pyscf_mol.get_hcore())
-        oei = np.einsum("ab,bc->ac", oei, ca)
-        oei = np.einsum("ab,ac->bc", ca, oei)
-
-        # Two electron integrals
-        #tei = np.asarray(pyscf_mol.intor('int2e'))
-        eri = pyscf.ao2mo.kernel(pyscf_mol, ca)
-        eri4 = pyscf.ao2mo.restore('s1', eri, ca.shape[1])
-        tei = np.einsum("pqrs->prsq", eri4)
-
-        # Fill in the class attributes
-        self.ca = ca
+        self.ca = np.asarray(pyscf_job.mo_coeff) # MO coeffcients
         self.nelec = pyscf_mol.nelec
         self.nalpha = self.nelec[0]
         self.nbeta = self.nelec[1]
-        self.e_hf = ehf
+        self.e_hf = pyscf_job.e_tot # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
-        self.nbf = ca.shape[0]
-        self.norb = ca.shape[1]
-        self.nso = 2*ca.shape[1]
-        self.oei = oei
-        self.tei = tei
+        self.norb = self.ca.shape[1]
+        self.nso = 2*self.norb
         self.overlap = np.asarray(pyscf_mol.intor('int1e_ovlp'))
         self.eps = np.asarray(pyscf_job.mo_energy)
         self.fa = pyscf_job.get_fock()
@@ -169,23 +154,31 @@ class Molecule():
         self.ka = pyscf_job.get_k()
         self.aoeri = np.asarray(pyscf_mol.intor('int2e'))
 
-        ca_occ = ca[:, 0:self.nalpha]
-        pa = ca_occ @ ca_occ.T
-        self.pa = pa
+        ca_occ = self.ca[:, 0:self.nalpha]
+        self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
-        # if self.multiplicity == 1:
-        #     self.cb = ca
-        #     self.db = da
-        #     #self.fb = fa
+
+        # 1-electron integrals
+        oei = np.asarray(pyscf_mol.intor('int1e_kin')) + np.asarray(pyscf_mol.intor('int1e_nuc'))
+        #oei = np.asarray(pyscf_mol.get_hcore())
+        oei = np.einsum("ab,bc->ac", oei, self.ca)
+        oei = np.einsum("ab,ac->bc", self.ca, oei)
+        self.oei = oei
+
+        # Two electron integrals
+        #tei = np.asarray(pyscf_mol.intor('int2e'))
+        eri = pyscf.ao2mo.kernel(pyscf_mol, self.ca)
+        eri4 = pyscf.ao2mo.restore('s1', eri, self.norb)
+        tei = np.einsum("pqrs->prsq", eri4)
+        self.tei = tei
 
 
-    def run_psi4(self, output=None):# 'psi4_output.out'):
+    def run_psi4(self, output=None):
         """
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
 
         Args:
-            basis: Atomic orbital basis set
             output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
                 and uses 'psi4_output.dat' otherwise
         """
@@ -228,7 +221,7 @@ class Molecule():
 
         # 2- electron integrals
         mints = psi4.core.MintsHelper(wavefn.basisset())
-        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))
+        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca)) # Need original C_a array, not a np.array
         tei = np.einsum("pqrs->prsq", tei)
 
         # Fill in the class attributes
@@ -237,9 +230,8 @@ class Molecule():
         self.nbeta = self.nelec[1]
         self.e_hf = ehf
         self.e_nuc = psi4_mol.nuclear_repulsion_energy()
-        self.nbf = ca.shape[0]
         self.norb = wavefn.nmo()
-        self.nso = 2*wavefn.nmo()
+        self.nso = 2*self.norb
         self.oei = oei
         self.tei = tei
         self.aoeri = np.asarray(mints.ao_eri())
@@ -248,15 +240,84 @@ class Molecule():
         self.fa = np.asarray(wavefn.Fa())
         self.hcore = np.asarray(wavefn.H())
 
-        ja = np.asarray(wavefn.jk().J()[0])
-        ka = np.asarray(wavefn.jk().K()[0])
+        self.ja = np.asarray(wavefn.jk().J()[0])
+        self.ka = np.asarray(wavefn.jk().K()[0])
 
         ca_occ = self.ca[:, 0:self.nalpha]
         self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
-        # if self.multiplicity == 1:
-        #     self.cb = ca
-        #     self.db = da
+
+
+    # HF embedding functions
+    def inactive_fock_matrix(self, frozen):
+        """
+        Returns the full inactive Fock matrix
+
+        Args:
+            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+        """
+        # Copy the original OEI as a starting point
+        inactive_fock = np.copy(self.oei)
+
+        # Add the two-electron operator, summed over the frozen orbitals
+        # Iterate over the active orbitals
+        for _p in range(self.norb):
+            for _q in range(self.norb):
+                # Iterate over the inactive orbitals
+                for _orb in frozen:
+                    # Add (2J - K) using TEI (in OpenFermion format)
+                    inactive_fock[_p][_q] += (2*self.tei[_orb][_p][_q][_orb]
+                                              - self.tei[_orb][_p][_orb][_q])
+        return inactive_fock
+
+
+    def hf_embedding(self, active=None, frozen=None):
+        """
+        Turns on HF embedding for a given active/frozen space, i.e.
+        fills the class attributes: inactive_energy, embed_oei, and embed_tei
+
+        Args:
+            active: Iterable representing the active-space for quantum simulation
+            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+        """
+        # Default arguments for active and frozen
+        if active is None:
+            if self.active is None:
+                active = list(range(self.norb))
+            else:
+                active = self.active
+        if frozen is None:
+            if self.frozen is None:
+                frozen = [_i for _i in range(self.nalpha) if _i not in active]
+            else:
+                frozen = self.frozen
+
+        # Check that arguments are valid
+        assert max(active) < self.norb and min(active) >= 0, ("Active space must be between 0 "
+                                                              "and the number of MOs")
+        if frozen:
+            assert not(set(active) & set(frozen)), "Active and frozen space cannot overlap"
+            assert max(frozen)+1 < sum(self.nelec)//2 and min(frozen) >= 0, ("Frozen orbitals must be "
+                                                                             "occupied orbitals")
+
+        # Build the inactive Fock matrix first
+        inactive_fock = self.inactive_fock_matrix(frozen)
+
+        # Calculate the inactive Fock energy
+        # Only want frozen part of original OEI and inactive Fock matrix
+        _oei = self.oei[np.ix_(frozen, frozen)]
+        _inactive_fock = inactive_fock[np.ix_(frozen, frozen)]
+        self.inactive_energy = np.einsum('ii->', _oei + _inactive_fock)
+
+        # Keep only the active part
+        self.embed_oei = inactive_fock[np.ix_(active, active)]
+        self.embed_tei = self.tei[np.ix_(active, active, active, active)]
+
+        # Update class attributes
+        self.active = active
+        self.frozen = frozen
+        self.n_active_orbs = len(active)
+        self.n_active_e = sum(self.nelec) - 2*len(self.frozen)
 
 
     def fermionic_hamiltonian(
@@ -296,10 +357,10 @@ class Molecule():
         ferm_qubit_map: str = "jw"
     ) -> openfermion.QubitOperator:
         """
-        Converts the molecular Hamiltonian from a FermionOperator to a QubitOperator
+        Converts the molecular Hamiltonian to a QubitOperator
 
         Args:
-            fermion_hamiltonian: Molecular Hamiltonian as a FermionOperator
+            fermion_hamiltonian: Molecular Hamiltonian as a InteractionOperator/FermionOperator
             ferm_qubit_map: Which Fermion->Qubit mapping to use
 
         Returns:
@@ -389,35 +450,21 @@ class Molecule():
         circuit_result = circuit(nshots=1)
         state_ket = circuit_result.state()
 
-        # Qibo 0.1.8/0.1.9 bug: Dense matrix formed from SymbolicHamiltonian when calculating
-        #    expectation values, so need to do it manually instead
-        if qibo.__version__ in ('0.1.8', '0.1.9'):
-            state_bra = np.conj(state_ket)
-            return np.real(np.sum(state_bra * (hamiltonian @ state_ket)))
-        # Otherwise, the expectation method of a Hamiltonian can be used directly
         return hamiltonian.expectation(state_ket)
 
 
-    def exact_eigenvalues(self, hamiltonian: openfermion.QubitOperator):
+    def eigenvalues(self, hamiltonian=None):
         """
-        Exact eigenvalues of a QubitOperator Hamiltonian
-        Note: Probably only needed for Qibo <0.1.10?
+        Exact eigenvalues of a molecular Hamiltonian
+
 
         Args:
-            hamiltonian (openfermion.QubitOperator): Molecular Hamiltonian
+            hamiltonian (openfermion.QubitOperator): Defaults to the Molecular Hamiltonian
         """
-        # Bug in Qibo 0.1.8 and 0.1.9: See comment in expectation_value function
-        if qibo.__version__ in ('0.1.8', '0.1.9'):
-            # Use the scipy sparse matrix library
-            from scipy.sparse import linalg
+        if hamiltonian is None:
+            hamiltonian = self.fermionic_hamiltonian()
 
-            hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
-            eigenvalues, _ = linalg.eigsh(hamiltonian_matrix, k=6, which="SA")
-        # Otherwise, the expectation method of a Hamiltonian can be used directly
-        else:
-            ferm_ham = self.fermionic_hamiltonian()
-            qubit_ham = self.qubit_hamiltonian(ferm_ham)
-            sym_hamiltonian = self.symbolic_hamiltonian(qubit_ham)
-            eigenvalues = sym_hamiltonian.eigenvalues()
+        qubit_ham = self.qubit_hamiltonian(hamiltonian)
+        sym_hamiltonian = self.symbolic_hamiltonian(qubit_ham)
 
-        return eigenvalues
+        return sym_hamiltonian.eigenvalues()

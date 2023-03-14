@@ -42,7 +42,7 @@ setup(
     install_requires=[
         "qibo>=0.1.10",
         "openfermion",
-        # "pyscf",
+        "pyscf",
     ],
     # extras_require={
     #     "docs": ["sphinx", "sphinx_rtd_theme", "recommonmark", "sphinxcontrib-bibtex", "sphinx_markdown_tables", "nbsphinx", "IPython", "doc2dash>=2.4.1", ],
