@@ -82,7 +82,7 @@ class Molecule():
         self.embed_tei = None
 
         self.n_active_e = None
-        self.n_active_orbs = None
+        self.n_active_orbs = None # Number of spin-orbitals in the active space 
 
 
     def process_xyz_file(self, xyz_file):
@@ -316,7 +316,7 @@ class Molecule():
         # Update class attributes
         self.active = active
         self.frozen = frozen
-        self.n_active_orbs = len(active)
+        self.n_active_orbs = 2*len(active)
         self.n_active_e = sum(self.nelec) - 2*len(self.frozen)
 
 
