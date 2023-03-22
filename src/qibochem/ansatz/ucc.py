@@ -25,7 +25,7 @@ def mp2_amplitude(orbitals, orbital_energies, tei):
     mo_orbitals = [_orb//2 for _orb in orbitals]
 
     # Numerator: g_ijab - g_ijba
-    g_ijab = (tei[tuple(mo_orbitals)] # Can index directly
+    g_ijab = (tei[tuple(mo_orbitals)] # Can index directly using the MO TEIs
               if (orbitals[0] + orbitals[3]) % 2 == 0 and (orbitals[1] + orbitals[2]) % 2 == 0
               else 0.0
              )
@@ -41,12 +41,16 @@ def mp2_amplitude(orbitals, orbital_energies, tei):
 
 def expi_pauli(n_qubits, theta, pauli_string):
     """
-    Build circuit representing exp(i*theta*pauli_string) to a circuit
+    Build circuit representing exp(i*theta*pauli_string)
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
         theta: parameter
         pauli_string: OpenFermion QubitOperator object, e.g. X_0 Y_1 Z_2 X_4
+
+    Returns:
+        circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
+        coeff: Coefficient of theta. May be useful for VQE
     """
     # Unpack the dictionary from pauli_string.terms.items() into
     # a (tuple of Pauli letters) and the coefficient of the pauli_string
@@ -57,7 +61,8 @@ def expi_pauli(n_qubits, theta, pauli_string):
     coeff = -2.*np.real(_coeff * -1.j)
 
     # Generate the list of basis change gates using the p_letters list
-    basis_changes = [gates.H(_qubit) if _gate == 'X' else gates.RX(_qubit, -0.5*np.pi, trainable=False)
+    basis_changes = [gates.H(_qubit) if _gate == 'X'
+                     else gates.RX(_qubit, -0.5*np.pi, trainable=False)
                      for _qubit, _gate in p_letters
                      if _gate != "Z"
                     ]
@@ -75,15 +80,16 @@ def expi_pauli(n_qubits, theta, pauli_string):
     circuit.add(gates.CNOT(_qubit2, _qubit1)
                 for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters, p_letters[1:]))
     # 3. Change back to the Z basis
-    # circuit.add(_gate.dagger() for _gate in basis_changes) # .dagger() doesn't keep trainable=False
+    # .dagger() doesn't keep trainable=False, so need to use a for loop
+    # circuit.add(_gate.dagger() for _gate in basis_changes)
     for _gate in basis_changes:
         gate = _gate.dagger()
         gate.trainable = False
         circuit.add(gate)
-    return circuit
+    return circuit, coeff
 
 
-def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None):
+def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
     '''
     Build circuit corresponding to the full unitary coupled-cluster ansatz
 
@@ -95,6 +101,8 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None)
         trotter_steps: number of Trotter steps
             -> i.e. number of times the UCC ansatz is applied with theta=theta/trotter_steps
         ferm_qubit_map: fermion->qubit transformation. Default is Jordan-Wigner (jw)
+        coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
+            May be useful in running the VQE. WARNING: Will be modified in this function
     '''
     # Check size of orbitals input
     n_orbitals = len(orbitals)
@@ -116,7 +124,6 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None)
     # Map the FermionOperator to a QubitOperator
     if ferm_qubit_map == 'jw':
         qubit_ucc_operator = openfermion.jordan_wigner(ucc_operator)
-    # ZC note: Just putting in ATM, not using
     elif ferm_qubit_map == 'bk':
         qubit_ucc_operator = openfermion.bravyi_kitaev(ucc_operator)
     else:
@@ -128,6 +135,9 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None)
     for _i in range(trotter_steps):
         # Use the get_operators() generator to get the list of excitation operators
         for pauli_string in qubit_ucc_operator.get_operators():
-            circuit += expi_pauli(n_qubits, theta/trotter_steps, pauli_string)
+            _circuit, coeff = expi_pauli(n_qubits, theta/trotter_steps, pauli_string)
+            circuit += _circuit
+            if isinstance(coeffs, list):
+                coeffs.append(coeff)
 
     return circuit
