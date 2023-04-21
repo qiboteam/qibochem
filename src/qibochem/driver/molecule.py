@@ -11,8 +11,11 @@ import openfermion
 # import pyscf
 
 import qibo
-from qibo import hamiltonians
-from qibo.symbols import X, Y, Z
+from qibo.hamiltonians import SymbolicHamiltonian
+
+from qibochem.driver.hamiltonian import (
+    fermionic_hamiltonian, qubit_hamiltonian, symbolic_hamiltonian
+)
 
 
 class Molecule():
@@ -82,7 +85,7 @@ class Molecule():
         self.embed_tei = None
 
         self.n_active_e = None
-        self.n_active_orbs = None # Number of spin-orbitals in the active space 
+        self.n_active_orbs = None # Number of spin-orbitals in the active space
 
 
     def process_xyz_file(self, xyz_file):
@@ -294,11 +297,11 @@ class Molecule():
 
         # Check that arguments are valid
         assert max(active) < self.norb and min(active) >= 0, ("Active space must be between 0 "
-                                                              "and the number of MOs")
+            "and the number of MOs")
         if frozen:
             assert not(set(active) & set(frozen)), "Active and frozen space cannot overlap"
-            assert max(frozen)+1 < sum(self.nelec)//2 and min(frozen) >= 0, ("Frozen orbitals must be "
-                                                                             "occupied orbitals")
+            assert max(frozen)+1 < sum(self.nelec)//2 and min(frozen) >= 0, ("Frozen orbitals must"
+                " be occupied orbitals")
 
         # Build the inactive Fock matrix first
         inactive_fock = self.inactive_fock_matrix(frozen)
@@ -320,151 +323,135 @@ class Molecule():
         self.n_active_e = sum(self.nelec) - 2*len(self.frozen)
 
 
-    def fermionic_hamiltonian(
+    def hamiltonian(
         self,
+        ham_type=None,
         oei=None,
         tei=None,
         constant=None,
-    ) -> openfermion.InteractionOperator:
+        ferm_qubit_map=None,
+    ):
         """
-        Molecular Hamiltonian using the OEI/TEI given in MO basis
+        Builds a molecular Hamiltonian using the one-/two- electron integrals
 
         Args:
-            oei: 1-electron integrals in OpenFermion notation. Default: self.oei
-            tei: 2-electron integrals in OpenFermion notation. Default: self.tei
+            ham_type: Format of molecular Hamiltonian returned
+                ("f", "ferm"): OpenFermion FermionOperator
+                ("q", "qubit"): OpenFermion QubitOperator
+                ("s", "sym"): Qibo SymbolicHamiltonian (default)
+            oei: 1-electron integrals. Default: self.oei (MO basis)
+            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
             constant: For inactive Fock energy if embedding used. Default: 0.0
+            ferm_qubit_map: Which fermion to qubit transformation to use.
+                Must be either "jw" (default) or "bk"
 
-        Returns:
-            hamiltonian (InteractionOperator): Molecular Hamiltonian
+            Returns:
+                Molecular Hamiltonian in the format of choice
         """
         # Define default variables
+        if ham_type is None:
+            ham_type = "sym"
         if oei is None:
             oei = self.oei
         if tei is None:
             tei = self.tei
         if constant is None:
             constant = 0.0
+        if ferm_qubit_map is None:
+            ferm_qubit_map  = "jw"
 
-        # Convert the 1-/2- electron integrals from MO basis to SO basis
-        oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(oei, tei)
-        # tei_so already multiplied by 0.5, no need to include in InteractionOperator
-        return openfermion.InteractionOperator(self.e_nuc+constant, oei_so, tei_so)
+        constant += self.e_nuc # Add nuclear repulsion energy
 
-
-    @staticmethod
-    def qubit_hamiltonian(
-        fermion_hamiltonian,
-        ferm_qubit_map: str = "jw"
-    ) -> openfermion.QubitOperator:
-        """
-        Converts the molecular Hamiltonian to a QubitOperator
-
-        Args:
-            fermion_hamiltonian: Molecular Hamiltonian as a InteractionOperator/FermionOperator
-            ferm_qubit_map: Which Fermion->Qubit mapping to use
-
-        Returns:
-            qubit_operator : Molecular Hamiltonian as a QubitOperator
-        """
-        # Map the fermionic molecular Hamiltonian to a QubitHamiltonian
-        if ferm_qubit_map == "jw":
-            q_hamiltonian = openfermion.jordan_wigner(fermion_hamiltonian)
-        elif ferm_qubit_map == "bk": # Not tested!
-            q_hamiltonian = openfermion.bravyi_kitaev(fermion_hamiltonian)
-        else:
-            raise NameError("Unknown fermion->qubit mapping!")
-
-        return q_hamiltonian
+        # Start with an InteractionOperator
+        ham = fermionic_hamiltonian(oei, tei, constant)
+        if ham_type in ("f", "ferm"):
+            # OpenFermion FermionOperator Hamiltonian
+            ham = openfermion.transforms.get_fermion_operator(ham)
+            ham.compress()
+            return ham
+        ham = qubit_hamiltonian(ham, ferm_qubit_map)
+        if ham_type in ("q", "qubit"):
+            # OpenFermion QubitOperator Hamiltonian
+            return ham
+        if ham_type in ("s", "sym"):
+            # Qibo SymbolicHamiltonian
+            return symbolic_hamiltonian(ham)
+        # :DD
+        if ham_type in ("ham", "char siew", "siu yuk", "bacon"):
+            print(f"I like {ham_type} too!")
+            return ham_type # Yummy!
+        raise NameError(f"Unknown {ham_type}!") # Shouldn't ever reach here
 
 
     @staticmethod
-    def symbolic_hamiltonian(
-        q_hamiltonian: openfermion.QubitOperator
-    ) -> qibo.hamiltonians.SymbolicHamiltonian:
-        """
-        Returns the molecular Hamiltonian as a Qibo SymbolicHamiltonian object
-
-        Args:
-            q_hamiltonian: Molecular Hamiltonian given as a QubitOperator
-
-        Returns:
-            qibo.hamiltonians.SymbolicHamiltonian
-        """
-        def parse_pauli_string(
-            pauli_string: 'tuple of tuples',
-            coeff: float
-        ) -> qibo.symbols.Symbol:
-            """
-            Helper function: Converts a single Pauli string to a Qibo Symbol
-
-            Args:
-                pauli_string (tuple of tuples): Indicate what gates to apply onto which qubit
-                    e.g. ((0, 'Z'), (2, 'Z'))
-                coeff (float): Coefficient of the Pauli string
-
-            Returns:
-                qibo.symbols.Symbol for a single Pauli string, e.g. -0.04*X0*X1*Y2*Y3
-            """
-            # Dictionary for converting
-            xyz_to_symbol = {'X': X, 'Y': Y, 'Z': Z}
-            # Check that pauli_string is non-empty
-            if pauli_string:
-                # pauli_string format: ((0, 'Y'), (1, 'Y'), (3, 'X'))
-                qibo_pauli_string = 1.0
-                for p_letter in pauli_string:
-                    qibo_pauli_string *= xyz_to_symbol[p_letter[1]](p_letter[0])
-                # Include coefficient after all gates
-                qibo_pauli_string = coeff * qibo_pauli_string
-            else:
-                # Empty word, i.e. constant term in Hamiltonian
-                qibo_pauli_string = coeff
-            return qibo_pauli_string
-
-        # Sums over each individual Pauli string in the QubitOperator
-        symbolic_ham = sum(parse_pauli_string(pauli_string, coeff)
-                           # Iterate over all operators
-                           for operator in q_hamiltonian.get_operators()
-                           # .terms gives one operator as a dictionary with one entry
-                           for pauli_string, coeff in operator.terms.items()
-                           )
-
-        # Map the QubitHamiltonian to a Qibo SymbolicHamiltonian and return it
-        return hamiltonians.SymbolicHamiltonian(symbolic_ham)
-
-
-    def expectation_value(
-            self,
+    def expectation(
             circuit: qibo.models.Circuit,
-            hamiltonian: qibo.hamiltonians.SymbolicHamiltonian
-        ) -> float:
+            hamiltonian: SymbolicHamiltonian,
+            from_samples=False,
+            n_shots=1000
+    ) -> float:
         """
-        Calculate expectation value of Hamiltonian using the state vector from running a circuit
+        Calculate expectation value of Hamiltonian using either the state vector from running a
+            circuit, or the frequencies of the resultant binary string results
 
         Args:
             circuit (qibo.models.Circuit): Quantum circuit ansatz
-            hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+            hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
+            from_samples: Whether the expectation value calculation uses samples or the simulated
+                state vector. Default: False, state vector simulation
+            n_shots: Number of times the circuit is run for the from_samples=True case
 
         Returns:
             Hamiltonian expectation value (float)
         """
-        circuit_result = circuit(nshots=1)
-        state_ket = circuit_result.state()
+        if from_samples:
+            raise NotImplementedError("expectation function only works with state vector")
+        # TODO: Rough code for expectation_from_samples if issue resolved
+        # Yet to test!!!!!
+        #
+        # from functools import reduce
+        # total = 0.0
+        # Iterate over each term in the Hamiltonian
+        # for term in hamiltonian.terms:
+        #     # Get the basis rotation gates and target qubits from the Hamiltonian term
+        #     qubits = [factor.target_qubit for factor in term.factors]
+        #     basis = [type(factor.gate) for factor in term.factors]
+        #     # Run a copy of the initial circuit to get the output frequencies
+        #     _circuit = circuit.copy()
+        #     _circuit.add(gates.M(*qubits, basis=basis))
+        #     result = _circuit(nshots=n_shots)
+        #     frequencies = result.frequencies(binary=True)
+        #     # Only works for Z terms, raises an error if ham_term has X/Y terms
+        #     total += SymbolicHamiltonian(
+        #                  reduce(lambda x, y: x*y,  term.factors, 1)
+        #              ).expectation_from_samples(frequencies, qubit_map=qubits)
+        # return total
 
+        # Expectation value from state vector simulation
+        result = circuit(nshots=1)
+        state_ket = result.state()
         return hamiltonian.expectation(state_ket)
 
 
-    def eigenvalues(self, hamiltonian=None):
+    @staticmethod
+    def eigenvalues(hamiltonian):
         """
-        Exact eigenvalues of a molecular Hamiltonian
-
+        Finds the lowest 6 exact eigenvalues of the molecular Hamiltonian
+            Note: Use the .eigenvalues() method for a Qibo SymbolicHamiltonian object
 
         Args:
-            hamiltonian (openfermion.QubitOperator): Defaults to the Molecular Hamiltonian
+            hamiltonian: Molecular Hamiltonian, given as a FermionOperator, QubitOperator, or
+                SymbolicHamiltonian (not recommended)
         """
-        if hamiltonian is None:
-            hamiltonian = self.fermionic_hamiltonian()
+        if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
+            from scipy.sparse import linalg
 
-        qubit_ham = self.qubit_hamiltonian(hamiltonian)
-        sym_hamiltonian = self.symbolic_hamiltonian(qubit_ham)
-
-        return sym_hamiltonian.eigenvalues()
+            hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
+            # which=SA and return_eigenvalues=False returns the eigenvalues sorted by absolute value
+            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=6, which="SA",
+                return_eigenvectors=False)
+            # So need to sort again by their (algebraic) value to get the order: smallest->largest
+            return sorted(eigenvalues)
+        if isinstance(hamiltonian, SymbolicHamiltonian):
+            return hamiltonian.eigenvalues()
+        raise TypeError("Type of Hamiltonian unknown")
