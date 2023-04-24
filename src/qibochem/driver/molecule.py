@@ -7,9 +7,6 @@ from pathlib import Path
 import numpy as np
 import openfermion
 
-# import psi4
-# import pyscf
-
 import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
 
@@ -385,10 +382,10 @@ class Molecule():
 
     @staticmethod
     def expectation(
-            circuit: qibo.models.Circuit,
-            hamiltonian: SymbolicHamiltonian,
-            from_samples=False,
-            n_shots=1000
+        circuit: qibo.models.Circuit,
+        hamiltonian: SymbolicHamiltonian,
+        from_samples=False,
+        n_shots=1000
     ) -> float:
         """
         Calculate expectation value of Hamiltonian using either the state vector from running a
@@ -423,7 +420,7 @@ class Molecule():
         #     frequencies = result.frequencies(binary=True)
         #     # Only works for Z terms, raises an error if ham_term has X/Y terms
         #     total += SymbolicHamiltonian(
-        #                  reduce(lambda x, y: x*y,  term.factors, 1)
+        #                  reduce(lambda x, y: x*y, term.factors, 1)
         #              ).expectation_from_samples(frequencies, qubit_map=qubits)
         # return total
 

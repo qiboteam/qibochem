@@ -7,7 +7,7 @@ HERE = pathlib.Path(__file__).parent.absolute()
 PACKAGE = "qibochem"
 
 
-# Returns the qibotn version
+# Returns the qibochem version
 def version():
     """Gets the version from the package's __init__ file
     if there is some problem, let it happily fail"""
@@ -41,8 +41,8 @@ setup(
     ],
     install_requires=[
         "qibo>=0.1.10",
-        "openfermion",
-        "pyscf",
+        "openfermion>=1.3", # I think?
+        "pyscf; platform_system!='Windows'",
     ],
     # extras_require={
     #     "docs": ["sphinx", "sphinx_rtd_theme", "recommonmark", "sphinxcontrib-bibtex", "sphinx_markdown_tables", "nbsphinx", "IPython", "doc2dash>=2.4.1", ],
