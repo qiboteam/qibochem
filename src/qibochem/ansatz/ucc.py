@@ -141,3 +141,119 @@ def ucc_circuit(n_qubits, theta, orbitals, trotter_steps=1, ferm_qubit_map=None,
                 coeffs.append(coeff)
 
     return circuit
+
+
+# Utility functions for running a UCCSD calculation
+
+def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
+    """
+    Generate all possible excitations between two lists of integers
+
+    Args:
+        order: Order of excitations, i.e. 1 == single, 2 == double
+        excite_from: Iterable of integers
+        excite_to: Iterable of integers
+        conserve_spin: ensure that the total electronic spin is conserved
+
+    Return:
+        List of lists, e.g. [[0, 1]]
+    """
+    # If order of excitation > either number of electrons/orbitals, return list of empty list
+    if order > min(len(excite_from), len(excite_to)):
+        return [[]]
+
+    from itertools import combinations
+    return [[*_from, *_to]
+            for _from in combinations(excite_from, order)
+            for _to in combinations(excite_to, order)
+            if (not conserve_spin
+                or (sum([*_from, *_to]) % 2 == 0
+                    and sum([_i % 2 for _i in _from]) == sum([_i % 2 for _i in _to]))
+               )
+           ]
+
+
+def sort_excitations(excitations):
+    """
+    TODO: Docstring
+
+    Sorts the list of excitations according to some common-sense and empirical rules
+
+    Sorting order:
+    1. (For double excitations only) All paired excitations between the same MOs first
+    2. Pair up excitations between the same MOs, e.g. (0, 2) and (1, 3) 
+    3. Then count upwards from smallest MO
+
+    """
+    # Check that all excitations are of the same order
+    order = len(excitations[0]) // 2
+    if order > 2:
+        raise NotImplementedError("Can only handle single and double excitations!")
+
+    assert all(len(_ex)//2 == order for _ex in excitations), "Cannot handle excitations of different orders!"
+    # TODO: Actually not that difficult to do? Just sort by excitation length and split up?
+    # Can probably implement in future...
+
+    # Define variables for the while loop
+    copy_excitations = excitations.copy()
+    result = []
+    prev = None
+
+    # Some comment for my future self
+    while copy_excitations:
+        if prev is None:
+            # Sort the remaining excitations
+            copy_excitations = sorted(copy_excitations)
+        else:
+            # Check to see for excitations involving the same MOs as prev
+            _from = prev[:order]
+            new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
+            _to = prev[order:]
+            new_to = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _to]
+            new_ex = sorted(new_from + new_to)
+
+            # Any such excitations left in the list?
+            if new_ex in copy_excitations:
+                index = copy_excitations.index(new_ex)
+                result.append(copy_excitations.pop(index))
+                prev = None
+                continue
+            else:
+                # No excitations involving the same set of MOs
+                # Move on to other MOs, with paired excitations first
+                copy_excitations = sorted(copy_excitations,
+                                          key=lambda x: abs(x[1]//2 - x[0]//2) + abs(x[3]//2 - x[2]//2)
+                                         )
+        # Take out the first entry from the sorted list of remaining excitations and add it to result
+        prev = copy_excitations.pop(0)
+        result.append(prev)
+    return result
+
+
+def uccsd_circuit(n_qubits, n_electrons, trotter_steps=1, ferm_qubit_map=None, all_coeffs=None):
+    """
+    TODO: Docstring
+
+    Utility function to build the whole UCCSD ansatz for a given molecule
+
+    TODO: Expand to a general number of excitations?
+
+    Args:
+        n_qubits = Number of spin-orbitals in the system (== Number of qubits required)
+
+    Returns:
+        circuit:
+    """
+    circuit = models.Circuit(n_qubits)
+
+    for order in range(2, 0, -1): # Reverse order because we want double excitations first
+        excitations = sort_excitations(
+            generate_excitations(order, range(0, n_electrons), range(n_electrons, n_qubits))
+        )
+        coeffs = []
+        for excitation in excitations:
+            circuit += ucc_circuit(n_qubits, 0.0, excitation, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map, coeffs=coeffs)
+            if isinstance(all_coeffs, list):
+                all_coeffs.append(np.array(coeffs))
+
+    return circuit
