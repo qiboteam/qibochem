@@ -163,25 +163,32 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
         return [[]]
 
     from itertools import combinations
-    return [[*_from, *_to]
-            for _from in combinations(excite_from, order)
-            for _to in combinations(excite_to, order)
-            if (not conserve_spin
-                or (sum([*_from, *_to]) % 2 == 0
-                    and sum([_i % 2 for _i in _from]) == sum([_i % 2 for _i in _to]))
-               )
-           ]
+    # Generate all possible excitations first
+    all_excitations = [[*_from, *_to]
+                       for _from in combinations(excite_from, order)
+                       for _to in combinations(excite_to, order)
+                      ]
+    # Filter out the excitations if conserve_spin set
+    if conserve_spin:
+        # Note: Not sure if this filtering is exhaustive; might leave some redundant excitations?
+        all_excitations = [_ex for _ex in all_excitations
+                           if sum(_ex) % 2 == 0
+                           and (sum(_i % 2 for _i in _ex[:order])
+                                == sum(_i % 2 for _i in _ex[order:]))
+                          ]
+    return all_excitations
 
 
 def sort_excitations(excitations):
     """
     TODO: Docstring
 
-    Sorts the list of excitations according to some common-sense and empirical rules
+    Very rough function that sorts the list of excitations according to some common-sense and
+        empirical rules. Not fully satisfied, but no major problems
 
     Sorting order:
     1. (For double excitations only) All paired excitations between the same MOs first
-    2. Pair up excitations between the same MOs, e.g. (0, 2) and (1, 3) 
+    2. Pair up excitations between the same MOs, e.g. (0, 2) and (1, 3)
     3. Then count upwards from smallest MO
 
     """
@@ -190,7 +197,8 @@ def sort_excitations(excitations):
     if order > 2:
         raise NotImplementedError("Can only handle single and double excitations!")
 
-    assert all(len(_ex)//2 == order for _ex in excitations), "Cannot handle excitations of different orders!"
+    assert all(len(_ex)//2 == order for _ex in excitations), ("Cannot handle excitations of"
+        " different orders!")
     # TODO: Actually not that difficult to do? Just sort by excitation length and split up?
     # Can probably implement in future...
 
@@ -202,31 +210,93 @@ def sort_excitations(excitations):
     # Some comment for my future self
     while copy_excitations:
         if prev is None:
-            # Sort the remaining excitations
-            copy_excitations = sorted(copy_excitations)
+            # Take out all pair excitations first
+            pair_excitations = [_ex for _ex in copy_excitations
+                                if sum(abs(_ex[2*_i+1]//2 - _ex[2*_i]//2)
+                                       for _i in range(0, order)) == 0
+                               ]
+            while pair_excitations:
+                pair_excitations = sorted(pair_excitations)
+                if pair_excitations[0] in copy_excitations:
+                    # 'Move' the first entry of same_mo_index from copy_excitations to result
+                    index = copy_excitations.index(pair_excitations[0])
+                    result.append(copy_excitations.pop(index))
+                pair_excitations.pop(0)
+
+            if order == 1:
+                copy_excitations = sorted(copy_excitations)
+            else:
+                copy_excitations = sorted(copy_excitations,
+                                          key=lambda x: sum((2-_i)*abs(x[2*_i+1]//2 - x[2*_i]//2)
+                                                            for _i in range(0, order))
+                                         )
         else:
             # Check to see for excitations involving the same MOs as prev
             _from = prev[:order]
-            new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
             _to = prev[order:]
+            # Get all possible excitations involving the same MOs
+            new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
             new_to = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _to]
-            new_ex = sorted(new_from + new_to)
-
-            # Any such excitations left in the list?
-            if new_ex in copy_excitations:
-                index = copy_excitations.index(new_ex)
-                result.append(copy_excitations.pop(index))
-                prev = None
-                continue
-            else:
-                # No excitations involving the same set of MOs
-                # Move on to other MOs, with paired excitations first
-                copy_excitations = sorted(copy_excitations,
-                                          key=lambda x: abs(x[1]//2 - x[0]//2) + abs(x[3]//2 - x[2]//2)
-                                         )
-        # Take out the first entry from the sorted list of remaining excitations and add it to result
+            same_mo_ex = [sorted(_f + _t) for _f in (_from, new_from) for _t in (_to, new_to)]
+            # Remove the excitations with the same MOs from copy_excitations
+            while same_mo_ex:
+                same_mo_ex = sorted(same_mo_ex)
+                if same_mo_ex[0] in copy_excitations:
+                    # 'Move' the first entry of same_mo_index from copy_excitations to result
+                    index = copy_excitations.index(same_mo_ex[0])
+                    result.append(copy_excitations.pop(index))
+                same_mo_ex.pop(0)
+            prev = None
+            continue
+        # Remove the first entry from the sorted list of remaining excitations and add it to result
         prev = copy_excitations.pop(0)
         result.append(prev)
+
+    return result
+
+
+def group_excitations(excitations):
+    """
+    Function to group certain related excitations together, e.g (0, 2) and (1, 3)
+        should have the same UCC parameter
+
+    Args:
+        excitations: List of excitations, not necessarily sorted
+    """
+    # Check that all excitations are of the same order
+    order = len(excitations[0]) // 2
+    if order > 2:
+        raise NotImplementedError("Can only handle single and double excitations!")
+
+    assert all(len(_ex)//2 == order for _ex in excitations), ("Cannot handle excitations of"
+        " different orders!")
+    # TODO: Actually not that difficult to do? Just sort by excitation length and split up?
+    # Can probably implement in future...?
+
+    # Define variables for the while loop
+    copy_excitations = excitations.copy()
+    result = []
+
+    # Some comment for my future self
+    while copy_excitations:
+        group = []
+        _from = copy_excitations[0][:order]
+        _to = copy_excitations[0][order:]
+        
+        # Get all possible excitations involving the same MOs
+        new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
+        new_to = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _to]
+        same_mo_ex = [sorted(_f + _t) for _f in (_from, new_from) for _t in (_to, new_to)]
+        # Remove the excitations with the same MOs from copy_excitations
+        while same_mo_ex:
+            if same_mo_ex[0] in copy_excitations:
+                # Save the index of the first entry
+                index = excitations.index(same_mo_ex[0])
+                group.append(index)
+                # Remove the excitations from copy_excitations and same_mo_ex
+                copy_excitations.remove(same_mo_ex[0])
+            same_mo_ex.remove(same_mo_ex[0])
+        result.append(sorted(group))
     return result
 
 
@@ -252,7 +322,8 @@ def uccsd_circuit(n_qubits, n_electrons, trotter_steps=1, ferm_qubit_map=None, a
         )
         coeffs = []
         for excitation in excitations:
-            circuit += ucc_circuit(n_qubits, 0.0, excitation, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map, coeffs=coeffs)
+            circuit += ucc_circuit(n_qubits, 0.0, excitation, trotter_steps=trotter_steps,
+                ferm_qubit_map=ferm_qubit_map, coeffs=coeffs)
             if isinstance(all_coeffs, list):
                 all_coeffs.append(np.array(coeffs))
 
