@@ -52,10 +52,8 @@ def test_expectation_value():
     circuit = models.Circuit(h2.nso)
     circuit.add(gates.X(_i) for _i in range(sum(h2.nelec)))
     # Molecular Hamiltonian and the HF expectation value
-    ferm_ham = h2.fermionic_hamiltonian()
-    qubit_ham = h2.qubit_hamiltonian(ferm_ham)
-    sym_ham = h2.symbolic_hamiltonian(qubit_ham)
-    hf_energy = h2.expectation_value(circuit, sym_ham)
+    hamiltonian = h2.hamiltonian()
+    hf_energy = h2.expectation(circuit, hamiltonian)
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
