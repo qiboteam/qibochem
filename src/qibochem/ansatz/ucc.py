@@ -300,7 +300,14 @@ def group_excitations(excitations):
     return result
 
 
-def uccsd_circuit(n_qubits, n_electrons, trotter_steps=1, ferm_qubit_map=None, all_coeffs=None):
+def uccsd_circuit(
+    n_qubits,
+    n_electrons,
+    trotter_steps=1,
+    ferm_qubit_map=None,
+    all_coeffs=None,
+    parameter_grps=None
+):
     """
     TODO: Docstring
 
@@ -320,8 +327,8 @@ def uccsd_circuit(n_qubits, n_electrons, trotter_steps=1, ferm_qubit_map=None, a
         excitations = sort_excitations(
             generate_excitations(order, range(0, n_electrons), range(n_electrons, n_qubits))
         )
-        coeffs = []
         for excitation in excitations:
+            coeffs = []
             circuit += ucc_circuit(n_qubits, 0.0, excitation, trotter_steps=trotter_steps,
                 ferm_qubit_map=ferm_qubit_map, coeffs=coeffs)
             if isinstance(all_coeffs, list):
