@@ -1,7 +1,8 @@
 # Installation script for python
-from setuptools import setup, find_packages
-import re
 import pathlib
+import re
+
+from setuptools import find_packages, setup
 
 HERE = pathlib.Path(__file__).parent.absolute()
 PACKAGE = "qibochem"
@@ -41,7 +42,7 @@ setup(
     ],
     install_requires=[
         "qibo>=0.1.10",
-        "openfermion>=1.3", # I think?
+        "openfermion>=1.3",  # I think?
         "pyscf; platform_system!='Windows'",
     ],
     # extras_require={
