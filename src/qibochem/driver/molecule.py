@@ -6,22 +6,22 @@ from pathlib import Path
 
 import numpy as np
 import openfermion
-
 import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
-    fermionic_hamiltonian, qubit_hamiltonian, symbolic_hamiltonian
+    fermionic_hamiltonian,
+    qubit_hamiltonian,
+    symbolic_hamiltonian,
 )
 
 
-class Molecule():
+class Molecule:
     """
     Class representing a single molecule
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None,
-                 active=None):
+    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
         """
         Args:
             geometry: Molecular coordinates in OpenFermion format
@@ -49,7 +49,7 @@ class Molecule():
             self.process_xyz_file(xyz_file)
         if basis is None:
             # Default bais is STO-3G
-            self.basis = 'sto-3g'
+            self.basis = "sto-3g"
         else:
             self.basis = basis
 
@@ -74,7 +74,7 @@ class Molecule():
         self.aoeri = None
 
         # For HF embedding
-        self.active = active # List of active MOs included in the active space
+        self.active = active  # List of active MOs included in the active space
         self.frozen = None
 
         self.inactive_energy = None
@@ -82,8 +82,7 @@ class Molecule():
         self.embed_tei = None
 
         self.n_active_e = None
-        self.n_active_orbs = None # Number of spin-orbitals in the active space
-
+        self.n_active_orbs = None  # Number of spin-orbitals in the active space
 
     def process_xyz_file(self, xyz_file):
         """
@@ -93,10 +92,10 @@ class Molecule():
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
-        with open(xyz_file, "r", encoding='utf-8') as file_handler:
+        with open(xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
-            _n_atoms = int(file_handler.readline()) # Not needed/used
-            _charge, _multiplicity = [int(_num) for _num in file_handler.readline().split()]
+            _n_atoms = int(file_handler.readline())  # Not needed/used
+            _charge, _multiplicity = (int(_num) for _num in file_handler.readline().split())
 
             # Start reading xyz coordinates from the 3rd line onwards
             _geometry = []
@@ -111,7 +110,6 @@ class Molecule():
         self.multiplicity = _multiplicity
         self.geometry = _geometry
 
-
     def run_pyscf(self, max_scf_cycles=50):
         """
         Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
@@ -123,55 +121,49 @@ class Molecule():
         import pyscf
 
         # Set up and run PySCF calculation
-        geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1])
-                              for _atom in self.geometry)
-        spin = self.multiplicity - 1 # PySCF spin is 2S
-        pyscf_mol = pyscf.gto.M(charge=self.charge,
-                                spin=spin,
-                                atom=geom_string,
-                                basis=self.basis,
-                                symmetry='C1')
+        geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1]) for _atom in self.geometry)
+        spin = self.multiplicity - 1  # PySCF spin is 2S
+        pyscf_mol = pyscf.gto.M(charge=self.charge, spin=spin, atom=geom_string, basis=self.basis, symmetry="C1")
 
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
         pyscf_job.max_cycle = max_scf_cycles
         pyscf_job.run()
-        #print(dir(pyscf_job))
+        # print(dir(pyscf_job))
 
         # Save results from HF calculation
-        self.ca = np.asarray(pyscf_job.mo_coeff) # MO coeffcients
+        self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.nelec = pyscf_mol.nelec
         self.nalpha = self.nelec[0]
         self.nbeta = self.nelec[1]
-        self.e_hf = pyscf_job.e_tot # HF energy
+        self.e_hf = pyscf_job.e_tot  # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
         self.norb = self.ca.shape[1]
-        self.nso = 2*self.norb
-        self.overlap = np.asarray(pyscf_mol.intor('int1e_ovlp'))
+        self.nso = 2 * self.norb
+        self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
         self.eps = np.asarray(pyscf_job.mo_energy)
         self.fa = pyscf_job.get_fock()
         self.hcore = pyscf_job.get_hcore()
         self.ja = pyscf_job.get_j()
         self.ka = pyscf_job.get_k()
-        self.aoeri = np.asarray(pyscf_mol.intor('int2e'))
+        self.aoeri = np.asarray(pyscf_mol.intor("int2e"))
 
-        ca_occ = self.ca[:, 0:self.nalpha]
+        ca_occ = self.ca[:, 0 : self.nalpha]
         self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
         # 1-electron integrals
-        oei = np.asarray(pyscf_mol.intor('int1e_kin')) + np.asarray(pyscf_mol.intor('int1e_nuc'))
-        #oei = np.asarray(pyscf_mol.get_hcore())
+        oei = np.asarray(pyscf_mol.intor("int1e_kin")) + np.asarray(pyscf_mol.intor("int1e_nuc"))
+        # oei = np.asarray(pyscf_mol.get_hcore())
         oei = np.einsum("ab,bc->ac", oei, self.ca)
         oei = np.einsum("ab,ac->bc", self.ca, oei)
         self.oei = oei
 
         # Two electron integrals
-        #tei = np.asarray(pyscf_mol.intor('int2e'))
+        # tei = np.asarray(pyscf_mol.intor('int2e'))
         eri = pyscf.ao2mo.kernel(pyscf_mol, self.ca)
-        eri4 = pyscf.ao2mo.restore('s1', eri, self.norb)
+        eri4 = pyscf.ao2mo.restore("s1", eri, self.norb)
         tei = np.einsum("pqrs->prsq", eri4)
         self.tei = tei
-
 
     def run_psi4(self, output=None):
         """
@@ -186,14 +178,13 @@ class Molecule():
 
         # PSI4 input string
         chgmul_string = f"{self.charge} {self.multiplicity} \n"
-        geom_string = "\n".join("{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1])
-                                for _atom in self.geometry)
+        geom_string = "\n".join("{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1]) for _atom in self.geometry)
         opt1_string = "\n\nunits angstrom\nsymmetry c1\n"
         mol_string = f"{chgmul_string}{geom_string}{opt1_string}"
         # PSI4 calculation options
-        opts = {'basis': self.basis, 'scf_type': 'direct', 'reference': 'rhf', 'save_jk': True}
+        opts = {"basis": self.basis, "scf_type": "direct", "reference": "rhf", "save_jk": True}
         psi4.core.clean()
-        psi4.set_memory('500 MB')
+        psi4.set_memory("500 MB")
         psi4.set_options(opts)
         # Keep the output file of the PSI4 calculation?
         if output is None:
@@ -202,26 +193,26 @@ class Molecule():
             try:
                 psi4.core.be_quiet()
             except RuntimeError:
-                psi4.core.set_output_file('psi4_output.dat', False)
+                psi4.core.set_output_file("psi4_output.dat", False)
         else:
             psi4.core.set_output_file(output, False)
 
         # Run HF calculation with PSI4
         psi4_mol = psi4.geometry(mol_string)
-        ehf, wavefn = psi4.energy('hf', return_wfn=True)
+        ehf, wavefn = psi4.energy("hf", return_wfn=True)
 
         # Save 1- and 2-body integrals
-        ca = wavefn.Ca() # MO coefficients
+        ca = wavefn.Ca()  # MO coefficients
         self.ca = np.asarray(ca)
         # 1- electron integrals
-        oei = wavefn.H() # 'Core' (potential + kinetic) integrals
+        oei = wavefn.H()  # 'Core' (potential + kinetic) integrals
         # Convert from AO->MO basis
         oei = np.einsum("ab,bc->ac", oei, self.ca)
         oei = np.einsum("ab,ac->bc", self.ca, oei)
 
         # 2- electron integrals
         mints = psi4.core.MintsHelper(wavefn.basisset())
-        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca)) # Need original C_a array, not a np.array
+        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))  # Need original C_a array, not a np.array
         tei = np.einsum("pqrs->prsq", tei)
 
         # Fill in the class attributes
@@ -231,7 +222,7 @@ class Molecule():
         self.e_hf = ehf
         self.e_nuc = psi4_mol.nuclear_repulsion_energy()
         self.norb = wavefn.nmo()
-        self.nso = 2*self.norb
+        self.nso = 2 * self.norb
         self.oei = oei
         self.tei = tei
         self.aoeri = np.asarray(mints.ao_eri())
@@ -243,10 +234,9 @@ class Molecule():
         self.ja = np.asarray(wavefn.jk().J()[0])
         self.ka = np.asarray(wavefn.jk().K()[0])
 
-        ca_occ = self.ca[:, 0:self.nalpha]
+        ca_occ = self.ca[:, 0 : self.nalpha]
         self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
-
 
     # HF embedding functions
     def inactive_fock_matrix(self, frozen):
@@ -266,10 +256,8 @@ class Molecule():
                 # Iterate over the inactive orbitals
                 for _orb in frozen:
                     # Add (2J - K) using TEI (in OpenFermion format)
-                    inactive_fock[_p][_q] += (2*self.tei[_orb][_p][_q][_orb]
-                                              - self.tei[_orb][_p][_orb][_q])
+                    inactive_fock[_p][_q] += 2 * self.tei[_orb][_p][_q][_orb] - self.tei[_orb][_p][_orb][_q]
         return inactive_fock
-
 
     def hf_embedding(self, active=None, frozen=None):
         """
@@ -293,12 +281,12 @@ class Molecule():
                 frozen = self.frozen
 
         # Check that arguments are valid
-        assert max(active) < self.norb and min(active) >= 0, ("Active space must be between 0 "
-            "and the number of MOs")
+        assert max(active) < self.norb and min(active) >= 0, "Active space must be between 0 " "and the number of MOs"
         if frozen:
-            assert not(set(active) & set(frozen)), "Active and frozen space cannot overlap"
-            assert max(frozen)+1 < sum(self.nelec)//2 and min(frozen) >= 0, ("Frozen orbitals must"
-                " be occupied orbitals")
+            assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
+            assert max(frozen) + 1 < sum(self.nelec) // 2 and min(frozen) >= 0, (
+                "Frozen orbitals must" " be occupied orbitals"
+            )
 
         # Build the inactive Fock matrix first
         inactive_fock = self.inactive_fock_matrix(frozen)
@@ -307,7 +295,7 @@ class Molecule():
         # Only want frozen part of original OEI and inactive Fock matrix
         _oei = self.oei[np.ix_(frozen, frozen)]
         _inactive_fock = inactive_fock[np.ix_(frozen, frozen)]
-        self.inactive_energy = np.einsum('ii->', _oei + _inactive_fock)
+        self.inactive_energy = np.einsum("ii->", _oei + _inactive_fock)
 
         # Keep only the active part
         self.embed_oei = inactive_fock[np.ix_(active, active)]
@@ -316,9 +304,8 @@ class Molecule():
         # Update class attributes
         self.active = active
         self.frozen = frozen
-        self.n_active_orbs = 2*len(active)
-        self.n_active_e = sum(self.nelec) - 2*len(self.frozen)
-
+        self.n_active_orbs = 2 * len(active)
+        self.n_active_e = sum(self.nelec) - 2 * len(self.frozen)
 
     def hamiltonian(
         self,
@@ -355,9 +342,9 @@ class Molecule():
         if constant is None:
             constant = 0.0
         if ferm_qubit_map is None:
-            ferm_qubit_map  = "jw"
+            ferm_qubit_map = "jw"
 
-        constant += self.e_nuc # Add nuclear repulsion energy
+        constant += self.e_nuc  # Add nuclear repulsion energy
 
         # Start with an InteractionOperator
         ham = fermionic_hamiltonian(oei, tei, constant)
@@ -376,16 +363,12 @@ class Molecule():
         # :DD
         if ham_type in ("ham", "char siew", "siu yuk", "bacon"):
             print(f"I like {ham_type} too!")
-            return ham_type # Yummy!
-        raise NameError(f"Unknown {ham_type}!") # Shouldn't ever reach here
-
+            return ham_type  # Yummy!
+        raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
     def expectation(
-        circuit: qibo.models.Circuit,
-        hamiltonian: SymbolicHamiltonian,
-        from_samples=False,
-        n_shots=1000
+        circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian, from_samples=False, n_shots=1000
     ) -> float:
         """
         Calculate expectation value of Hamiltonian using either the state vector from running a
@@ -429,7 +412,6 @@ class Molecule():
         state_ket = result.state()
         return hamiltonian.expectation(state_ket)
 
-
     @staticmethod
     def eigenvalues(hamiltonian):
         """
@@ -445,8 +427,7 @@ class Molecule():
 
             hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
             # which=SA and return_eigenvalues=False returns the eigenvalues sorted by absolute value
-            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=6, which="SA",
-                return_eigenvectors=False)
+            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=6, which="SA", return_eigenvectors=False)
             # So need to sort again by their (algebraic) value to get the order: smallest->largest
             return sorted(eigenvalues)
         if isinstance(hamiltonian, SymbolicHamiltonian):
