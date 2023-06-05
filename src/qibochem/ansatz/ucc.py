@@ -298,12 +298,12 @@ def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, t
             )
 
     # Build the circuit
-    circuit = models.Circuit(n_qubits)
+    circuit = models.Circuit(n_orbs)
 
-    for excitation in excitations:
+    for excitation, theta in zip(excitations, thetas):
         # coeffs = []
         circuit += ucc_circuit(
-            n_qubits, 0.0, excitation, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map# , coeffs=coeffs)
+            n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map# , coeffs=coeffs)
         )
         # if isinstance(all_coeffs, list):
         #     all_coeffs.append(np.array(coeffs))
