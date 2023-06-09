@@ -60,7 +60,7 @@ def expi_pauli(n_qubits, theta, pauli_string):
 
 def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
     '''
-    Build a circuit corresponding to the unitary coupled-cluster ansatz for one excitation
+    Build a circuit corresponding to the unitary coupled-cluster ansatz for only one excitation
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
@@ -88,7 +88,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
     fermion_operator_str = fermion_op_str_template.format(*sorted_orbitals)
     # Build the FermionOperator and make it unitary
     fermion_operator = openfermion.FermionOperator(fermion_operator_str)
-    ucc_operator = (fermion_operator - openfermion.hermitian_conjugated(fermion_operator))
+    ucc_operator = fermion_operator - openfermion.hermitian_conjugated(fermion_operator)
 
     # Map the FermionOperator to a QubitOperator
     if ferm_qubit_map == 'jw':
@@ -181,55 +181,58 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
 
 def sort_excitations(excitations):
     """
-    TODO: Docstring
-
-    Very rough function that sorts the list of excitations according to some common-sense and
-        empirical rules. Not fully satisfied, but no major problems
+    Sorts a list of excitations according to some common-sense and empirical rules (see below).
+        The order of the excitations must be the same throughout.
 
     Sorting order:
     1. (For double excitations only) All paired excitations between the same MOs first
     2. Pair up excitations between the same MOs, e.g. (0, 2) and (1, 3)
     3. Then count upwards from smallest MO
 
+    Args:
+        excitations: List of iterables, each representing an excitation; e.g. [[1, 5], [0, 4]]
+
+    Returns:
+        List of excitations after sorting
     """
-    # Check that all excitations are of the same order
+    # Check that all excitations are of the same order and <= 2
     order = len(excitations[0]) // 2
     if order > 2:
         raise NotImplementedError("Can only handle single and double excitations!")
-
     assert all(len(_ex)//2 == order for _ex in excitations), ("Cannot handle excitations of"
         " different orders!")
-    # TODO: Actually not that difficult to do? Just sort by excitation length and split up?
-    # Can probably implement in future...
 
     # Define variables for the while loop
-    copy_excitations = excitations.copy()
+    copy_excitations = [list(_ex) for _ex in excitations]
     result = []
     prev = []
 
-    # Some comment for my future self
+    # No idea how I came up with this, but it seems to work for double excitations
+    # Default sorting is OK for single excitations
+    sorting_fn = lambda x: sum(
+        (order+1-_i)*abs(x[2*_i+1]//2 - x[2*_i]//2) for _i in range(0, order)
+    )
+
+    # Make a copy of the list of excitations, and use it populate a new list iteratively
     while copy_excitations:
         if not prev:
             # Take out all pair excitations first
             pair_excitations = [_ex for _ex in copy_excitations
+                                # Indices of the electrons/holes must be consecutive numbers
                                 if sum(abs(_ex[2*_i+1]//2 - _ex[2*_i]//2)
                                        for _i in range(0, order)) == 0
                                ]
             while pair_excitations:
                 pair_excitations = sorted(pair_excitations)
-                if pair_excitations[0] in copy_excitations:
+                ex_to_remove = pair_excitations.pop(0)
+                if ex_to_remove in copy_excitations:
                     # 'Move' the first entry of same_mo_index from copy_excitations to result
-                    index = copy_excitations.index(pair_excitations[0])
+                    index = copy_excitations.index(ex_to_remove)
                     result.append(copy_excitations.pop(index))
-                pair_excitations.pop(0)
 
-            if order == 1:
-                copy_excitations = sorted(copy_excitations)
-            else:
-                copy_excitations = sorted(copy_excitations,
-                                          key=lambda x: sum((2-_i)*abs(x[2*_i+1]//2 - x[2*_i]//2)
-                                                            for _i in range(0, order))
-                                         )
+            # No more pair excitations, only remaining excitations should have >=3 MOs involved
+            # Sort the remaining excitations
+            copy_excitations = sorted(copy_excitations, key=sorting_fn if order != 1 else None)
         else:
             # Check to see for excitations involving the same MOs as prev
             _from = prev[:order]
@@ -237,42 +240,43 @@ def sort_excitations(excitations):
             # Get all possible excitations involving the same MOs
             new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
             new_to = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _to]
-            same_mo_ex = [sorted(_f + _t) for _f in (_from, new_from) for _t in (_to, new_to)]
+            same_mo_ex = [sorted(list(_f) + list(_t))
+                          for _f in (_from, new_from) for _t in (_to, new_to)]
             # Remove the excitations with the same MOs from copy_excitations
             while same_mo_ex:
                 same_mo_ex = sorted(same_mo_ex)
-                if same_mo_ex[0] in copy_excitations:
+                ex_to_remove = same_mo_ex.pop(0)
+                if ex_to_remove in copy_excitations:
                     # 'Move' the first entry of same_mo_index from copy_excitations to result
                     index = copy_excitations.index(same_mo_ex[0])
                     result.append(copy_excitations.pop(index))
-                same_mo_ex.pop(0)
             prev = None
             continue
         # Remove the first entry from the sorted list of remaining excitations and add it to result
         prev = copy_excitations.pop(0)
         result.append(prev)
-
     return result
 
 
 def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, trotter_steps=1, ferm_qubit_map=None):
     '''
-    TODO: Docstring.
-        Build a circuit corresponding to the unitary coupled-cluster ansatz for a given Molecule
+    Build a circuit corresponding to the UCC ansatz with multiple excitations for a given Molecule.
+        If no excitations are given, it defaults to returning the full UCCSD circuit ansatz for the
+        Molecule.
 
     Args:
-        molecule: Molecule to apply the UCC ansatz to
+        molecule: Molecule of interest.
         excitation_level: Include excitations up to how many electrons, i.e. ("S", "D", "T", "Q")
             Ignored if `excitations` argument is given. Default is "D", i.e. double excitations
         excitations: List of excitations (e.g. `[[0, 1, 2, 3], [0, 1, 4, 5]]`) used to build the
             UCC circuit. Overrides the `excitation_level` argument
-        thetas: Parameters for the excitations. Defaults to 0.0
+        thetas: Parameters for the excitations. Defaults to an array of zeros if not given
         trotter_steps: number of Trotter steps; i.e. number of times the UCC ansatz is applied with
             theta=theta/trotter_steps. Default is 1
         ferm_qubit_map: fermion-to-qubit transformation. Default is Jordan-Wigner ("jw")
 
     Returns:
-        circuit: Qibo Circuit corresponding to the UCC circuit
+        circuit: Qibo Circuit corresponding to the UCC ansatz
     '''
     # Get the number of electrons and virtual orbitals from the molecule argument
     n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e
@@ -280,26 +284,46 @@ def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, t
 
     # Define the excitation level to be used if no excitations given
     if excitations is None:
-        # TODO: Take out this part and put in a separate function?
         excitation_levels = ("S", "D", "T", "Q")
         if excitation_level is None:
             excitation_level = "D"
         else:
             # Check validity of input
             assert len(excitation_level) == 1 and excitation_level.upper() in excitation_levels
+            # Note: Probably don't be too ambitious and try to do 'T'/'Q' at the moment...
+            if excitation_level.upper() in ('T', 'Q'):
+                raise NotImplementedError("Cannot handle triple and quadruple excitations!")
         # Get the (largest) order of excitation to use
         excitation_order = excitation_levels.index(excitation_level.upper()) + 1
 
         # Generate and sort all the possible excitations
         excitations = []
-        for order in range(2, excitation_order, -1): # Reversed to get higher excitations first
+        for order in range(excitation_order, 0, -1): # Reversed to get higher excitations first
             excitations += sort_excitations(
                 generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs))
             )
+    else:
+        # Some checks to ensure the given excitations are valid
+        assert all(len(_ex) % 2 == 0 for _ex in excitations), (
+            "Excitation with an odd number of elements found!"
+        )
+
+    # Check if thetas argument given, define to be all zeros if not
+    # TODO: Unsure if want to use MP2 guess amplitudes for the doubles? Some say good, some say bad
+    # Number of circuit parameters: S->2, D->8, (T/Q->32/128; Not sure?)
+    n_parameters = (2 * len([_ex for _ex in excitations if len(_ex) == 2]) # Singles
+        + 8 * len([_ex for _ex in excitations if len(_ex) == 4]) # Doubles
+    )
+    if thetas is None:
+        thetas = np.zeros(n_parameters)
+    else:
+        # Check that number of circuit variables (i.e. thetas) matches the number of circuit parameters
+        assert len(thetas) == n_parameters, (
+            "Number of input parameters doesn't match the number of circuit parameters!"
+        )
 
     # Build the circuit
     circuit = models.Circuit(n_orbs)
-
     for excitation, theta in zip(excitations, thetas):
         # coeffs = []
         circuit += ucc_circuit(
