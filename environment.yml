@@ -9,7 +9,7 @@ dependencies:
 - numpy
 - sympy
 - scipy
-- pip 
+- pip
 - pip:
   - openfermion
   - qibo

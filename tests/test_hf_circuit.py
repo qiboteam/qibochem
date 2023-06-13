@@ -5,8 +5,8 @@ Test HF reference circuit ansatz
 # import numpy as np
 import pytest
 
-from qibochem.driver.molecule import Molecule
 from qibochem.ansatz.hf_reference import hf_circuit
+from qibochem.driver.molecule import Molecule
 
 
 def test_jw_circuit():
@@ -14,7 +14,7 @@ def test_jw_circuit():
     # Hardcoded benchmark results
     h2_ref_energy = -1.117349035
 
-    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     try:
         h2.run_pyscf()
     except ModuleNotFoundError:
@@ -36,14 +36,14 @@ def test_bk_circuit_1():
     # Hardcoded benchmark results
     h2_ref_energy = -1.117349035
 
-    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     try:
         h2.run_pyscf()
     except ModuleNotFoundError:
         h2.run_psi4()
 
     # JW-HF circuit
-    circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map='bk')
+    circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map="bk")
 
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian(ferm_qubit_map="bk")
@@ -56,14 +56,14 @@ def test_bk_circuit_1():
 def test_bk_circuit_2():
     """Tests the HF circuit with the Brayvi-Kitaev mapping for LiH"""
     # Hardcoded benchmark results
-    lih = Molecule([('Li', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 1.3))])
+    lih = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.3))])
     try:
         lih.run_pyscf()
     except ModuleNotFoundError:
         lih.run_psi4()
 
     # JW-HF circuit
-    circuit = hf_circuit(lih.nso, sum(lih.nelec), ferm_qubit_map='bk')
+    circuit = hf_circuit(lih.nso, sum(lih.nelec), ferm_qubit_map="bk")
 
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = lih.hamiltonian(ferm_qubit_map="bk")

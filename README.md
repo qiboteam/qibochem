@@ -10,4 +10,3 @@ git clone https://github.com/qiboteam/qibochem.git
 cd qibochem
 pip install .
 ```
-
