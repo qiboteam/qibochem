@@ -113,6 +113,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 
 # Utility functions
 
+
 def mp2_amplitude(orbitals, orbital_energies, tei):
     """
     Calculate the MP2 guess amplitudes to be used in the UCC doubles ansatz
@@ -127,17 +128,19 @@ def mp2_amplitude(orbitals, orbital_energies, tei):
     # Checks orbitals
     assert len(orbitals) == 4, f"{orbitals} must have only 4 orbitals for a double excitation"
     # Convert orbital indices to be in MO basis
-    mo_orbitals = [_orb//2 for _orb in orbitals]
+    mo_orbitals = [_orb // 2 for _orb in orbitals]
 
     # Numerator: g_ijab - g_ijba
-    g_ijab = (tei[tuple(mo_orbitals)] # Can index directly using the MO TEIs
-              if (orbitals[0] + orbitals[3]) % 2 == 0 and (orbitals[1] + orbitals[2]) % 2 == 0
-              else 0.0
-             )
-    g_ijba = (tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])] # Reverse last two terms
-              if (orbitals[0] + orbitals[2]) % 2 == 0 and (orbitals[1] + orbitals[3]) % 2 == 0
-              else 0.0
-             )
+    g_ijab = (
+        tei[tuple(mo_orbitals)]  # Can index directly using the MO TEIs
+        if (orbitals[0] + orbitals[3]) % 2 == 0 and (orbitals[1] + orbitals[2]) % 2 == 0
+        else 0.0
+    )
+    g_ijba = (
+        tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])]  # Reverse last two terms
+        if (orbitals[0] + orbitals[2]) % 2 == 0 and (orbitals[1] + orbitals[3]) % 2 == 0
+        else 0.0
+    )
     numerator = g_ijab - g_ijba
     # Denominator is directly from the orbital energies
     denominator = sum(orbital_energies[mo_orbitals[:2]]) - sum(orbital_energies[mo_orbitals[2:]])
@@ -162,19 +165,19 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
         return [[]]
 
     from itertools import combinations
+
     # Generate all possible excitations first
-    all_excitations = [[*_from, *_to]
-                       for _from in combinations(excite_from, order)
-                       for _to in combinations(excite_to, order)
-                      ]
+    all_excitations = [
+        [*_from, *_to] for _from in combinations(excite_from, order) for _to in combinations(excite_to, order)
+    ]
     # Filter out the excitations if conserve_spin set
     if conserve_spin:
         # Not sure if this filtering is exhaustive; might not remove some redundant excitations?
-        all_excitations = [_ex for _ex in all_excitations
-                           if sum(_ex) % 2 == 0
-                           and (sum(_i % 2 for _i in _ex[:order])
-                                == sum(_i % 2 for _i in _ex[order:]))
-                          ]
+        all_excitations = [
+            _ex
+            for _ex in all_excitations
+            if sum(_ex) % 2 == 0 and (sum(_i % 2 for _i in _ex[:order]) == sum(_i % 2 for _i in _ex[order:]))
+        ]
     return all_excitations
 
 
@@ -198,8 +201,7 @@ def sort_excitations(excitations):
     order = len(excitations[0]) // 2
     if order > 2:
         raise NotImplementedError("Can only handle single and double excitations!")
-    assert all(len(_ex)//2 == order for _ex in excitations), ("Cannot handle excitations of"
-        " different orders!")
+    assert all(len(_ex) // 2 == order for _ex in excitations), "Cannot handle excitations of different orders!"
 
     # Define variables for the while loop
     copy_excitations = [list(_ex) for _ex in excitations]
@@ -208,19 +210,18 @@ def sort_excitations(excitations):
 
     # No idea how I came up with this, but it seems to work for double excitations
     # Default sorting is OK for single excitations
-    sorting_fn = lambda x: sum(
-        (order+1-_i)*abs(x[2*_i+1]//2 - x[2*_i]//2) for _i in range(0, order)
-    )
+    sorting_fn = lambda x: sum((order + 1 - _i) * abs(x[2 * _i + 1] // 2 - x[2 * _i] // 2) for _i in range(0, order))
 
     # Make a copy of the list of excitations, and use it populate a new list iteratively
     while copy_excitations:
         if not prev:
             # Take out all pair excitations first
-            pair_excitations = [_ex for _ex in copy_excitations
-                                # Indices of the electrons/holes must be consecutive numbers
-                                if sum(abs(_ex[2*_i+1]//2 - _ex[2*_i]//2)
-                                       for _i in range(0, order)) == 0
-                               ]
+            pair_excitations = [
+                _ex
+                for _ex in copy_excitations
+                # Indices of the electrons/holes must be consecutive numbers
+                if sum(abs(_ex[2 * _i + 1] // 2 - _ex[2 * _i] // 2) for _i in range(0, order)) == 0
+            ]
             while pair_excitations:
                 pair_excitations = sorted(pair_excitations)
                 ex_to_remove = pair_excitations.pop(0)
@@ -237,10 +238,9 @@ def sort_excitations(excitations):
             _from = prev[:order]
             _to = prev[order:]
             # Get all possible excitations involving the same MOs
-            new_from = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _from]
-            new_to = [_i+1 if _i % 2 == 0 else _i - 1 for _i in _to]
-            same_mo_ex = [sorted(list(_f) + list(_t))
-                          for _f in (_from, new_from) for _t in (_to, new_to)]
+            new_from = [_i + 1 if _i % 2 == 0 else _i - 1 for _i in _from]
+            new_to = [_i + 1 if _i % 2 == 0 else _i - 1 for _i in _to]
+            same_mo_ex = [sorted(list(_f) + list(_t)) for _f in (_from, new_from) for _t in (_to, new_to)]
             # Remove the excitations with the same MOs from copy_excitations
             while same_mo_ex:
                 same_mo_ex = sorted(same_mo_ex)
@@ -290,43 +290,36 @@ def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, t
             # Check validity of input
             assert len(excitation_level) == 1 and excitation_level.upper() in excitation_levels
             # Note: Probably don't be too ambitious and try to do 'T'/'Q' at the moment...
-            if excitation_level.upper() in ('T', 'Q'):
+            if excitation_level.upper() in ("T", "Q"):
                 raise NotImplementedError("Cannot handle triple and quadruple excitations!")
         # Get the (largest) order of excitation to use
         excitation_order = excitation_levels.index(excitation_level.upper()) + 1
 
         # Generate and sort all the possible excitations
         excitations = []
-        for order in range(excitation_order, 0, -1): # Reversed to get higher excitations first
-            excitations += sort_excitations(
-                generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs))
-            )
+        for order in range(excitation_order, 0, -1):  # Reversed to get higher excitations first
+            excitations += sort_excitations(generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs)))
     else:
         # Some checks to ensure the given excitations are valid
-        assert all(len(_ex) % 2 == 0 for _ex in excitations), (
-            "Excitation with an odd number of elements found!"
-        )
+        assert all(len(_ex) % 2 == 0 for _ex in excitations), "Excitation with an odd number of elements found!"
 
     # Check if thetas argument given, define to be all zeros if not
     # TODO: Unsure if want to use MP2 guess amplitudes for the doubles? Some say good, some say bad
     # Number of circuit parameters: S->2, D->8, (T/Q->32/128; Not sure?)
-    n_parameters = (2 * len([_ex for _ex in excitations if len(_ex) == 2]) # Singles
-        + 8 * len([_ex for _ex in excitations if len(_ex) == 4]) # Doubles
-    )
+    n_parameters = 2 * len([_ex for _ex in excitations if len(_ex) == 2])  # Singles
+    n_parameters += 8 * len([_ex for _ex in excitations if len(_ex) == 4])  # Doubles
     if thetas is None:
         thetas = np.zeros(n_parameters)
     else:
         # Check that number of circuit variables (i.e. thetas) matches the number of circuit parameters
-        assert len(thetas) == n_parameters, (
-            "Number of input parameters doesn't match the number of circuit parameters!"
-        )
+        assert len(thetas) == n_parameters, "Number of input parameters doesn't match the number of circuit parameters!"
 
     # Build the circuit
     circuit = models.Circuit(n_orbs)
     for excitation, theta in zip(excitations, thetas):
         # coeffs = []
         circuit += ucc_circuit(
-            n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map# , coeffs=coeffs)
+            n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map  # , coeffs=coeffs)
         )
         # if isinstance(all_coeffs, list):
         #     all_coeffs.append(np.array(coeffs))

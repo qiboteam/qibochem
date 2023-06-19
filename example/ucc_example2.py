@@ -6,15 +6,12 @@ TODO: IN-PROGRESS!!!
 """
 
 import numpy as np
-
-from scipy.optimize import minimize
 from qibo.optimizers import optimize
-
-from qibochem.driver.molecule import Molecule
+from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import ucc_ansatz
-
+from qibochem.driver.molecule import Molecule
 
 # Define molecule and populate
 mol = Molecule(xyz_file="lih.xyz")
@@ -26,9 +23,7 @@ except ModuleNotFoundError:
 
 # Apply embedding and boson encoding
 mol.hf_embedding(active=[1, 2, 5])
-hamiltonian = mol.hamiltonian(
-    oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy
-)
+hamiltonian = mol.hamiltonian(oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy)
 
 # Set parameters for the rest of the experiment
 n_qubits = mol.n_active_orbs

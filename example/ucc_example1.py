@@ -3,14 +3,12 @@ Sample script of how to build and run the UCCSD ansatz with HF embedding for LiH
 """
 
 import numpy as np
-
-from scipy.optimize import minimize
 from qibo.optimizers import optimize
-
-from qibochem.driver.molecule import Molecule
+from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import ucc_circuit
+from qibochem.driver.molecule import Molecule
 
 # Define molecule and populate
 mol = Molecule(xyz_file="lih.xyz")
@@ -22,9 +20,7 @@ except ModuleNotFoundError:
 
 # Apply embedding and boson encoding
 mol.hf_embedding(active=[1, 2, 5])
-hamiltonian = mol.hamiltonian(
-    oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy
-)
+hamiltonian = mol.hamiltonian(oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy)
 
 # Set parameters for the rest of the experiment
 n_qubits = mol.n_active_orbs
@@ -34,17 +30,23 @@ n_electrons = mol.n_active_e
 circuit = hf_circuit(n_qubits, n_electrons)
 
 # UCCSD: Excitations
-d_excitations = [(_i, _j, _a, _b)
-                 for _i in range(n_electrons) for _j in range(_i+1, n_electrons) # Electrons
-                 for _a in range(n_electrons, n_qubits) for _b in range(_a+1, n_qubits) # Orbs
-                 if (_i + _j + _a + _b) % 2 == 0 and ((_i%2 + _j%2) == (_a%2 + _b%2)) # Spin
-                ]
-s_excitations = [(_i, _a,) for _i in range(n_electrons) for _a in range(n_electrons, n_qubits)
-                 if (_i + _a) % 2 == 0 # Spin-conservation
-                ]
+d_excitations = [
+    (_i, _j, _a, _b)
+    for _i in range(n_electrons)
+    for _j in range(_i + 1, n_electrons)  # Electrons
+    for _a in range(n_electrons, n_qubits)
+    for _b in range(_a + 1, n_qubits)  # Orbs
+    if (_i + _j + _a + _b) % 2 == 0 and ((_i % 2 + _j % 2) == (_a % 2 + _b % 2))  # Spin
+]
+s_excitations = [
+    (_i, _a)
+    for _i in range(n_electrons)
+    for _a in range(n_electrons, n_qubits)
+    if (_i + _a) % 2 == 0  # Spin-conservation
+]
 # Sort excitations with very contrived lambda functions
-d_excitations = sorted(d_excitations, key=lambda x: (x[3] - x[2]) + (x[2]%2))
-s_excitations = sorted(s_excitations, key=lambda x: (x[1] - x[0]) + (x[0]%2))
+d_excitations = sorted(d_excitations, key=lambda x: (x[3] - x[2]) + (x[2] % 2))
+s_excitations = sorted(s_excitations, key=lambda x: (x[1] - x[0]) + (x[0] % 2))
 excitations = d_excitations + s_excitations
 n_excitations = len(excitations)
 # print(excitations)
