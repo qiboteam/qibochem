@@ -4,8 +4,7 @@ Circuit representing the Unitary Coupled Cluster ansatz in quantum chemistry
 
 import numpy as np
 import openfermion
-
-from qibo import models, gates
+from qibo import gates, models
 
 
 def expi_pauli(n_qubits, theta, pauli_string):
@@ -27,27 +26,27 @@ def expi_pauli(n_qubits, theta, pauli_string):
 
     # _coeff is an imaginary number, i.e. exp(i\theta something)
     # Convert to the real coefficient for multiplying theta
-    coeff = -2.*np.real(_coeff * -1.j)
+    coeff = -2.0 * np.real(_coeff * -1.0j)
 
     # Generate the list of basis change gates using the p_letters list
-    basis_changes = [gates.H(_qubit) if _gate == 'X'
-                     else gates.RX(_qubit, -0.5*np.pi, trainable=False)
-                     for _qubit, _gate in p_letters
-                     if _gate != "Z"
-                    ]
+    basis_changes = [
+        gates.H(_qubit) if _gate == "X" else gates.RX(_qubit, -0.5 * np.pi, trainable=False)
+        for _qubit, _gate in p_letters
+        if _gate != "Z"
+    ]
 
     # Build the circuit
     circuit = models.Circuit(n_qubits)
     # 1. Change to X/Y where necessary
     circuit.add(_gate for _gate in basis_changes)
     # 2. Add CNOTs to all pairs of qubits in p_letters, starting from the last letter
-    circuit.add(gates.CNOT(_qubit1, _qubit2)
-                for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters[::-1], p_letters[::-1][1:]))
+    circuit.add(
+        gates.CNOT(_qubit1, _qubit2) for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters[::-1], p_letters[::-1][1:])
+    )
     # 3. Add RZ gate to last element of p_letters
-    circuit.add(gates.RZ(p_letters[0][0], coeff*theta))
+    circuit.add(gates.RZ(p_letters[0][0], coeff * theta))
     # 4. Add CNOTs to all pairs of qubits in p_letters
-    circuit.add(gates.CNOT(_qubit2, _qubit1)
-                for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters, p_letters[1:]))
+    circuit.add(gates.CNOT(_qubit2, _qubit1) for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters, p_letters[1:]))
     # 3. Change back to the Z basis
     # .dagger() doesn't keep trainable=False, so need to use a for loop
     # circuit.add(_gate.dagger() for _gate in basis_changes)
@@ -59,7 +58,7 @@ def expi_pauli(n_qubits, theta, pauli_string):
 
 
 def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
-    '''
+    """
     Build a circuit corresponding to the unitary coupled-cluster ansatz for only one excitation
 
     Args:
@@ -72,7 +71,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
         ferm_qubit_map: fermion-to-qubit transformation. Default is Jordan-Wigner (jw)
         coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
             May be useful in running the VQE. WARNING: Will be modified in this function
-    '''
+    """
     # Check size of orbitals input
     n_orbitals = len(excitation)
     assert n_orbitals % 2 == 0, f"{excitation} must have an even number of items"
@@ -81,7 +80,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 
     # Define default mapping
     if ferm_qubit_map is None:
-        ferm_qubit_map = 'jw'
+        ferm_qubit_map = "jw"
 
     # Define the UCC excitation operator corresponding to the given list of orbitals
     fermion_op_str_template = f"{(n_orbitals//2)*'{}^ '}{(n_orbitals//2)*'{} '}"
@@ -91,9 +90,9 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
     ucc_operator = fermion_operator - openfermion.hermitian_conjugated(fermion_operator)
 
     # Map the FermionOperator to a QubitOperator
-    if ferm_qubit_map == 'jw':
+    if ferm_qubit_map == "jw":
         qubit_ucc_operator = openfermion.jordan_wigner(ucc_operator)
-    elif ferm_qubit_map == 'bk':
+    elif ferm_qubit_map == "bk":
         qubit_ucc_operator = openfermion.bravyi_kitaev(ucc_operator)
     else:
         raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
@@ -104,7 +103,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
     for _i in range(trotter_steps):
         # Use the get_operators() generator to get the list of excitation operators
         for pauli_string in qubit_ucc_operator.get_operators():
-            _circuit, coeff = expi_pauli(n_qubits, theta/trotter_steps, pauli_string)
+            _circuit, coeff = expi_pauli(n_qubits, theta / trotter_steps, pauli_string)
             circuit += _circuit
             if isinstance(coeffs, list):
                 coeffs.append(coeff)
@@ -259,7 +258,7 @@ def sort_excitations(excitations):
 
 
 def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, trotter_steps=1, ferm_qubit_map=None):
-    '''
+    """
     Build a circuit corresponding to the UCC ansatz with multiple excitations for a given Molecule.
         If no excitations are given, it defaults to returning the full UCCSD circuit ansatz for the
         Molecule.
@@ -277,7 +276,7 @@ def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, t
 
     Returns:
         circuit: Qibo Circuit corresponding to the UCC ansatz
-    '''
+    """
     # Get the number of electrons and virtual orbitals from the molecule argument
     n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e
     n_orbs = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
