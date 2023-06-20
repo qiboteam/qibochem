@@ -247,7 +247,7 @@ def sort_excitations(excitations):
                 ex_to_remove = same_mo_ex.pop(0)
                 if ex_to_remove in copy_excitations:
                     # 'Move' the first entry of same_mo_index from copy_excitations to result
-                    index = copy_excitations.index(same_mo_ex[0])
+                    index = copy_excitations.index(ex_to_remove)
                     result.append(copy_excitations.pop(index))
             prev = None
             continue

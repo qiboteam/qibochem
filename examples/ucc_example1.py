@@ -58,7 +58,7 @@ n_unique_excitations = 5
 all_coeffs = []
 for _ex in excitations:
     coeffs = []
-    circuit += ucc_circuit(n_qubits, 0.0, _ex, coeffs=coeffs)
+    circuit += ucc_circuit(n_qubits, _ex, coeffs=coeffs)
     all_coeffs.append(coeffs)
 
 # Draw the circuit if interested
