@@ -11,6 +11,6 @@ dependencies:
 - scipy
 - pip
 - pip:
-  - openfermion
+  - openfermion>=1.5
   - qibo
   - pyscf
