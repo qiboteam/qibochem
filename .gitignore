@@ -160,5 +160,6 @@ cython_debug/
 .idea/
 
 
-$ Psi4
+# Psi4
 timer.dat
+psi4_output.dat

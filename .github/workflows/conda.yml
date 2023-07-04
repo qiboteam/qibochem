@@ -1,0 +1,37 @@
+name: conda
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: 'Used operation system'
+        required: true
+        type: string
+      python-version:
+        description: 'Used python version'
+        required: true
+        type: string
+    secrets:
+      codecov_token:
+        required: false
+
+jobs:
+  build:
+    runs-on: ${{ inputs.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          environment-file: enviroment.yaml
+          python-version: ${{ inputs.python-version }}
+          miniforge-variant: Mambaforge
+          use-mamba: true
+          add-pip-as-python-dependency: true
+          channels: conda-forge
+      - name: Install psi4
+        run: conda install psi4 python=3.9 -c conda-forge/label/libint_dev -c conda-forge

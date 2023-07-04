@@ -13,11 +13,10 @@ Qibochem key features
 
 ## Installation
 
-First install poetry (https://python-poetry.org/docs/), then enter the following:
 ```
 git clone https://github.com/qiboteam/qibochem.git
 cd qibochem
-poetry install
+pip install .
 ```
 
 ## Contributing

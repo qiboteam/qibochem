@@ -12,5 +12,5 @@ dependencies:
 - pip
 - pip:
   - openfermion>=1.5
-  - qibo
-  - pyscf
+  - qibo=0.1.10
+  - pyscf=2.2.1
