@@ -21,7 +21,7 @@ def test_run_pyscf():
     assert h2.e_hf == pytest.approx(h2_ref_energy)
     assert np.allclose(h2.hcore, h2_ref_hcore)
 
-
+@pytest.mark.skip(reason="psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
 def test_run_psi4():
     """PSI4 driver"""
     # Hardcoded benchmark results
