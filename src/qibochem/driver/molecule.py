@@ -167,7 +167,6 @@ class Molecule:
         self.tei = tei
 
     def run_psi4(self, output=None):
-        # pylint: disable=no-member
         """
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
@@ -176,7 +175,7 @@ class Molecule:
             output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
                 and uses 'psi4_output.dat' otherwise
         """
-        import psi4
+        import psi4 # pylint: disable=import-error
 
         # PSI4 input string
         chgmul_string = f"{self.charge} {self.multiplicity} \n"
