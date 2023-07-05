@@ -167,6 +167,7 @@ class Molecule:
         self.tei = tei
 
     def run_psi4(self, output=None):
+        # pylint: disable=no-member
         """
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
