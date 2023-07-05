@@ -175,7 +175,7 @@ class Molecule:
             output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
                 and uses 'psi4_output.dat' otherwise
         """
-        import psi4 # pylint: disable=import-error
+        import psi4  # pylint: disable=import-error
 
         # PSI4 input string
         chgmul_string = f"{self.charge} {self.multiplicity} \n"
