@@ -24,14 +24,15 @@ class Molecule:
     def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
         """
         Args:
-            geometry: Molecular coordinates in OpenFermion format
+            geometry (list): Molecular coordinates in OpenFermion format
                 e.g. [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]
-            charge: Net charge of molecule
-            multiplicity: Spin multiplicity of molecule
-            basis: Atomic orbital basis set, used for the PySCF/PSI4 calculations
-            xyz_file: .xyz file containing the molecular coordinates
+            charge (int): Net charge of molecule
+            multiplicity (int): Spin multiplicity of molecule
+            basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations
+            xyz_file (str): .xyz file containing the molecular coordinates
                 Comment line should follow "{charge} {multiplicity}"
             active: Iterable representing the set of MOs to be included in the quantum simulation
+                e.g. list(range(3,6)) for orbitals 3, 4, 5 active space.
 
         Example:
             .. testcode::
@@ -174,7 +175,7 @@ class Molecule:
             output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
                 and uses 'psi4_output.dat' otherwise
         """
-        import psi4
+        import psi4  # pylint: disable=import-error
 
         # PSI4 input string
         chgmul_string = f"{self.charge} {self.multiplicity} \n"
