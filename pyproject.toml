@@ -15,10 +15,11 @@ classifiers = [
 packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
+scipy = "^1.10.1"
 qibo = "^0.1.10"
 openfermion = "^1.5"
-pyscf = "^2.2.1"
+pyscf = {version = "^2.2.1", markers = "sys_platform != 'win32'"}
 
 [build-system]
 requires = ["poetry-core"]
