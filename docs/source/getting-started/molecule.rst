@@ -34,7 +34,3 @@ PySCF for H\ :sub:`2`\  with H-H distance of 0.74 Angstroms at HF/STO-3G level
     h2.run_pyscf()
     
 
-
-
-
-Next: Hamiltonian mapping

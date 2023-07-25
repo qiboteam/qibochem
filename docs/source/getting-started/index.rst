@@ -9,7 +9,7 @@ This section details the basics of qibochem. More details are given in the follo
 
     installation
     molecule
-    hamiltonian_mapping
+    hamiltonian
 
 
 
