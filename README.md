@@ -13,6 +13,16 @@ Qibochem key features
 
 ## Installation
 
+Using poetry (recommended)
+
+```
+git clone https://github.com/qiboteam/qibochem.git
+cd qibochem
+poetry install
+```
+
+Using pip
+
 ```
 git clone https://github.com/qiboteam/qibochem.git
 cd qibochem
