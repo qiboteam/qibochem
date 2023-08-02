@@ -7,10 +7,12 @@ The key inputs required are:
 
 geometry
   atomic coordinates in the form of a list of tuples
+
 charge
   an integer value for the net charge for the entire molecule
 
   default value is 0
+
 multiplicity
   spin multiplicity given as 2S + 1, where S is the number of unpaired electrons multipled by 1/2
   
@@ -18,6 +20,14 @@ multiplicity
 
 
 The current implementation supports both restricted and unrestricted spins. (TODO: elaborate)
+
+
+Variables
+---------
+
+Instance variables that can be stored in the Molecule class are:
+
+
 
 Example
 -------
