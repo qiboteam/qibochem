@@ -7,6 +7,7 @@ import pytest
 from qibo import gates, models
 
 from qibochem.driver.molecule import Molecule
+from qibochem.measurement.expectation import expectation
 
 
 def test_run_pyscf():
@@ -52,7 +53,7 @@ def test_expectation_value():
     circuit.add(gates.X(_i) for _i in range(sum(h2.nelec)))
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
-    hf_energy = h2.expectation(circuit, hamiltonian)
+    hf_energy = expectation(circuit, hamiltonian)
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
