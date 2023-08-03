@@ -321,17 +321,24 @@ class Molecule:
 
         Args:
             ham_type: Format of molecular Hamiltonian returned
+                
                 ("f", "ferm"): OpenFermion FermionOperator
-                ("q", "qubit"): OpenFermion QubitOperator
-                ("s", "sym"): Qibo SymbolicHamiltonian (default)
-            oei: 1-electron integrals. Default: self.oei (MO basis)
-            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
-            constant: For inactive Fock energy if embedding used. Default: 0.0
-            ferm_qubit_map: Which fermion to qubit transformation to use.
-                Must be either "jw" (default) or "bk"
 
-            Returns:
-                Molecular Hamiltonian in the format of choice
+                ("q", "qubit"): OpenFermion QubitOperator
+
+                ("s", "sym"): Qibo SymbolicHamiltonian (default)
+            
+            oei: 1-electron integrals. Default: self.oei (MO basis)
+
+            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
+
+            constant: For inactive Fock energy if embedding used. Default: 0.0
+
+            ferm_qubit_map: Which fermion to qubit transformation to use.
+            Must be either "jw" (default) or "bk"
+
+        Returns:
+            Molecular Hamiltonian in the format of choice
         """
         # Define default variables
         if ham_type is None:
@@ -377,9 +384,13 @@ class Molecule:
 
         Args:
             circuit (qibo.models.Circuit): Quantum circuit ansatz
+
             hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
+
             from_samples: Whether the expectation value calculation uses samples or the simulated
-                state vector. Default: False, state vector simulation
+
+            state vector. Default: False, state vector simulation
+
             n_shots: Number of times the circuit is run for the from_samples=True case
 
         Returns:
