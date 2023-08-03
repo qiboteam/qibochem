@@ -3,6 +3,7 @@
 
 import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
+
 from qibochem.measurement.basis_rotate import measure_rotate_basis
 
 
@@ -69,6 +70,7 @@ def circuit_expectation_shots(qc, of_qubham, nshots=1000):
         istring += 1
 
     return expectation
+
 
 def expectation(
     circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian, from_samples=False, n_shots=1000
