@@ -1,7 +1,7 @@
 Getting started
 ===============
 
-This section details the basics of qibochem. More details are given in the following subsections.
+This section covers the basics of qibochem. More details are given in the following subsections.
 
 
 .. toctree::

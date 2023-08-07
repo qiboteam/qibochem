@@ -18,6 +18,27 @@ multiplicity
   
   default value is 1 (all electrons paired)
 
+Optional inputs:
+
+basis
+  the atomic orbital basis set to be used
+
+  default value is 'STO-3G'
+
+xyz_file
+  qibochem allows the geometry, charge, and multiplicity to be specified as an .xyz file, with the format:
+
+  .. code-block::
+    
+    n_atoms
+    charge multiplicity
+    atom_1 x_coord y_coord z_coord
+    ...
+    atom_n x_coord y_coord z_coord
+
+
+active
+  list of molecular orbitals to be considered in the quantum simulation
 
 The current implementation supports both restricted and unrestricted spins. (TODO: elaborate)
 
