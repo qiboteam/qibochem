@@ -25,22 +25,31 @@ The current implementation supports both restricted and unrestricted spins. (TOD
 Variables
 ---------
 
-Instance variables that can be stored in the Molecule class are:
+Upon executing the PyScf driver program for a given molecule, molecular quantities are calculated at the Hartree-Fock (HF) level and stored in the Molecule class. These include:
 
+* converged Hartree-Fock energy
+* optimized molecular orbital (MO) coefficients
+* one- and two-electron integrals
 
+Additional details are provided in the :ref:`API reference<api driver molecule class>`. 
 
 Example
 -------
 
 The following examples show how to use the driver program to save molecule quantities into the Molecule object
 
-PySCF for H\ :sub:`2`\  with H-H distance of 0.74 Angstroms at HF/STO-3G level
+PySCF for H\ :sub:`2`\  with H-H distance of 0.74804 Angstroms at HF/STO-3G level
 
 .. code-block:: python
 
     from qibochem.driver import Molecule
 
-    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74))])
+    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
     h2.run_pyscf()
+    print(h2.e_hf)
+
+    -1.116283736274293
+    
+
     
 
