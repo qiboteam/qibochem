@@ -10,6 +10,8 @@ This section covers the basics of qibochem. More details are given in the follow
     installation
     molecule
     hamiltonian
+    ansatz
+    measurement
 
 
 
