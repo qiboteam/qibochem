@@ -11,8 +11,14 @@ from scipy.linalg import expm
 
 
 def unitary_rot_matrix(parameters, occ_orbitals, virt_orbitals):
-    """
-    TODO: Docstring
+    r"""
+    Returns the unitary rotation matrix U = exp(\kappa) mixing the occupied and virtual orbitals,
+         where \kappa is an anti-Hermitian matrix
+
+    Args:
+        parameters: List/array of rotation parameters. dim = len(occ_orbitals)*len(virt_orbitals)
+        occ_orbitals: Iterable of occupied orbitals
+        virt_orbitals: Iterable of virtual orbitals
     """
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
 
@@ -27,10 +33,16 @@ def unitary_rot_matrix(parameters, occ_orbitals, virt_orbitals):
 
 
 def swap_matrices(permutations, n_qubits):
-    """
+    r"""
     Build matrices that permute (swap) the columns of a given matrix
 
-    TODO: Args and return what
+    Args:
+        permutations [List(tuple, ), ]: List of lists of 2-tuples permuting two consecutive numbers
+            e.g. [[(0, 1), (2, 3)], [(1, 2)], ...]
+        n_qubits: Dimension of matrix (\exp(\kappa) matrix) to be operated on i.e. # of qubits
+
+    Returns:
+        List of matrices that carry out \exp(swap) for each pair in permutations
     """
     exp_swaps = []
     _temp = np.array([[-1.0, 1.0], [1.0, -1.0]])
@@ -39,7 +51,7 @@ def swap_matrices(permutations, n_qubits):
         for pair in pairs:
             # Add zeros to pad out the (2, 2) matrix to (n_qubits, n_qubits) with 0.
             gen += np.pad(_temp, ((pair[0], n_qubits - pair[1] - 1),), "constant")
-        # Take matrix exponential, remove all entries close to zero, and convert to real entries
+        # Take matrix exponential, remove all entries close to zero, and convert to real matrix
         exp_mat = expm(-0.5j * np.pi * gen)
         exp_mat[np.abs(exp_mat) < 1e-10] = 0.0
         exp_mat = np.real_if_close(exp_mat)
@@ -53,7 +65,7 @@ def givens_rotation_parameters(n_qubits, exp_k, n_occ):
     Get the parameters of the Givens rotation matrix obtained after decomposing \exp(\kappa)
 
     Args:
-        n_qubits: Number of qubits (= orbitals: either molecular or spin)
+        n_qubits: Number of qubits (i.e. spin-orbitals)
         exp_k: Unitary rotation matrix
         n_occ: Number of occupied orbitals
     """
@@ -105,7 +117,7 @@ def givens_rotation_gate(n_qubits, orb1, orb2, theta):
     return circuit
 
 
-def basis_rotation_circuit(n_qubits, parameters, n_occ):
+def br_circuit(n_qubits, parameters, n_occ):
     r"""
     Google's basis rotation circuit between the occupied/virtual orbitals. Forms the \exp(\kappa) matrix, decomposes
         it into Givens rotations, and sets the circuit parameters based on the Givens rotation decomposition
