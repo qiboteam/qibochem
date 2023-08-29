@@ -12,6 +12,7 @@ from scipy.optimize import minimize
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import ucc_ansatz
 from qibochem.driver.molecule import Molecule
+from qibochem.measurement.expectation import expectation
 
 # Define molecule and populate
 mol = Molecule(xyz_file="lih.xyz")
@@ -47,7 +48,7 @@ def electronic_energy(parameters):
     """
     circuit.set_parameters(parameters)
 
-    return mol.expectation(circuit, hamiltonian)
+    return expectation(circuit, hamiltonian)
 
 
 # Reference energy
