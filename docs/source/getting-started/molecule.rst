@@ -54,6 +54,7 @@ Upon executing the PyScf driver program for a given molecule, molecular quantiti
 
 Additional details are provided in the :ref:`API reference<api driver molecule class>`. 
 
+
 Example
 -------
 
@@ -63,13 +64,17 @@ PySCF for H\ :sub:`2`\  with H-H distance of 0.74804 Angstroms at HF/STO-3G leve
 
 .. code-block:: python
 
-    from qibochem.driver import Molecule
+    from qibochem.driver.molecule import Molecule
 
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
     h2.run_pyscf()
     print(h2.e_hf)
 
-    -1.116283736274293
+Output: 
+
+.. code-block:: output 
+
+    converged SCF energy = -1.11628373627429
     
 
     
