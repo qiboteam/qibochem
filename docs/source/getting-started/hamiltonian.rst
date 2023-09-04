@@ -6,11 +6,11 @@ Central to quantum chemical calculations for molecules is the fermionic two-body
 TODO: spinfree, nonrelativistic, without external fields, without nuclear-repulsion energy
 
 .. math::
-    \hat{H} = \sum_{pq} h_{pq} a^\dagger_p a_q + \frac12 \sum_{pqrs} h_{pqrs} a^\dagger_p a^\dagger_r a_s a_q 
+    \hat{H} = \sum_{pq} h_{pq} a^\dagger_p a_q + \frac12 \sum_{pqrs} g_{pqrs} a^\dagger_p a^\dagger_r a_s a_q 
 
 
 
-The integrals :math:`h_{pq}` and :math:`h_{pqrs}` are one- and two-electron integrals in atomic units. For spinorbitals :math:`\phi_j` that make up the basis, the integrals are [#f1]_:
+The integrals :math:`h_{pq}` and :math:`g_{pqrs}` are one- and two-electron integrals in atomic units. For spinorbitals :math:`\phi_j` that make up the basis, the integrals are [#f1]_:
 
 .. math:: 
 
@@ -18,7 +18,7 @@ The integrals :math:`h_{pq}` and :math:`h_{pqrs}` are one- and two-electron inte
 
 .. math:: 
 
-    h_{pqrs} = \int \int \phi^*_p(\mathbf{x}_1)\phi^*_r(\mathbf{x}_2) \frac{1}{r_{12}} \phi_s(\mathbf{x}_2)\phi_q(\mathbf{x}_1) dx_1 dx_2
+    g_{pqrs} = \int \int \phi^*_p(\mathbf{x}_1)\phi^*_r(\mathbf{x}_2) \frac{1}{r_{12}} \phi_s(\mathbf{x}_2)\phi_q(\mathbf{x}_1) dx_1 dx_2
 
 These integral quantities are obtained from the PySCF driver program, and can be accessed via the :doc:`Molecule class<molecule>`. Qibochem then uses these integrals and OpenFermion to construct the second quantized fermionic Hamiltonian for the molecular system in terms of creation and annihilation operators, with coefficients from these integral quantities. 
 
