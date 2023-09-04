@@ -29,6 +29,7 @@ Example
 
 .. code-block:: python
 
+    from qibochem.driver.molecule import Molecule
     mol = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
     mol_ferm_ham = mol.hamiltonian("ferm") # or mol.hamiltonian("f")
