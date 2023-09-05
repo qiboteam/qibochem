@@ -9,6 +9,8 @@ Hardware Efficient Ansatz
 
 Qibochem provides a hardware efficient ansatz that simply consists of a layer of single qubit rotation gates followed by a layer of two-qubit gates that entangle the qubits. 
 
+.. image:: qibochem_doc_ansatz_hardware-efficient.svg
+
 Example
 ^^^^^^^
 
