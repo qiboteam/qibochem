@@ -12,6 +12,3 @@ This section covers the basics of qibochem. More details are given in the follow
     hamiltonian
     ansatz
     measurement
-
-
-

@@ -6,21 +6,21 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'qibochem'
-copyright = '2023, qiboteam'
-author = 'qiboteam'
-release = '0.0.1'
+project = "qibochem"
+copyright = "2023, qiboteam"
+author = "qiboteam"
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc', 
-    'sphinxcontrib.katex',]
+    "sphinx.ext.autodoc",
+    "sphinxcontrib.katex",
+]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
-
 
 
 # -- Options for HTML output -------------------------------------------------

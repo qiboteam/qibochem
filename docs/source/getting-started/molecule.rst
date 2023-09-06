@@ -1,7 +1,7 @@
 Molecule
 ========
 
-The Molecule object contains all the information from a classical quantum chemistry calculation that will be used in the quantum simulation. 
+The Molecule object contains all the information from a classical quantum chemistry calculation that will be used in the quantum simulation.
 
 The key inputs required are:
 
@@ -15,7 +15,7 @@ charge
 
 multiplicity
   spin multiplicity given as 2S + 1, where S is the number of unpaired electrons multipled by 1/2
-  
+
   default value is 1 (all electrons paired)
 
 Optional inputs:
@@ -29,7 +29,7 @@ xyz_file
   qibochem allows the geometry, charge, and multiplicity to be specified as an .xyz file, with the format:
 
   .. code-block::
-    
+
     n_atoms
     charge multiplicity
     atom_1 x_coord y_coord z_coord
@@ -52,7 +52,7 @@ Upon executing the PyScf driver program for a given molecule, molecular quantiti
 * optimized molecular orbital (MO) coefficients
 * one- and two-electron integrals
 
-Additional details are provided in the :ref:`API reference<api driver molecule class>`. 
+Additional details are provided in the :ref:`API reference<api driver molecule class>`.
 
 
 Example
@@ -70,12 +70,8 @@ PySCF for H\ :sub:`2`\  with H-H distance of 0.74804 Angstroms at HF/STO-3G leve
     h2.run_pyscf()
     print(h2.e_hf)
 
-Output: 
+Output:
 
-.. code-block:: output 
+.. code-block:: output
 
     converged SCF energy = -1.11628373627429
-    
-
-    
-

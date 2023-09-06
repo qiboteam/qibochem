@@ -3,17 +3,16 @@ Installation
 
 Using pip install:
 
-.. code-block:: 
-    
+.. code-block::
+
     git clone https://github.com/qiboteam/qibochem.git
     cd qibochem
     pip install .
 
 Using poetry:
 
-.. code-block:: 
+.. code-block::
 
     git clone https://github.com/qiboteam/qibochem.git
     cd qibochem
     poetry install
-

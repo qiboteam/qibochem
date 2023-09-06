@@ -25,10 +25,10 @@ class Molecule:
     :ivar charge(int): net charge of molecule
     :ivar multiplicity(int): spin multiplicity of molecule
     :ivar basis(str): atomic orbital basis set to be used for PySCF calculation
-    :ivar xyz_file(str): xyz file containing molecular coordinates in chemical xyz format, 
+    :ivar xyz_file(str): xyz file containing molecular coordinates in chemical xyz format,
         comment line should include charge, multiplicity values
     :ivar active(list): iterable representing the set of MOs to be included in
-        quantum simulation, e.g. list(range(3,6)) for active space of orbitals 3,4,5. 
+        quantum simulation, e.g. list(range(3,6)) for active space of orbitals 3,4,5.
 
     """
 
@@ -332,13 +332,13 @@ class Molecule:
 
         Args:
             ham_type: Format of molecular Hamiltonian returned
-                
+
                 ("f", "ferm"): OpenFermion FermionOperator
 
                 ("q", "qubit"): OpenFermion QubitOperator
 
                 ("s", "sym"): Qibo SymbolicHamiltonian (default)
-            
+
             oei: 1-electron integrals. Default: self.oei (MO basis)
 
             tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
