@@ -1,6 +1,9 @@
 # from qibo import gates
 # from qibo.models import Circuit
 
+import qibo
+from qibo.hamiltonians import SymbolicHamiltonian
+
 from qibochem.measurement.basis_rotate import measure_rotate_basis
 
 
@@ -67,3 +70,49 @@ def circuit_expectation_shots(qc, of_qubham, nshots=1000):
         istring += 1
 
     return expectation
+
+
+def expectation(
+    circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian, from_samples=False, n_shots=1000
+) -> float:
+    """
+    Calculate expectation value of Hamiltonian using either the state vector from running a
+        circuit, or the frequencies of the resultant binary string results
+
+    Args:
+        circuit (qibo.models.Circuit): Quantum circuit ansatz
+        hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
+        from_samples: Whether the expectation value calculation uses samples or the simulated
+            state vector. Default: False, state vector simulation
+        n_shots: Number of times the circuit is run for the from_samples=True case
+
+    Returns:
+        Hamiltonian expectation value (float)
+    """
+    if from_samples:
+        raise NotImplementedError("expectation function only works with state vector")
+    # TODO: Rough code for expectation_from_samples if issue resolved
+    # Yet to test!!!!!
+    #
+    # from functools import reduce
+    # total = 0.0
+    # Iterate over each term in the Hamiltonian
+    # for term in hamiltonian.terms:
+    #     # Get the basis rotation gates and target qubits from the Hamiltonian term
+    #     qubits = [factor.target_qubit for factor in term.factors]
+    #     basis = [type(factor.gate) for factor in term.factors]
+    #     # Run a copy of the initial circuit to get the output frequencies
+    #     _circuit = circuit.copy()
+    #     _circuit.add(gates.M(*qubits, basis=basis))
+    #     result = _circuit(nshots=n_shots)
+    #     frequencies = result.frequencies(binary=True)
+    #     # Only works for Z terms, raises an error if ham_term has X/Y terms
+    #     total += SymbolicHamiltonian(
+    #                  reduce(lambda x, y: x*y, term.factors, 1)
+    #              ).expectation_from_samples(frequencies, qubit_map=qubits)
+    # return total
+
+    # Expectation value from state vector simulation
+    result = circuit(nshots=1)
+    state_ket = result.state()
+    return hamiltonian.expectation(state_ket)
