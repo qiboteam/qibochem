@@ -19,6 +19,17 @@ from qibochem.driver.hamiltonian import (
 class Molecule:
     """
     Class representing a single molecule
+
+    :ivar geometry(list): molecular coordinates in OpenFermion format
+        e.g. [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]
+    :ivar charge(int): net charge of molecule
+    :ivar multiplicity(int): spin multiplicity of molecule
+    :ivar basis(str): atomic orbital basis set to be used for PySCF calculation
+    :ivar xyz_file(str): xyz file containing molecular coordinates in chemical xyz format,
+        comment line should include charge, multiplicity values
+    :ivar active(list): iterable representing the set of MOs to be included in
+        quantum simulation, e.g. list(range(3,6)) for active space of orbitals 3,4,5.
+
     """
 
     def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
@@ -321,17 +332,24 @@ class Molecule:
 
         Args:
             ham_type: Format of molecular Hamiltonian returned
-                ("f", "ferm"): OpenFermion FermionOperator
-                ("q", "qubit"): OpenFermion QubitOperator
-                ("s", "sym"): Qibo SymbolicHamiltonian (default)
-            oei: 1-electron integrals. Default: self.oei (MO basis)
-            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
-            constant: For inactive Fock energy if embedding used. Default: 0.0
-            ferm_qubit_map: Which fermion to qubit transformation to use.
-                Must be either "jw" (default) or "bk"
 
-            Returns:
-                Molecular Hamiltonian in the format of choice
+                ("f", "ferm"): OpenFermion FermionOperator
+
+                ("q", "qubit"): OpenFermion QubitOperator
+
+                ("s", "sym"): Qibo SymbolicHamiltonian (default)
+
+            oei: 1-electron integrals. Default: self.oei (MO basis)
+
+            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
+
+            constant: For inactive Fock energy if embedding used. Default: 0.0
+
+            ferm_qubit_map: Which fermion to qubit transformation to use.
+            Must be either "jw" (default) or "bk"
+
+        Returns:
+            Molecular Hamiltonian in the format of choice
         """
         # Define default variables
         if ham_type is None:
