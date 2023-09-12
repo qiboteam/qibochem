@@ -36,6 +36,8 @@ master_doc = "index"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
+    "sphinx.ext.doctest",
+    "sphinx.ext.coverage",
     "recommonmark",
     "sphinxcontrib.katex",
 ]
