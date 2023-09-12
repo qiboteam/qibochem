@@ -6,6 +6,7 @@ from qibochem.ansatz import hardware_efficient
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
+import pytest
 
 def test_hea_ansatz():
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
