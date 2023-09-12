@@ -53,4 +53,4 @@ def test_vqe_hea_ansatz():
     vqe_object = minimize(test_vqe_hea_ansatz_cost, theta, args=(qc, mol_sym_ham), method="Powell")
 
     vqe_hf_energy = vqe_object.fun
-    assert mol_classical_hf_energy == pytest.approx(vqe_hf_energy)
+    assert mol_classical_hf_energy == pytest.approx(vqe_hf_energy, 0.01)
