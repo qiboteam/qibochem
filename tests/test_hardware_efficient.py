@@ -9,6 +9,7 @@ from qibochem.measurement.expectation import expectation
 
 
 def test_hea_ansatz():
+    
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
     mol_classical_hf_energy = mol.e_hf
@@ -30,6 +31,7 @@ def test_hea_ansatz():
 
 
 def test_vqe_hea_ansatz():
+    
     def test_vqe_hea_ansatz_cost(parameters, circuit, hamiltonian):
         circuit.set_parameters(parameters)
         return expectation(circuit, hamiltonian)
@@ -39,18 +41,16 @@ def test_vqe_hea_ansatz():
     mol_classical_hf_energy = mol.e_hf
     mol_sym_ham = mol.hamiltonian("s")
 
-    nlayers = 2
+    nlayers = 3
     nqubits = mol.nso
     ntheta = 2 * nqubits * nlayers
     theta = np.full(ntheta, np.pi / 4)
 
-    hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
+    hea_ansatz = hardware_efficient.hea(nlayers, nqubits, ["RY", "RZ"], "CNOT")
     qc = models.Circuit(nqubits)
     qc.add(gates.X(_i) for _i in range(sum(mol.nelec)))
     qc.add(hea_ansatz)
     qc.set_parameters(theta)
 
-    vqe_object = minimize(test_vqe_hea_ansatz_cost, theta, args=(qc, mol_sym_ham), method="Powell")
-
-    vqe_hf_energy = vqe_object.fun
-    assert mol_classical_hf_energy == pytest.approx(vqe_hf_energy, 0.01)
+    vqe_object = minimize(test_vqe_hea_ansatz_cost, theta, args=(qc, mol_sym_ham), method="Powell")    
+    assert vqe_object.fun == pytest.approx(-1.1371170019838128)
