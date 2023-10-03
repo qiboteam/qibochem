@@ -9,7 +9,6 @@ from qibochem.measurement.expectation import expectation
 
 
 def test_hea_ansatz():
-    
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
     mol_classical_hf_energy = mol.e_hf
@@ -31,7 +30,6 @@ def test_hea_ansatz():
 
 
 def test_vqe_hea_ansatz():
-    
     def test_vqe_hea_ansatz_cost(parameters, circuit, hamiltonian):
         circuit.set_parameters(parameters)
         return expectation(circuit, hamiltonian)
@@ -52,5 +50,5 @@ def test_vqe_hea_ansatz():
     qc.add(hea_ansatz)
     qc.set_parameters(theta)
 
-    vqe_object = minimize(test_vqe_hea_ansatz_cost, theta, args=(qc, mol_sym_ham), method="Powell")    
+    vqe_object = minimize(test_vqe_hea_ansatz_cost, theta, args=(qc, mol_sym_ham), method="Powell")
     assert vqe_object.fun == pytest.approx(-1.1371170019838128)
