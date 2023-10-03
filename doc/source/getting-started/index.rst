@@ -1,3 +1,4 @@
+===============
 Getting started
 ===============
 
@@ -11,4 +12,5 @@ This section covers the basics of qibochem. More details are given in the follow
     molecule
     hamiltonian
     ansatz
+..
     measurement

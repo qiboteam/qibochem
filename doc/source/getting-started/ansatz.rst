@@ -7,14 +7,34 @@ A quantum circuit consisting of parameterized gates RX(theta), RY(theta) and RZ(
 Hardware Efficient Ansatz
 -------------------------
 
-Qibochem provides a hardware efficient ansatz that simply consists of a layer of single qubit rotation gates followed by a layer of two-qubit gates that entangle the qubits. For the H\ :sub:`2` case discussed in previous sections, a possible hardware efficient ansatz can be constructed as such:
+Qibochem provides a hardware efficient ansatz that simply consists of a layer of single-qubit rotation gates followed by a layer of two-qubit gates that entangle the qubits. For the H\ :sub:`2` case discussed in previous sections, a possible hardware efficient ansatz can be constructed as such:
 
 .. image:: qibochem_doc_ansatz_hardware-efficient.svg
 
 Example
 ^^^^^^^
 
-Placeholder for hardware-efficient ansatz example
+.. code-block:: python
+
+    from qibochem.ansatz import hardware_efficient
+    import qibo
+
+    nlayers = 1
+    nqubits = 4
+    nfermions = 2
+
+    circuit = qibo.models.Circuit(4)
+    circuit.add(gates.X(_i) for _i in range(nfermions))
+    hardware_efficient_ansatz = hardware_efficient.hea(nlayers, nqubits)
+    circuit.add(hardware_efficient_ansatz)
+    print(circuit.draw())
+
+.. code-block:: output
+
+    q0: ─X──RY─RZ─o─────Z─
+    q1: ─X──RY─RZ─Z─o───|─
+    q2: ─RY─RZ──────Z─o─|─
+    q3: ─RY─RZ────────Z─o─
 
 
 Unitary Coupled Cluster Ansatz
