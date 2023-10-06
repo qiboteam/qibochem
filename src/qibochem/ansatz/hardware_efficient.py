@@ -1,7 +1,21 @@
 from qibo import gates
 
 
-def hea(nlayers, nqubits, parameter_gates=["RY", "RZ"], coupling_gates="CZ"):
+def hea(n_layers, n_qubits, parameter_gates=["RY", "RZ"], coupling_gates="CZ"):
+    """Builds the generalized hardware-efficient ansatz, i.e. the choice of rotation and entangling gates can be
+    manually defined
+
+    Args:
+        n_layers: Number of layers of rotation and entangling gates
+        n_qubits: Number of qubits in the quantum circuit
+        parameter_gates: List of single-qubit rotation gates to be used in the ansatz. The gates should be given as
+            strings representing valid ``Qibo`` one-qubit gates. Default: ``["RY", "RZ"]``
+        coupling_gates: String representing the two-qubit entangling gate to be used in the ansatz; should be a
+            valid two-qubit ``Qibo`` gate. Default: ``"CZ"``
+
+    Returns:
+        List of gates corresponding to the hardware-efficient ansatz
+    """
     gate_list = []
 
     for ilayer in range(nlayers):
