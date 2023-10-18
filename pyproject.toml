@@ -16,10 +16,11 @@ packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">3.9,<3.12"
-qibo = "^0.1.10"
+qibo = ">=0.1.10"
 openfermion = "^1.5"
-pyscf = "^2.3.0"
+pyscf = "2.3.0"
 scipy = "^1.10.1"
+furo = "^2023.09.10"
 
 [build-system]
 requires = ["poetry-core"]
