@@ -2134,21 +2134,33 @@ diagrams = ["jinja2", "railroad-diagrams"]
 
 [[package]]
 name = "pyscf"
-version = "2.4.0"
+version = "2.3.0"
 description = "PySCF: Python-based Simulations of Chemistry Framework"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pyscf-2.4.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8c9de88f339e18a0c6292633556c0822ef0ca29692a5642b8bc0bae2c8465939"},
-    {file = "pyscf-2.4.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:be8a4240fde06e6ed3a8092969fa71a55c3ad4895b30eb65663d0388af4ce441"},
-    {file = "pyscf-2.4.0.tar.gz", hash = "sha256:af0597c481851b5448e7055c3160aef28dc12a1e0b35dda8279555c0780c0d45"},
+    {file = "pyscf-2.3.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:01c89d2188468671f056cc08af63e41b3d88f2db9b9dfcb23800f2311c487fc2"},
+    {file = "pyscf-2.3.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7983ba4011bf38ae117dbb32ad8cd3a1737f43ee27b925efdc5d2366e7ef10d0"},
+    {file = "pyscf-2.3.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:85f41ecab75b65daad78a9e0b08c25a9b9f1810f1958a6ffe3c37c75f6d70b3f"},
+    {file = "pyscf-2.3.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:161e62dbd82963341d5639d2549fc5cde4eaa6d3e134e4717ffb16bbab1423ac"},
+    {file = "pyscf-2.3.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:910c558999b43ac54677459afe65ae5f2ea1e09d2f694565a759b23ae6757667"},
+    {file = "pyscf-2.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:302c85a942d084303f69b1e1400a30c72a3beba22aed4293bc4494d2f950250f"},
+    {file = "pyscf-2.3.0-cp37-cp37m-macosx_11_0_x86_64.whl", hash = "sha256:a42a1cdef94eafd479b914e8dfc7aa714330f181be61f812b68d81731ce78ba6"},
+    {file = "pyscf-2.3.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:53b3d5343f36ff5366f1e40a3a222976eda2f51bc0d0c33a2ecaafde40a3acb7"},
+    {file = "pyscf-2.3.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b032099e74d3a8a16146f1e2a85d9f959b123ff07187da9e16c2772895289cce"},
+    {file = "pyscf-2.3.0-cp38-cp38-macosx_11_0_x86_64.whl", hash = "sha256:1bf5c709392df24e9ffc80c16b8a7bf9f2d5d68d80121d2851850339fc486611"},
+    {file = "pyscf-2.3.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d94cceab9eb19bc31cd5ca9796e2cfb42547d6ad9b73c5c6f1dba521e438b9b3"},
+    {file = "pyscf-2.3.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c8d838004bda8cf627aebb80aee0d9d6a0001645565bc3e7be178c248d268b7f"},
+    {file = "pyscf-2.3.0-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:6965d8f639f68cde54a05b2e979ee5c0b4c1cb7759ceb40fdd7f5ce8e9ad6a0f"},
+    {file = "pyscf-2.3.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b5b80891631904bd27b0aeff2d4548bdf90300e4b23dbf49dc8cf7eddbdb4eb8"},
+    {file = "pyscf-2.3.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d69594345351d859d37cb32f796143c9a6060762d1f0bc987f25215c2225c7e7"},
+    {file = "pyscf-2.3.0.tar.gz", hash = "sha256:71781de62c25924fd4e93ffeb0451ec0d0b3646fe426c75023f4f519f0f35d85"},
 ]
 
 [package.dependencies]
 h5py = ">=2.7"
 numpy = ">=1.13,<1.16 || >1.16,<1.17 || >1.17"
 scipy = "<1.5.0 || >1.5.0,<1.5.1 || >1.5.1"
-setuptools = "*"
 
 [package.extras]
 all = ["basis-set-exchange", "cppe", "geometric (>=0.9.7.2)", "mcfun (>=0.2.1)", "pyberny (>=0.6.2)", "pyqmc", "pyscf-doci", "pyscf-icmpspt", "pyscf-properties", "pyscf-qsdopt", "pyscf-semiempirical", "pyscf-shciscf"]
@@ -2664,22 +2676,6 @@ doc = ["jupytext", "matplotlib (>2)", "myst-nb", "numpydoc", "pooch", "pydata-sp
 test = ["asv", "gmpy2", "mpmath", "pooch", "pytest", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
-name = "setuptools"
-version = "68.2.2"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "setuptools-68.2.2-py3-none-any.whl", hash = "sha256:b454a35605876da60632df1a60f736524eb73cc47bbc9f3f1ef1b644de74fd2a"},
-    {file = "setuptools-68.2.2.tar.gz", hash = "sha256:4ac1475276d2f1c48684874089fefcd83bd7162ddaafb81fac866ba0db282a87"},
-]
-
-[package.extras]
-docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-hoverxref (<2)", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
-testing = ["build[virtualenv]", "filelock (>=3.4.0)", "flake8-2020", "ini2toml[lite] (>=0.9)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pip (>=19.1)", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy (>=0.9.1)", "pytest-perf", "pytest-ruff", "pytest-timeout", "pytest-xdist", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
-testing-integration = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "packaging (>=23.1)", "pytest", "pytest-enabler", "pytest-xdist", "tomli", "virtualenv (>=13.0.0)", "wheel"]
-
-[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -3164,4 +3160,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">3.9,<3.12"
-content-hash = "41f0a87eb0875f8dea1d122a32c86b5d8ae444bbfa046268f85dc1a8c2e626b1"
+content-hash = "9b33660f8da1d29853af078872412c7f901d2ace0a97cd3fabf6d3c04060dc04"
