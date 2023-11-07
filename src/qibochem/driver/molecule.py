@@ -20,35 +20,19 @@ class Molecule:
     """
     Class representing a single molecule
 
-    :ivar geometry(list): molecular coordinates in OpenFermion format
-        e.g. [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]
-    :ivar charge(int): net charge of molecule
-    :ivar multiplicity(int): spin multiplicity of molecule
-    :ivar basis(str): atomic orbital basis set to be used for PySCF calculation
-    :ivar xyz_file(str): xyz file containing molecular coordinates in chemical xyz format,
-        comment line should include charge, multiplicity values
-    :ivar active(list): iterable representing the set of MOs to be included in
-        quantum simulation, e.g. list(range(3,6)) for active space of orbitals 3,4,5.
+    Args:
+        geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
+        charge (int): Net charge of molecule
+        multiplicity (int): Spin multiplicity of molecule
+        basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
+        xyz_file (str): .xyz file containing the molecular coordinates. The comment line should follow
+            "{charge} {multiplicity}"
+        active: Iterable representing the set of MOs to be included in the quantum simulation
+            e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
     """
 
     def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
-        """
-        Args:
-            geometry (list): Molecular coordinates in OpenFermion format
-                e.g. [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]
-            charge (int): Net charge of molecule
-            multiplicity (int): Spin multiplicity of molecule
-            basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations
-            xyz_file (str): .xyz file containing the molecular coordinates
-                Comment line should follow "{charge} {multiplicity}"
-            active: Iterable representing the set of MOs to be included in the quantum simulation
-                e.g. list(range(3,6)) for orbitals 3, 4, 5 active space.
-
-        Example:
-            .. testcode::
-                TODO
-        """
         # Basic properties
         # Define using the function arguments if xyz_file not given
         if xyz_file is None:
@@ -58,7 +42,7 @@ class Molecule:
         else:
             # Check if xyz_file exists, then fill in the Molecule attributes
             assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self.process_xyz_file(xyz_file)
+            self._process_xyz_file(xyz_file)
         if basis is None:
             # Default bais is STO-3G
             self.basis = "sto-3g"
@@ -96,7 +80,7 @@ class Molecule:
         self.n_active_e = None
         self.n_active_orbs = None  # Number of spin-orbitals in the active space
 
-    def process_xyz_file(self, xyz_file):
+    def _process_xyz_file(self, xyz_file):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
             charge, and multiplicity
@@ -128,7 +112,7 @@ class Molecule:
             molecular integrals
 
         Args:
-            basis: Atomic orbital basis set
+            max_scf_cycles: Maximum number of SCF cycles in PySCF
         """
         import pyscf
 
@@ -183,8 +167,8 @@ class Molecule:
             molecular integrals
 
         Args:
-            output: Name of PSI4 output file. None suppresses the output on non-Windows systems,
-                and uses 'psi4_output.dat' otherwise
+            output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
+                and uses ``psi4_output.dat`` otherwise
         """
         import psi4  # pylint: disable=import-error
 
@@ -251,7 +235,7 @@ class Molecule:
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
     # HF embedding functions
-    def inactive_fock_matrix(self, frozen):
+    def _inactive_fock_matrix(self, frozen):
         """
         Returns the full inactive Fock matrix
 
@@ -273,8 +257,8 @@ class Molecule:
 
     def hf_embedding(self, active=None, frozen=None):
         """
-        Turns on HF embedding for a given active/frozen space, i.e.
-        fills the class attributes: inactive_energy, embed_oei, and embed_tei
+        Turns on HF embedding for a given active/frozen space, and fills in the class attributes:
+            ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
 
         Args:
             active: Iterable representing the active-space for quantum simulation
@@ -301,7 +285,7 @@ class Molecule:
             )
 
         # Build the inactive Fock matrix first
-        inactive_fock = self.inactive_fock_matrix(frozen)
+        inactive_fock = self._inactive_fock_matrix(frozen)
 
         # Calculate the inactive Fock energy
         # Only want frozen part of original OEI and inactive Fock matrix
@@ -331,22 +315,15 @@ class Molecule:
         Builds a molecular Hamiltonian using the one-/two- electron integrals
 
         Args:
-            ham_type: Format of molecular Hamiltonian returned
-
-                ("f", "ferm"): OpenFermion FermionOperator
-
-                ("q", "qubit"): OpenFermion QubitOperator
-
-                ("s", "sym"): Qibo SymbolicHamiltonian (default)
-
-            oei: 1-electron integrals. Default: self.oei (MO basis)
-
-            tei: 2-electron integrals in 2ndQ notation. Default: self.tei (MO basis)
-
+            ham_type: Format of molecular Hamiltonian returned. The available options are:
+                ``("f", "ferm")``: OpenFermion ``FermionOperator``,
+                ``("q", "qubit")``: OpenFermion ``QubitOperator``, or
+                ``("s", "sym")``: Qibo ``SymbolicHamiltonian`` (default)
+            oei: 1-electron integrals. Default: ``self.oei`` (MO basis)
+            tei: 2-electron integrals in 2ndQ notation. Default: ``self.tei`` (MO basis)
             constant: For inactive Fock energy if embedding used. Default: 0.0
-
             ferm_qubit_map: Which fermion to qubit transformation to use.
-            Must be either "jw" (default) or "bk"
+                Must be either ``jw`` (default) or ``bk``
 
         Returns:
             Molecular Hamiltonian in the format of choice
@@ -389,11 +366,11 @@ class Molecule:
     def eigenvalues(hamiltonian):
         """
         Finds the lowest 6 exact eigenvalues of the molecular Hamiltonian
-            Note: Use the .eigenvalues() method for a Qibo SymbolicHamiltonian object
+            Note: Uses the ``eigenvalues()`` class method for a Qibo ``SymbolicHamiltonian`` object
 
         Args:
-            hamiltonian: Molecular Hamiltonian, given as a FermionOperator, QubitOperator, or
-                SymbolicHamiltonian (not recommended)
+            hamiltonian: Molecular Hamiltonian, given as a ``FermionOperator``, ``QubitOperator``, or
+                ``SymbolicHamiltonian`` (not recommended)
         """
         if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
             from scipy.sparse import linalg

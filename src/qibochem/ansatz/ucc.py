@@ -58,19 +58,21 @@ def expi_pauli(n_qubits, theta, pauli_string):
 
 
 def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
-    """
-    Build a circuit corresponding to the unitary coupled-cluster ansatz for only one excitation
+    r"""
+    Circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
     Args:
-        n_qubits: No. of qubits in the quantum circuit
-        excitation: List of orbitals involved in the excitation; must have even number of elements.
-            E.g. [0, 1, 2, 3] represents the excitation of electrons in orbitals (0, 1) to (2, 3)
+        n_qubits: Number of qubits in the quantum circuit
+        excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta: UCC parameter. Defaults to 0.0
-        trotter_steps: number of Trotter steps; i.e. number of times the UCC ansatz is applied with
-            theta=theta/trotter_steps
-        ferm_qubit_map: fermion-to-qubit transformation. Default is Jordan-Wigner (jw)
+        trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with \theta = \theta / trotter_steps
+        ferm_qubit_map: Fermion-to-qubit transformation. Default is Jordan-Wigner (``jw``).
         coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
             May be useful in running the VQE. WARNING: Will be modified in this function
+
+    Returns:
+        Qibo ``Circuit`` corresponding to a single UCC excitation
     """
     # Check size of orbitals input
     n_orbitals = len(excitation)

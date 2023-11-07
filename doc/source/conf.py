@@ -15,6 +15,10 @@ import sys
 from recommonmark.transform import AutoStructify
 
 sys.path.insert(0, os.path.abspath(".."))
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
 import qibochem
 
 # -- Project information -----------------------------------------------------
@@ -26,16 +30,19 @@ author = "The Qibo team"
 
 # The full version, including alpha/beta/rc tags
 release = qibochem.__version__
-
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 # https://stackoverflow.com/questions/56336234/build-fail-sphinx-error-contents-rst-not-found
 master_doc = "index"
 
+master_doc = "index"
+
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
     "sphinx.ext.coverage",
+    "recommonmark",
     "sphinxcontrib.katex",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
@@ -130,6 +137,5 @@ def setup(app):
     app.add_config_value("recommonmark_config", {"enable_eval_rst": True}, True)
     app.add_transform(AutoStructify)
     app.add_css_file("css/style.css")
-
 
 html_show_sourcelink = False

@@ -51,16 +51,15 @@ def bk_matrix(n: int):
 
 # Main function
 def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
-    """Circuit for a Hartree-Fock reference
+    """Circuit to prepare a Hartree-Fock state
 
     Args:
-        n_qubits: Number of qubits in circuit
-        n_electrons: Number of electrons in molecular system
-        ferm_qubit_map: Fermion to qubit mapping; Jordan-Wigner ('jw') or Brayvi-Kitaev ('bk')
-            Defaults to 'jw'
+        n_qubits: Number of qubits in the quantum circuit
+        n_electrons: Number of electrons in the molecular system
+        ferm_qubit_map: Fermion to qubit map. Must be either Jordan-Wigner (``jw``) or Brayvi-Kitaev (``bk``). Default value is ``jw``.
 
     Returns:
-        Qibo Circuit initialized in a HF reference state
+        Qibo ``Circuit`` initialized in a HF reference state
     """
     # Which fermion-to-qubit map to use
     if ferm_qubit_map is None:
