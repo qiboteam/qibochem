@@ -8,15 +8,15 @@ def expectation(
     circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian, from_samples=False, n_shots=1000
 ) -> float:
     """
-    Calculate expectation value of Hamiltonian using either the state vector from running a
-        circuit, or the frequencies of the resultant binary string results
+    Calculate expectation value of some Hamiltonian using either the state vector or sample measurements from running a
+    quantum circuit
 
     Args:
         circuit (qibo.models.Circuit): Quantum circuit ansatz
         hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
-        from_samples: Whether the expectation value calculation uses samples or the simulated
-            state vector. Default: False; Results are from a state vector simulation
-        n_shots: Number of times the circuit is run for the from_samples=True case
+        from_samples (Boolean): Whether the expectation value calculation uses samples or the simulated
+            state vector. Default: ``False``; Results are from a state vector simulation
+        n_shots (int): Number of times the circuit is run if ``from_samples=True``. Default: ``1000``
 
     Returns:
         Hamiltonian expectation value (float)

@@ -118,15 +118,20 @@ def givens_rotation_gate(n_qubits, orb1, orb2, theta):
 
 
 def br_circuit(n_qubits, parameters, n_occ):
-    r"""
-    Google's basis rotation circuit between the occupied/virtual orbitals. Forms the \exp(\kappa) matrix, decomposes
-        it into Givens rotations, and sets the circuit parameters based on the Givens rotation decomposition
+    """
+    Google's basis rotation circuit, applied between the occupied/virtual orbitals. Forms the exp(kappa) matrix, decomposes
+    it into Givens rotations, and sets the circuit parameters based on the Givens rotation decomposition. Note: Supposed
+    to be used with the JW fermion-to-qubit mapping
 
     Args:
         n_qubits: Number of qubits in the quantum circuit
-        parameters: Rotation parameters for \exp(\kappa)
+        parameters: Rotation parameters for exp(kappa); Must have (n_occ * n_virt) parameters
         n_occ: Number of occupied orbitals
+
+    Returns:
+        Qibo ``Circuit`` corresponding to the basis rotation ansatz between the occupied and virtual orbitals
     """
+    assert len(parameters) == (n_occ * (n_qubits - n_occ)), "Need len(parameters) == (n_occ * n_virt)"
     # Unitary rotation matrix \exp(\kappa)
     exp_k = unitary_rot_matrix(parameters, range(n_occ), range(n_occ, n_qubits))
     # List of Givens rotation parameters
