@@ -2,8 +2,9 @@ from qibo import gates
 
 
 def hea(n_layers, n_qubits, parameter_gates=["RY", "RZ"], coupling_gates="CZ"):
-    """Builds the generalized hardware-efficient ansatz, i.e. the choice of rotation and entangling gates can be
-    manually defined
+    """
+    Builds the generalized hardware-efficient ansatz, in which the rotation and entangling gates used can be
+    chosen by the user
 
     Args:
         n_layers: Number of layers of rotation and entangling gates
