@@ -30,7 +30,6 @@ release = qibochem.__version__
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 # https://stackoverflow.com/questions/56336234/build-fail-sphinx-error-contents-rst-not-found
-master_doc = "index"
 
 master_doc = "index"
 
