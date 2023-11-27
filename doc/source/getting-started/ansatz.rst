@@ -53,27 +53,34 @@ Example
     mol.run_pyscf()
     mol_classical_hf_energy = mol.e_hf
     mol_sym_ham = mol.hamiltonian("s")
-
     nlayers = 1
     nqubits = mol.nso
     ntheta = 2 * nqubits * nlayers
-    theta = np.zeros(ntheta)
-
+    
     hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
     circuit = models.Circuit(nqubits)
     circuit.add(gates.X(_i) for _i in range(sum(mol.nelec)))
     circuit.add(hea_ansatz)
-    circuit.set_parameters(theta)
-
-    hf_energy = expectation(circuit, mol_sym_ham)
-
     print('classical HF/STO-3G energy for H2 at 0.74804 Angstroms: ', mol_classical_hf_energy)
-    print('quantum   HF/STO-3G energy for H2 at 0.74804 Angstroms: ', hf_energy)
-
+    print('quantum hardware-efficient circuit expectation value for thetas: ')
+    print('theta    energy')
+    thetas = [-0.2, 0.0, 0.2]
+    for _th in thetas:
+        params = np.full(ntheta, _th)
+        circuit.set_parameters(params)
+        hf_energy = expectation(circuit, mol_sym_ham)
+        print('{:5.1f} : {:16.12f} '.format(_th, hf_energy))
 
 .. code-block:: output
 
-
+    converged SCF energy = -1.11628373627429
+    [Qibo 0.2.2|INFO|2023-11-27 10:10:06]: Using numpy backend on /CPU:0
+    classical HF/STO-3G energy for H2 at 0.74804 Angstroms:  -1.1162837362742921
+    quantum hardware-efficient circuit expectation value for thetas: 
+    theta    energy
+     -0.2 :  -1.091694412147 
+      0.0 :  -1.116283736274 
+      0.2 :  -1.091694412147 
 
 Unitary Coupled Cluster Ansatz
 ------------------------------
