@@ -18,7 +18,7 @@ packages = [{ include = "qibochem", from = "src" }]
 python = ">3.9,<3.12"
 qibo = ">=0.2.0"
 openfermion = "^1.5"
-pyscf = "2.3.0"
+pyscf = "^2.4.0"
 scipy = "^1.10.1"
 
 [build-system]
