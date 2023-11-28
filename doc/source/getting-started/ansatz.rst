@@ -74,7 +74,7 @@ Example
 .. code-block:: output
 
     converged SCF energy = -1.11628373627429
-    [Qibo 0.2.2|INFO|2023-11-27 10:10:06]: Using numpy backend on /CPU:0
+
     classical HF/STO-3G energy for H2 at 0.74804 Angstroms:  -1.1162837362742921
     quantum hardware-efficient circuit expectation value for thetas: 
     theta    energy
@@ -85,25 +85,89 @@ Example
 Unitary Coupled Cluster Ansatz
 ------------------------------
 
-The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f3]_ of quantum chemistry. The UCC wave function is a parameterized unitary transformation of a reference wave function :math:`\psi_{\mathrm{ref}})`, of which a common choice is the Hartree-Fock wave function.
+The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f3]_ of quantum chemistry. The UCC wave function is a parameterized unitary transformation of a reference wave function :math:`\psi_{\mathrm{ref}}`, of which a common choice is the Hartree-Fock wave function.
 
 .. math::
 
-    |\psi_{\mathrm{UCC}}\rangle = U(\theta)|\psi_{\mathrm{ref}}\rangle
+    \begin{align*}
+    |\psi_{\mathrm{UCC}}\rangle &= U(\theta)|\psi_{\mathrm{ref}}\rangle \\
+                                &= e^{\hat{T}(\theta) - \hat{T}^\dagger(\theta)}|\psi_{\mathrm{ref}}\rangle
+    \end{align*}
 
-Implementation of the UCC ansatz on quantum computers involve Suzuki-Trotter decompositions of exponentials of Pauli operators. 
+
+The excitation operators excitation operators :math:`\hat{T}` and :math:`\hat{T}^\dagger` are mapped using e.g. Jordan-Wigner mapping into Pauli operators. Implementation of the UCC ansatz on quantum computers involve Suzuki-Trotter decompositions of exponentials of these Pauli operators. [#f5]_
 
 Example
 ^^^^^^^
 
-Placeholder for UCCD example
+.. code-block:: python
+
+    from qibochem.driver.molecule import Molecule
+    from qibochem.measurement.expectation import expectation
+    from qibochem.ansatz.hf_reference import hf_circuit
+    from qibochem.ansatz.ucc import ucc_circuit
+    import numpy as np
+    from qibo import models, gates
+
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
+    mol.run_pyscf()
+    mol_classical_hf_energy = mol.e_hf
+    mol_sym_ham = mol.hamiltonian("s")
+
+    # Set parameters for the rest of the experiment
+    n_qubits = mol.nso
+    n_electrons = mol.nalpha + mol.nbeta
+
+    # Build circuit
+    circuit = hf_circuit(n_qubits, n_electrons)
+
+    # UCCD: Excitations
+    d_excitations = [
+        (_i, _j, _a, _b)
+        for _i in range(n_electrons)
+        for _j in range(_i + 1, n_electrons)  # Electrons
+        for _a in range(n_electrons, n_qubits)
+        for _b in range(_a + 1, n_qubits)  # Orbitals
+        if (_i + _j + _a + _b) % 2 == 0 and ((_i % 2 + _j % 2) == (_a % 2 + _b % 2))  # Spin
+    ]
+
+    # UCCD: Circuit
+    all_coeffs = []
+    for _ex in d_excitations:
+        coeffs = []
+        circuit += ucc_circuit(n_qubits, _ex, coeffs=coeffs)
+        all_coeffs.append(coeffs)
+
+    print(circuit.draw())
+
+.. code-block:: output
+
+    converged SCF energy = -1.11628373627429
+
+    q0:     ─X──H─────X─RZ─X─────H──RX─────X─RZ─X─────RX─RX─────X─RZ─X─────RX─H─── ...
+    q1:     ─X──H───X─o────o─X───H──RX───X─o────o─X───RX─H────X─o────o─X───H──RX── ...
+    q2:     ─RX───X─o────────o─X─RX─RX─X─o────────o─X─RX─H──X─o────────o─X─H──H──X ...
+    q3:     ─H────o────────────o─H──H──o────────────o─H──H──o────────────o─H──H──o ...
+
+    q0: ... ───X─RZ─X─────H──RX─────X─RZ─X─────RX─H──────X─RZ─X─────H──H──────X─RZ ...
+    q1: ... ─X─o────o─X───RX─H────X─o────o─X───H──RX───X─o────o─X───RX─H────X─o─── ...
+    q2: ... ─o────────o─X─H──RX─X─o────────o─X─RX─RX─X─o────────o─X─RX─H──X─o───── ...
+    q3: ... ────────────o─H──RX─o────────────o─RX─RX─o────────────o─RX─RX─o─────── ...
+
+    q0: ... ─X─────H──RX─────X─RZ─X─────RX─
+    q1: ... ─o─X───H──RX───X─o────o─X───RX─
+    q2: ... ───o─X─H──H──X─o────────o─X─H──
+    q3: ... ─────o─RX─RX─o────────────o─RX─
+
 
 .. rubric:: References
 
-.. [#f1] Kutzelnigg, W. (1977). Pair Correlation Theories. In: Schaefer, H.F. (eds) Methods of Electronic Structure Theory. Modern Theoretical Chemistry, vol 3. Springer, Boston, MA.
+.. [#f1] Kutzelnigg, W. (1977). 'Pair Correlation Theories', in Schaefer, H.F. (eds) Methods of Electronic Structure Theory. Modern Theoretical Chemistry, vol 3. Springer, Boston, MA.
 
 .. [#f2] Whitfield, J. D. et al., 'Simulation of electronic structure Hamiltonians using quantum computers', Mol. Phys. 109 (2011) 735.
 
 .. [#f3] Anand. A. et al., 'A quantum computing view on unitary coupled cluster theory', Chem. Soc. Rev. 51 (2022) 1659.
 
 .. [#f4] Crawford, T. D. et al., 'An Introduction to Coupled Cluster Theory for Computational Chemists', in Reviews in Computational Chemistry 14 (2007) 33.
+
+.. [#f5] Barkoutsos, P. K. et al., 'Quantum algorithms for electronic structure calculations: Particle-hole Hamiltonian and optimized wave-function expansions', Phys. Rev. A 98 (2018) 022322.
