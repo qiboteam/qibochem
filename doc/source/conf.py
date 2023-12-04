@@ -84,8 +84,8 @@ html_theme_options = {
     "source_repository": "https://github.com/qiboteam/qibochem/",
     "source_branch": "main",
     "source_directory": "doc/source/",
-    # "light_logo": "qibo_logo_dark.svg",
-    # "dark_logo": "qibo_logo_light.svg",
+    "light_logo": "qibo_logo_dark.svg",
+    "dark_logo": "qibo_logo_light.svg",
     "light_css_variables": {
         "color-brand-primary": "#6400FF",
         "color-brand-secondary": "#6400FF",
