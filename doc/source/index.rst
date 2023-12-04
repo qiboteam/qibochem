@@ -24,6 +24,7 @@ Contents
     :caption: Introduction
 
     getting-started/index
+    code-examples/index
 
 .. toctree::
     :maxdepth: 2
