@@ -46,6 +46,8 @@ def expectation(
     hamiltonian: SymbolicHamiltonian,
     from_samples: bool = False,
     n_shots: int = 1000,
+    n_shots_per_pauli_term: bool = True,
+    shot_distribution: str = "uniform",
 ) -> float:
     """
     Calculate expectation value of some Hamiltonian using either the state vector or sample measurements from running a
@@ -57,12 +59,39 @@ def expectation(
         from_samples (Boolean): Whether the expectation value calculation uses samples or the simulated
             state vector. Default: ``False``; Results are from a state vector simulation
         n_shots (int): Number of times the circuit is run if ``from_samples=True``. Default: ``1000``
+        n_shots_per_pauli_term (Boolean): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
+            *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
+            term in the Hamiltonian.
+        shot_distribution: If ``n_shots_per_pauli_term`` is ``False``, determines how to distribute n_shots amongst each term
+            in the Hamiltonian. Default: ``uniform``; ``n_shots`` is distributed evenly amongst each term. Available options: ???
 
     Returns:
         Hamiltonian expectation value (float)
     """
     if from_samples:
-        total = sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in hamiltonian.terms)
+        # n_shots is used to get the expectation value of each individual Pauli term
+        if n_shots_per_pauli_term:
+            total = sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in hamiltonian.terms)
+        else:
+            # Determine how to allocate n_shots first
+            if shot_distribution == "uniform":
+                # Split evenly amongst all the terms in the Hamiltonian
+                shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
+
+            # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
+            while True:
+                remaining_shots = n_shots - sum(shot_allocation)
+                if not remaining_shots:
+                    break
+                shot_allocation += np.array(
+                    [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
+                )
+
+            # Then sum up the individual Pauli terms in the Hamiltonian to get the overall expectation value
+            total = sum(
+                pauli_term_sample_expectation(circuit, term, shots)
+                for shots, term in zip(shot_allocation, hamiltonian.terms)
+            )
         # Add the constant term if present. Note: Energies (in chemistry) are all real values
         total += hamiltonian.constant.real
         return total
