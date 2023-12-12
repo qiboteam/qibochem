@@ -20,3 +20,9 @@ Unitary Coupled Cluster
 -----------------------
 
 .. autofunction:: qibochem.ansatz.ucc.ucc_circuit
+
+
+Basis rotation
+--------------
+
+.. autofunction:: qibochem.ansatz.basis_rotation.br_circuit
