@@ -12,7 +12,7 @@ The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for mo
     from qibo.symbols import X, Y, Z
     from qibo.hamiltonians import SymbolicHamiltonian
     import numpy as np
-    #from qibochem.measurement.expectation import expectation
+    from qibochem.measurement.expectation import expectation
     from scipy.optimize import minimize
 
     # Bravyi-Kitaev tranformed Hamiltonian for H2 at 0.7 Angstroms
@@ -32,35 +32,15 @@ The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for mo
 
     print(circuit.draw())
 
-    def energy_samples(parameters, circuit, hamiltonian, nshots=2048):
-
-        expectation = 0.0
-        
-        for term in hamiltonian.terms:
-        
-            qubits = [int(factor.target_qubit) for factor in term.factors]
-            basis = [type(factor.gate) for factor in term.factors]
-            pauli = [factor.name for factor in term.factors]
-            pauli_z = [Z(int(element[1:])) if element.startswith('X') else Z(int(element[1:])) 
-            for element in pauli]
-            #print(pauli_z)
-            sym = term.coefficient
-            for iz in pauli_z:
-                sym = sym*iz
-            _circuit = circuit.copy()
-            _circuit.add(gates.M(*qubits, basis=basis))
-            result = _circuit(nshots=8192)
-            frequencies = result.frequencies(binary=True)
-        
-            sym_ham = SymbolicHamiltonian(sym)
-            expectation += sym_ham.expectation_from_samples(frequencies, qubit_map=qubits)
-
-        return expectation
+    def energy_expectation_samples(parameters, circuit, hamiltonian, nshots=1024):
+        return expectation(circuit, hamiltonian, from_samples=True, n_shots=nshots)
         
     parameters = [0.5]
     nshots = 8192
-    vqe_uccsd = minimize(energy_samples, parameters, args=(circuit, bk_ham, nshots), method='Powell')
+    vqe_uccsd = minimize(energy_expectation_samples, parameters, args=(circuit, bk_ham, nshots), method='Powell')
     print(vqe_uccsd)
+    print('VQE UCCSD loss:   ', vqe_uccsd.fun)
+    print('nuclear repulsion:', nuc_repulsion)
     print('VQE UCCSD energy: ', vqe_uccsd.fun + nuc_repulsion)
 
 
@@ -72,12 +52,14 @@ The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for mo
     message: Optimization terminated successfully.
     success: True
     status: 0
-        fun: -1.4260625
-        x: [ 1.551e+00]
-        nit: 3
+        fun: -1.8841124999999999
+        x: [ 2.188e+00]
+        nit: 2
     direc: [[ 1.000e+00]]
-        nfev: 85
-    VQE UCCSD energy:  -0.6700950558285713
+        nfev: 23
+    VQE UCCSD loss:    -1.8841124999999999
+    nuclear repulsion: 0.7559674441714287
+    VQE UCCSD energy:  -1.128145055828571
 
 
 
