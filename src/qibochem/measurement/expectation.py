@@ -1,5 +1,6 @@
 from functools import reduce
 
+import numpy as np
 import qibo
 from qibo import gates
 from qibo.hamiltonians import SymbolicHamiltonian
@@ -73,6 +74,7 @@ def expectation(
         if n_shots_per_pauli_term:
             total = sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in hamiltonian.terms)
         else:
+            n_terms = len(hamiltonian.terms)
             # Determine how to allocate n_shots first
             if shot_distribution == "uniform":
                 # Split evenly amongst all the terms in the Hamiltonian
