@@ -32,13 +32,13 @@ Example
     circuit.add(gates.RZ(0, theta=0.0))
     circuit.add(gates.CNOT(1, 0))
     circuit.add(gates.RX(0, np.pi/2, trainable=False))
-    circuit.add(gates.RY(1, -np.pi/2, trainable=False)) 
+    circuit.add(gates.RY(1, -np.pi/2, trainable=False))
 
     print(circuit.draw())
 
     def energy_expectation_samples(parameters, circuit, hamiltonian, nshots=1024):
         return expectation(circuit, hamiltonian, from_samples=True, n_shots=nshots)
-        
+
     parameters = [0.5]
     nshots = 8192
     vqe_uccsd = minimize(energy_expectation_samples, parameters, args=(circuit, bk_ham, nshots), method='Powell')

@@ -38,10 +38,10 @@ Example
 
 The energy of the state generated from the hardware efficient ansatz for the fermionic two-body Hamiltonian can then be estimated, using statevectors or samples. The following example calculates the energy of the H2 molecule.
 
-Example 
+Example
 ^^^^^^^
 
-.. code-block:: python 
+.. code-block:: python
 
     from qibochem.driver.molecule import Molecule
     from qibochem.measurement.expectation import expectation
@@ -56,7 +56,7 @@ Example
     nlayers = 1
     nqubits = mol.nso
     ntheta = 2 * nqubits * nlayers
-    
+
     hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
     circuit = models.Circuit(nqubits)
     circuit.add(gates.X(_i) for _i in range(sum(mol.nelec)))
@@ -76,11 +76,11 @@ Example
     converged SCF energy = -1.11628373627429
 
     classical HF/STO-3G energy for H2 at 0.74804 Angstroms:  -1.1162837362742921
-    quantum hardware-efficient circuit expectation value for thetas: 
+    quantum hardware-efficient circuit expectation value for thetas:
     theta    energy
-     -0.2 :  -1.091694412147 
-      0.0 :  -1.116283736274 
-      0.2 :  -1.091694412147 
+     -0.2 :  -1.091694412147
+      0.0 :  -1.116283736274
+      0.2 :  -1.091694412147
 
 Unitary Coupled Cluster Ansatz
 ------------------------------
