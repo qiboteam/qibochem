@@ -64,6 +64,6 @@ The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for mo
 
 
 
-References
+.. rubric:: References
 
-[#f1] P. J. J. O'Malley et al. 'Scalable Quantum Simulation of Molecular Energies' Phys. Rev. X (2016) 6, 031007.
+.. [#f1] P. J. J. O'Malley et al. 'Scalable Quantum Simulation of Molecular Energies' Phys. Rev. X (2016) 6, 031007.
