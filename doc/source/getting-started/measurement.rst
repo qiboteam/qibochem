@@ -4,7 +4,11 @@ Measurement
 
 Expectation values of Hamiltonians for a parameterized quantum circuit are estimated by repeated executions or shots. Qibochem provides this functionality with the method :code:`AbstractHamiltonian.expectation_from_samples` as implemented in Qibo.
 
-The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H2 in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei, as in [#f1]_
+The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei, as in [#f1]_
+
+
+Example
+^^^^^^^
 
 .. code-block:: python
 
