@@ -42,13 +42,59 @@ def pauli_term_sample_expectation(circuit, pauli_term, n_shots):
     return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubits)
 
 
+def allocate_shots(hamiltonian, n_shots=1000, method=None, threshold=0.05):
+    """
+    Allocate shots to each term in the Hamiltonian for the calculation of the expectation value
+
+    Args:
+        hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
+        n_shots (int): Total number of shots to be allocated. Default: ``1000``
+        method (str): How to allocate the shots. The available options are: ``c``/``coefficients``: ``n_shots`` is distributed
+            based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
+            amongst each term.
+        threshold: Used in the ``coefficients`` method to decide which terms to ignore, i.e. no shots will be allocated to
+            terms with coefficient < threshold*np.max(term_coefficients)
+
+    Returns:
+        shot_allocation: A list containing the number of shots to be used for each Pauli term respectively
+    """
+    if method is None:
+        method = "c"
+    n_terms = len(hamiltonian.terms)
+    shot_allocation = []
+
+    if method in ("c", "coefficients"):
+        # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
+        term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
+        # Only keep terms that are at least threshold*largest_coefficient
+        # Element-wise multiplication of the mask
+        term_coefficients *= term_coefficients > threshold * np.max(term_coefficients)
+        term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
+        shot_allocation = (n_shots * term_coefficients).astype(int)
+    elif method in ("u", "uniform"):
+        # Split evenly amongst all the terms in the Hamiltonian
+        shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
+    else:
+        raise NameError("Unknown method!")
+
+    # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
+    while True:
+        remaining_shots = n_shots - sum(shot_allocation)
+        if not remaining_shots:
+            break
+        shot_allocation += np.array(
+            [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
+        )
+    return shot_allocation.tolist()
+
+
 def expectation(
     circuit: qibo.models.Circuit,
     hamiltonian: SymbolicHamiltonian,
     from_samples: bool = False,
     n_shots: int = 1000,
     n_shots_per_pauli_term: bool = True,
-    shot_distribution: str = "coefficient",
+    shot_allocation=None,
 ) -> float:
     """
     Calculate expectation value of some Hamiltonian using either the state vector or sample measurements from running a
@@ -63,9 +109,8 @@ def expectation(
         n_shots_per_pauli_term (Boolean): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
             *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
             term in the Hamiltonian.
-        shot_distribution: If ``n_shots_per_pauli_term`` is ``False``, determines how to distribute n_shots amongst each term
-            in the Hamiltonian. Default: ``coefficient``; ``n_shots`` is distributed based on the relative magnitudes of the
-            term coefficients. Available options: ``coefficient`` or ``uniform``
+        shot_allocation: Iterable containing the number of shots to be allocated to each term in the Hamiltonian respectively.
+            Default: ``None``; then the ``allocate_shots`` function is called to build the list.
 
     Returns:
         Hamiltonian expectation value (float)
@@ -75,30 +120,9 @@ def expectation(
         if n_shots_per_pauli_term:
             total = sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in hamiltonian.terms)
         else:
-            n_terms = len(hamiltonian.terms)
-            # Determine how to allocate n_shots first
-            if shot_distribution == "coefficient":
-                # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
-                term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
-                # Only keep terms that are at least 0.05*largest_coefficient
-                # Note: Threshold of 0.05 is currently hardcoded; in future might consider changing this?
-                # Element-wise multiplication of the mask
-                term_coefficients *= term_coefficients > 0.05 * np.max(term_coefficients)
-                term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
-                shot_allocation = (n_shots * term_coefficients).astype(int)
-            elif shot_distribution == "uniform":
-                # Split evenly amongst all the terms in the Hamiltonian
-                shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
-
-            # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
-            while True:
-                remaining_shots = n_shots - sum(shot_allocation)
-                if not remaining_shots:
-                    break
-                shot_allocation += np.array(
-                    [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
-                )
-
+            # Define shot_allocation list if not given
+            if shot_allocation is None:
+                shot_allocation = allocate_shots(hamiltonian, n_shots)
             # Then sum up the individual Pauli terms in the Hamiltonian to get the overall expectation value
             total = sum(
                 pauli_term_sample_expectation(circuit, term, shots)
