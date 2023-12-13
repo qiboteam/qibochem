@@ -20,7 +20,7 @@ Qibochem key features:
 How to Use the Documentation
 ============================
 
-Welcome to the comprehensive documentation for ``Qibo``! This guide will help
+Welcome to the comprehensive documentation for ``Qibochem``! This guide will help
 you navigate through the various sections and make the most of the resources
 available.
 
