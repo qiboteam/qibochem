@@ -48,7 +48,7 @@ def expectation(
     from_samples: bool = False,
     n_shots: int = 1000,
     n_shots_per_pauli_term: bool = True,
-    shot_distribution: str = "uniform",
+    shot_distribution: str = "coefficient",
 ) -> float:
     """
     Calculate expectation value of some Hamiltonian using either the state vector or sample measurements from running a
@@ -64,7 +64,8 @@ def expectation(
             *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
             term in the Hamiltonian.
         shot_distribution: If ``n_shots_per_pauli_term`` is ``False``, determines how to distribute n_shots amongst each term
-            in the Hamiltonian. Default: ``uniform``; ``n_shots`` is distributed evenly amongst each term. Available options: ???
+            in the Hamiltonian. Default: ``coefficient``; ``n_shots`` is distributed based on the relative magnitudes of the
+            term coefficients. Available options: ``coefficient`` or ``uniform``
 
     Returns:
         Hamiltonian expectation value (float)
@@ -76,7 +77,16 @@ def expectation(
         else:
             n_terms = len(hamiltonian.terms)
             # Determine how to allocate n_shots first
-            if shot_distribution == "uniform":
+            if shot_distribution == "coefficient":
+                # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
+                term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
+                # Only keep terms that are at least 0.05*largest_coefficient
+                # Note: Threshold of 0.05 is currently hardcoded; in future might consider changing this?
+                # Element-wise multiplication of the mask
+                term_coefficients *= term_coefficients > 0.05 * np.max(term_coefficients)
+                term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
+                shot_allocation = (n_shots * term_coefficients).astype(int)
+            elif shot_distribution == "uniform":
                 # Split evenly amongst all the terms in the Hamiltonian
                 shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
 
