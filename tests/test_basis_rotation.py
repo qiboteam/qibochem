@@ -11,18 +11,20 @@ from qibochem.ansatz.basis_rotation import br_circuit
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
+
 def test_unitary_rot_matrix():
     """Test for unitary rotation matrix"""
     occ = [0]
     vir = [1, 2]
-    parameters = np.zeros(len(occ)*len(vir))
+    parameters = np.zeros(len(occ) * len(vir))
     parameters += 0.1
     u = basis_rotation.unitary_rot_matrix(parameters, occ, vir)
-    ref_u = np.array([[ 0.99001666, 0.099667, 0.099667],
-                      [-0.099667, 0.99500833, -0.00499167],
-                      [-0.099667, -0.00499167, 0.99500833]])
-    
+    ref_u = np.array(
+        [[0.99001666, 0.099667, 0.099667], [-0.099667, 0.99500833, -0.00499167], [-0.099667, -0.00499167, 0.99500833]]
+    )
+
     assert np.allclose(u, ref_u)
+
 
 def test_br_ansatz():
     """Test of basis rotation ansatz against hardcoded HF energies"""
