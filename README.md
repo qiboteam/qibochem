@@ -1,8 +1,7 @@
-![Logo](https://github.com/qiboteam/qibo/blob/master/doc/source/_static/qibo_logo_dark.svg)
+# Qibochem
+
 ![Tests](https://github.com/qiboteam/qibochem/workflows/Tests/badge.svg)
 [![codecov](https://codecov.io/gh/qiboteam/qibochem/branch/master/graph/badge.svg?token=1EKZKVEVX0)](https://codecov.io/gh/qiboteam/qibochem)
-
-# Qibochem
 
 Qibochem is a plugin to [Qibo](https://github.com/qiboteam/qibo) for quantum chemistry simulations.
 
