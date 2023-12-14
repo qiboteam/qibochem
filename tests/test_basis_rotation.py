@@ -7,7 +7,7 @@ import pytest
 from qibo import Circuit, gates
 from qibo.optimizers import optimize
 
-from qibochem.ansatz.basis_rotation import br_circuit
+from qibochem.ansatz import basis_rotation
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
@@ -52,7 +52,7 @@ def test_br_ansatz():
     # Add basis rotation ansatz
     # Initialize all at zero
     parameters = np.zeros(sum(mol.nelec) * (mol.nso - sum(mol.nelec)))  # n_occ * n_virt
-    circuit += br_circuit(mol.nso, parameters, sum(mol.nelec))
+    circuit += basis_rotation.br_circuit(mol.nso, parameters, sum(mol.nelec))
 
     def electronic_energy(parameters):
         """
