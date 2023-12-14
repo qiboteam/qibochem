@@ -15,7 +15,7 @@ Qibochem key features
 
 ## Installation
 
-Using poetry 
+Using poetry
 
 ```
 git clone https://github.com/qiboteam/qibochem.git
