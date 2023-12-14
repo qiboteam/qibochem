@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
