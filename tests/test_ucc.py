@@ -1,9 +1,11 @@
 import numpy as np
 from scipy.optimize import minimize
+
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import ucc_circuit
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
+
 
 def test_uccsd():
     # Define molecule and populate
@@ -12,7 +14,6 @@ def test_uccsd():
         mol.run_pyscf()
     except ModuleNotFoundError:
         mol.run_psi4()
-
 
     # Apply embedding and boson encoding
     mol.hf_embedding(active=[1, 5])
@@ -54,7 +55,6 @@ def test_uccsd():
         circuit += ucc_circuit(n_qubits, _ex, coeffs=coeffs)
         all_coeffs.append(coeffs)
 
-
     def electronic_energy(parameters):
         r"""
         Loss function for the UCCSD ansatz
@@ -87,5 +87,3 @@ def test_uccsd():
     lih_uccsd_energy = -7.847535097575567
 
     assert vqe.fun == pytest.approx(lih_uccsd_energy)
-
-
