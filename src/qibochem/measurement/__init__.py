@@ -1,1 +1,1 @@
-from qibo.measurement.expectation import *
+from qibochem.measurement.expectation import *

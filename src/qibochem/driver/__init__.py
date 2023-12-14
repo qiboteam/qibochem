@@ -1,2 +1,2 @@
-from qibo.driver.molecule import *
-from qibo.driver.hamiltonian import *
+from qibochem.driver.molecule import *
+from qibochem.driver.hamiltonian import *
