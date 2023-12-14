@@ -364,10 +364,6 @@ class Molecule:
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
             return symbolic_hamiltonian(ham)
-        # :DD
-        if ham_type in ("ham", "char siew", "siu yuk", "bacon"):
-            print(f"I like {ham_type} too!")
-            return ham_type  # Yummy!
         raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
