@@ -22,15 +22,15 @@ def test_run_pyscf():
     assert h2.e_hf == pytest.approx(h2_ref_energy)
     assert np.allclose(h2.hcore, h2_ref_hcore)
 
+
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
 
-    lih_ref_energy =  -7.83561582555692
+    lih_ref_energy = -7.83561582555692
     lih = Molecule(xyz_file="lih.xyz")
     lih.run_pyscf()
-    
-    assert lih.e_hf == pytest.approx(lih_ref_energy)
 
+    assert lih.e_hf == pytest.approx(lih_ref_energy)
 
 
 @pytest.mark.skip(reason="psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
