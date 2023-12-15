@@ -3,35 +3,66 @@ import pytest
 from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.ucc import mp2_amplitude, ucc_circuit, generate_excitations, sort_excitations
+from qibochem.ansatz.ucc import (
+    generate_excitations,
+    mp2_amplitude,
+    sort_excitations,
+    ucc_circuit,
+)
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
+
 def test_generate_excitations_1():
-    ex1 = generate_excitations(1, [0,1], [2,3])
+    ex1 = generate_excitations(1, [0, 1], [2, 3])
     ref_ex1 = np.array([[0, 2], [1, 3]])
 
     assert np.allclose(ex1, ref_ex1)
 
+
 def test_generate_excitations_2():
-    ex2 = generate_excitations(2, [0,1], [2,3])
+    ex2 = generate_excitations(2, [0, 1], [2, 3])
     ref_ex2 = np.array([[0, 1, 2, 3]])
 
     assert np.allclose(ex2, ref_ex2)
 
+
 def test_sort_excitations_1():
-    ex1 = generate_excitations(1, [0,1], [2,3,4,5])
+    ex1 = generate_excitations(1, [0, 1], [2, 3, 4, 5])
     sorted_excitations = sort_excitations(ex1)
     ref_sorted_ex1 = np.array([[0, 2], [1, 3], [0, 4], [1, 5]])
 
     assert np.allclose(sorted_excitations, ref_sorted_ex1)
 
+
 def test_sort_excitations_2():
-    ex2 = generate_excitations(2, [0,1,2,3], [4,5,6,7])
+    ex2 = generate_excitations(2, [0, 1, 2, 3], [4, 5, 6, 7])
     sorted_excitations = sort_excitations(ex2)
-    ref_sorted_ex2 = np.array([[0, 1, 4, 5], [0, 1, 6, 7], [2, 3, 4, 5], [2, 3, 6, 7], [0, 1, 4, 7], [0, 1, 5, 6], [2, 3, 4, 7], [2, 3, 5, 6], [0, 3, 4, 5], [1, 2, 4, 5], [0, 3, 6, 7], [1, 2, 6, 7], [0, 2, 4, 6], [1, 3, 5, 7], [0, 3, 4, 7], [0, 3, 5, 6], [1, 2, 4, 7], [1, 2, 5, 6]])
+    ref_sorted_ex2 = np.array(
+        [
+            [0, 1, 4, 5],
+            [0, 1, 6, 7],
+            [2, 3, 4, 5],
+            [2, 3, 6, 7],
+            [0, 1, 4, 7],
+            [0, 1, 5, 6],
+            [2, 3, 4, 7],
+            [2, 3, 5, 6],
+            [0, 3, 4, 5],
+            [1, 2, 4, 5],
+            [0, 3, 6, 7],
+            [1, 2, 6, 7],
+            [0, 2, 4, 6],
+            [1, 3, 5, 7],
+            [0, 3, 4, 7],
+            [0, 3, 5, 6],
+            [1, 2, 4, 7],
+            [1, 2, 5, 6],
+        ]
+    )
 
     assert np.allclose(sorted_excitations, ref_sorted_ex2)
+
 
 def test_mp2_amplitude():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
