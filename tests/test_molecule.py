@@ -1,7 +1,7 @@
 """
 Test Molecule class functions
 """
-
+import os.path
 import numpy as np
 import pytest
 from qibo import gates, models
@@ -25,8 +25,11 @@ def test_run_pyscf():
 
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
-    with open("lih.xyz", "a") as file:
-        file.write("2\n 0 1\n Li 0.0 0.0 0.0\n H 0.0 0.0 1.2")
+    path = './lih.xyz'
+    check_file = os.path.exists(path)
+    if check_file == False:
+        with open("lih.xyz", "a") as file:
+            file.write("2\n 0 1\n Li 0.0 0.0 0.0\n H 0.0 0.0 1.2")
     lih_ref_energy = -7.83561582555692
     lih = Molecule(xyz_file="lih.xyz")
     lih.run_pyscf()
