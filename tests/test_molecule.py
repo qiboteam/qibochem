@@ -2,6 +2,7 @@
 Test Molecule class functions
 """
 import os.path
+
 import numpy as np
 import pytest
 from qibo import gates, models
@@ -25,7 +26,7 @@ def test_run_pyscf():
 
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
-    path = './lih.xyz'
+    path = "./lih.xyz"
     check_file = os.path.exists(path)
     if check_file == False:
         with open("lih.xyz", "a") as file:
