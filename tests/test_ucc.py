@@ -3,9 +3,17 @@ import pytest
 from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.ucc import ucc_circuit
+from qibochem.ansatz.ucc import ucc_circuit, mp2_amplitude
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
+
+def test_mp2_amplitude():
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+    h2.run_pyscf()
+    l = mp2_amplitude([0,1,2,3], h2.eps, h2.tei)
+    ref_l = 0.06834019757197053
+
+    assert np.isclose(l, ref_l)
 
 
 def test_uccsd():
