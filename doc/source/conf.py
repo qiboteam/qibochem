@@ -13,6 +13,7 @@ import os
 import sys
 
 from recommonmark.transform import AutoStructify
+from sphinx.ext.autodoc import between
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -133,6 +134,10 @@ def setup(app):
     app.add_config_value("recommonmark_config", {"enable_eval_rst": True}, True)
     app.add_transform(AutoStructify)
     app.add_css_file("css/style.css")
+    # Register a sphinx.ext.autodoc.between listener to ignore everything
+    # between lines that contain the word IGNORE
+    app.connect('autodoc-process-docstring', between('^.*IGNORE.*$', exclude=True))
+    return app
 
 
 html_show_sourcelink = False

@@ -169,15 +169,23 @@ class Molecule:
         tei = np.einsum("pqrs->prsq", eri4)
         self.tei = tei
 
+    """
+    IGNORE
     def run_psi4(self, output=None):
-        """
+    IGNORE
+    """
+    """
+    IGNORE
         Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
             molecular integrals
 
         Args:
             output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
                 and uses ``psi4_output.dat`` otherwise
-        """
+    IGNORE
+    """
+    """
+    IGNORE
         import psi4  # pylint: disable=import-error
 
         # PSI4 input string
@@ -241,6 +249,8 @@ class Molecule:
         ca_occ = self.ca[:, 0 : self.nalpha]
         self.pa = ca_occ @ ca_occ.T
         self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+    IGNORE
+    """
 
     # HF embedding functions
     def _inactive_fock_matrix(self, frozen):
