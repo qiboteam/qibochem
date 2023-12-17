@@ -56,12 +56,11 @@ def test_hf_embedding_1():
 def test_hf_embedding_2():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.run_pyscf()
-    mol.frozen=[0]
-    mol.active=[1,2]
-    mol.hf_embedding() 
+    mol.frozen = [0]
+    mol.active = [1, 2]
+    mol.hf_embedding()
     assert mol.n_active_orbs == 4
     assert mol.n_active_e == 2
-
 
 
 def test_fermionic_hamiltonian():
