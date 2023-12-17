@@ -35,7 +35,7 @@ def test_run_pyscf_molecule_xyz():
         with open("./tests/lih.xyz", "a") as file:
             file.write("2\n 0 1\n Li 0.0 0.0 0.0\n H 0.0 0.0 1.2")
     lih_ref_energy = -7.83561582555692
-    lih = Molecule(xyz_file="lih.xyz")
+    lih = Molecule(xyz_file="./tests/lih.xyz")
     lih.run_pyscf()
 
     assert lih.e_hf == pytest.approx(lih_ref_energy)
