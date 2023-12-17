@@ -41,6 +41,29 @@ def test_run_pyscf_molecule_xyz():
     assert lih.e_hf == pytest.approx(lih_ref_energy)
 
 
+def test_hf_embedding_1():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.run_pyscf()
+    ref_oei = mol.oei
+    ref_tei = mol.tei
+    mol.hf_embedding()
+    embed_oei = mol.embed_oei
+    embed_tei = mol.embed_tei
+    assert np.allclose(embed_oei, ref_oei)
+    assert np.allclose(embed_tei, ref_tei)
+
+
+def test_hf_embedding_2():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.run_pyscf()
+    mol.frozen=[0]
+    mol.active=[1,2]
+    mol.hf_embedding() 
+    assert mol.n_active_orbs == 4
+    assert mol.n_active_e == 2
+
+
+
 def test_fermionic_hamiltonian():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
