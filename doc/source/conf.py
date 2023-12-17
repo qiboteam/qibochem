@@ -136,7 +136,7 @@ def setup(app):
     app.add_css_file("css/style.css")
     # Register a sphinx.ext.autodoc.between listener to ignore everything
     # between lines that contain the word IGNORE
-    app.connect('autodoc-process-docstring', between('^.*IGNORE.*$', exclude=True))
+    app.connect("autodoc-process-docstring", between("^.*IGNORE.*$", exclude=True))
     return app
 
 
