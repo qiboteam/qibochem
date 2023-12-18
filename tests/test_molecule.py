@@ -5,6 +5,7 @@ import os.path
 
 import numpy as np
 import pytest
+import openfermion
 from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -99,6 +100,25 @@ def test_fermionic_hamiltonian():
 
     assert np.isclose(h2_ferm_ham[()], 0.7559674441714287)
     assert np.allclose(h2_ferm_ham.one_body_tensor, ref_one_body_tensor)
+
+
+def test_fermionic_hamiltonian_2():
+
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))])
+    h2.run_pyscf()
+
+    h2_ferm_ham_1 = h2.hamiltonian("f", h2.oei, h2.tei)
+    h2_qub_ham_jw_1 = h2.hamiltonian("q", h2.oei, h2.tei, ferm_qubit_map="jw")
+    h2_qub_ham_bk_1 = h2.hamiltonian("q", h2.oei, h2.tei, ferm_qubit_map="bk")
+    # h2_mol_ham has format of InteractionOperator
+    h2_mol_ham = hamiltonian.fermionic_hamiltonian(h2.oei, h2.tei, h2.e_nuc)
+    h2_ferm_ham_2 = openfermion.transforms.get_fermion_operator(h2_mol_ham)
+    h2_qub_ham_jw_2 = openfermion.jordan_wigner(h2_mol_ham)
+    h2_qub_ham_bk_2 = openfermion.bravyi_kitaev(h2_mol_ham)
+
+    assert h2_ferm_ham_2.isclose(h2_ferm_ham_1)
+    assert h2_qub_ham_jw_2.isclose(h2_qub_ham_jw_1)
+    assert h2_qub_ham_bk_2.isclose(h2_qub_ham_bk_1)
 
 
 def test_parse_pauli_string_1():
