@@ -4,8 +4,8 @@ Test Molecule class functions
 import os.path
 
 import numpy as np
-import pytest
 import openfermion
+import pytest
 from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -103,7 +103,6 @@ def test_fermionic_hamiltonian():
 
 
 def test_fermionic_hamiltonian_2():
-
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))])
     h2.run_pyscf()
 
