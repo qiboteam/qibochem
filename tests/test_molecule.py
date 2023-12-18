@@ -29,16 +29,57 @@ def test_run_pyscf():
 
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
-    path = "./lih.xyz"
+    path = "./tests/data/lih.xyz"
     check_file = os.path.exists(path)
     if check_file == False:
-        with open("lih.xyz", "a") as file:
+        with open("./tests/data/lih.xyz", "a") as file:
             file.write("2\n 0 1\n Li 0.0 0.0 0.0\n H 0.0 0.0 1.2")
     lih_ref_energy = -7.83561582555692
-    lih = Molecule(xyz_file="lih.xyz")
+    lih = Molecule(xyz_file="./tests/data/lih.xyz")
     lih.run_pyscf()
 
     assert lih.e_hf == pytest.approx(lih_ref_energy)
+
+
+def test_run_pyscf_molecule_xyz_charged():
+    path = "./tests/data/h2.xyz"
+    check_file = os.path.exists(path)
+    if check_file == False:
+        with open("./tests/data/h2.xyz", "a") as file:
+            file.write("2\n \n H 0.0 0.0 0.0\n H 0.0 0.0 0.7")
+    h2_ref_energy = -1.117349035
+    h2 = Molecule(xyz_file="./tests/data/h2.xyz")
+    h2.run_pyscf()
+
+    assert h2.e_hf == pytest.approx(h2_ref_energy)
+
+
+def test_molecule_custom_basis():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))], 0, 1, "6-31g")
+    mol.run_pyscf()
+    assert np.isclose(mol.e_hf, -7.94129296352493)
+
+
+def test_hf_embedding_1():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.run_pyscf()
+    ref_oei = mol.oei
+    ref_tei = mol.tei
+    mol.hf_embedding()
+    embed_oei = mol.embed_oei
+    embed_tei = mol.embed_tei
+    assert np.allclose(embed_oei, ref_oei)
+    assert np.allclose(embed_tei, ref_tei)
+
+
+def test_hf_embedding_2():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.run_pyscf()
+    mol.frozen = [0]
+    mol.active = [1, 2]
+    mol.hf_embedding()
+    assert mol.n_active_orbs == 4
+    assert mol.n_active_e == 2
 
 
 def test_fermionic_hamiltonian():
