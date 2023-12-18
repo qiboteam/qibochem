@@ -374,7 +374,7 @@ class Molecule:
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
             return symbolic_hamiltonian(ham)
-        raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
+        # raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
     def eigenvalues(hamiltonian):

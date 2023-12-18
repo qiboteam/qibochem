@@ -41,6 +41,12 @@ def test_run_pyscf_molecule_xyz():
     assert lih.e_hf == pytest.approx(lih_ref_energy)
 
 
+def test_molecule_custom_basis():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))], 0, 1, "6-31g")
+    mol.run_pyscf()
+    assert np.isclose(mol.e_hf, -7.94129296352493)
+
+
 def test_hf_embedding_1():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.run_pyscf()
