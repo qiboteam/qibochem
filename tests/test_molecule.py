@@ -40,6 +40,7 @@ def test_run_pyscf_molecule_xyz():
 
     assert lih.e_hf == pytest.approx(lih_ref_energy)
 
+
 def test_run_pyscf_molecule_xyz_charged():
     path = "./tests/data/h2.xyz"
     check_file = os.path.exists(path)
