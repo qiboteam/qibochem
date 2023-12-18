@@ -47,7 +47,7 @@ def test_run_pyscf_molecule_xyz_charged():
         with open("./tests/data/h2.xyz", "a") as file:
             file.write("2\n \n H 0.0 0.0 0.0\n H 0.0 0.0 0.7")
     h2_ref_energy = -1.117349035
-    h2 = Molecule(xyz_file="./tests/data/h2.xyz"
+    h2 = Molecule(xyz_file="./tests/data/h2.xyz")
     h2.run_pyscf()
 
     assert h2.e_hf == pytest.approx(h2_ref_energy)
