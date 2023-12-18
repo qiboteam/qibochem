@@ -51,7 +51,7 @@ def test_run_pyscf_molecule_xyz_charged():
     h2.run_pyscf()
 
     assert h2.e_hf == pytest.approx(h2_ref_energy)
-    
+
 
 def test_molecule_custom_basis():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))], 0, 1, "6-31g")
