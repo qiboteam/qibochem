@@ -72,6 +72,7 @@ def test_bk_circuit_2():
 
     assert lih.e_hf == pytest.approx(hf_energy)
 
+
 def test_mapping_error():
     """Tests the HF circuit with an incorrect mapping"""
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
