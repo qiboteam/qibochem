@@ -126,6 +126,10 @@ def test_qubit_hamiltonian():
     assert np.allclose(jw_array, ref_jw_array)
     assert np.allclose(bk_array, ref_bk_array)
 
+    # incorrect mapping circuit
+    with pytest.raises(NameError):
+        hamiltonian.qubit_hamiltonian(h2_ferm_ham, "incorrect")
+
 
 def test_symbolic_hamiltonian():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])

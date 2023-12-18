@@ -26,6 +26,10 @@ def test_generate_excitations_2():
 
     assert np.allclose(ex2, ref_ex2)
 
+def test_generate_excitations_3():
+    ex3 = generate_excitations(3, [0, 1], [2, 3])
+
+    assert np.allclose(ex3, [[]])
 
 def test_sort_excitations_1():
     ex1 = generate_excitations(1, [0, 1], [2, 3, 4, 5])
@@ -63,6 +67,9 @@ def test_sort_excitations_2():
 
     assert np.allclose(sorted_excitations, ref_sorted_ex2)
 
+def test_sort_excitations_3():
+    with pytest.raises(NotImplementedError):
+        sort_excitations([[1, 2, 3, 4, 5, 6]])
 
 def test_mp2_amplitude():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])

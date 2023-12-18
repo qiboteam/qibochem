@@ -71,3 +71,15 @@ def test_bk_circuit_2():
     hf_energy = expectation(circuit, hamiltonian)
 
     assert lih.e_hf == pytest.approx(hf_energy)
+
+def test_mapping_error():
+    """Tests the HF circuit with an incorrect mapping"""
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+    try:
+        h2.run_pyscf()
+    except ModuleNotFoundError:
+        h2.run_psi4()
+
+    # incorrect mapping circuit
+    with pytest.raises(KeyError):
+        hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map="incorrect")
