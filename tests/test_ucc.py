@@ -199,7 +199,7 @@ def test_ucc_bk():
     # Check gates are correct
     assert all(
         control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, circuit.queue)
+        for control, test in zip(gate_list, list(circuit.queue))
     )
     # Check that only two parametrised gates
     assert len(circuit.get_parameters()) == 2
@@ -208,4 +208,4 @@ def test_ucc_bk():
 def test_ucc_ferm_qubit_map_error():
     """If unknown fermion to qubit map used"""
     with pytest.raises(KeyError):
-        ucc_circuit(2, [0, 1], "Unknown")
+        ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
