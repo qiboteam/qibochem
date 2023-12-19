@@ -30,7 +30,7 @@ def test_run_pyscf():
 
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
-    file_path = Path("data/lih.xyz")
+    file_path = Path("tests", "data", "lih.xyz")
     if not file_path.is_file():
         with open(file_path, "w") as file_handler:
             file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
@@ -42,7 +42,7 @@ def test_run_pyscf_molecule_xyz():
 
 
 def test_run_pyscf_molecule_xyz_charged():
-    file_path = Path("data/h2.xyz")
+    file_path = Path("tests", "data", "h2.xyz")
     if not file_path.is_file():
         with open(file_path, "w") as file_handler:
             file_handler.write("2\n \nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n")
