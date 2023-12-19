@@ -390,8 +390,10 @@ class Molecule:
             from scipy.sparse import linalg
 
             hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
+            # k argument in eigsh will depend on the size of the Hamiltonian
+            n_eigenvals = min(6, hamiltonian_matrix.shape[0] - 2)
             # which=SA and return_eigenvalues=False returns the eigenvalues sorted by absolute value
-            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=6, which="SA", return_eigenvectors=False)
+            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=n_eigenvals, which="SA", return_eigenvectors=False)
             # So need to sort again by their (algebraic) value to get the order: smallest->largest
             return sorted(eigenvalues)
         if isinstance(hamiltonian, SymbolicHamiltonian):

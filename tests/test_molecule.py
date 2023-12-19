@@ -1,7 +1,7 @@
 """
 Test Molecule class functions
 """
-import os.path
+from pathlib import Path
 
 import numpy as np
 import openfermion
@@ -30,26 +30,24 @@ def test_run_pyscf():
 
 def test_run_pyscf_molecule_xyz():
     """Pyscf driver with xyz file"""
-    path = "./tests/data/lih.xyz"
-    check_file = os.path.exists(path)
-    if check_file == False:
-        with open("./tests/data/lih.xyz", "a") as file:
-            file.write("2\n 0 1\n Li 0.0 0.0 0.0\n H 0.0 0.0 1.2")
+    file_path = Path("data/lih.xyz")
+    if not file_path.is_file():
+        with open(file_path, "w") as file_handler:
+            file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
     lih_ref_energy = -7.83561582555692
-    lih = Molecule(xyz_file="./tests/data/lih.xyz")
+    lih = Molecule(xyz_file=file_path)
     lih.run_pyscf()
 
     assert lih.e_hf == pytest.approx(lih_ref_energy)
 
 
 def test_run_pyscf_molecule_xyz_charged():
-    path = "./tests/data/h2.xyz"
-    check_file = os.path.exists(path)
-    if check_file == False:
-        with open("./tests/data/h2.xyz", "a") as file:
-            file.write("2\n \n H 0.0 0.0 0.0\n H 0.0 0.0 0.7")
+    file_path = Path("data/h2.xyz")
+    if not file_path.is_file():
+        with open(file_path, "w") as file_handler:
+            file_handler.write("2\n \nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n")
     h2_ref_energy = -1.117349035
-    h2 = Molecule(xyz_file="./tests/data/h2.xyz")
+    h2 = Molecule(xyz_file=file_path)
     h2.run_pyscf()
 
     assert h2.e_hf == pytest.approx(h2_ref_energy)
@@ -173,15 +171,11 @@ def test_qubit_hamiltonian():
         ((1, "Z"), (3, "Z")): 0.17627640804319608,
     }
 
-    keylist_jw = h2_qubit_ham_jw.terms.keys()
-    keylist_bk = h2_qubit_ham_bk.terms.keys()
-    jw_array = np.array([h2_qubit_ham_jw.terms[key] for key in keylist_jw])
-    bk_array = np.array([h2_qubit_ham_bk.terms[key] for key in keylist_bk])
+    jw_array = np.array([terms for _, terms in h2_qubit_ham_jw.terms.items()])
+    bk_array = np.array([terms for _, terms in h2_qubit_ham_bk.terms.items()])
 
-    keylist_ref_jw = ref_h2_qubit_ham_jw.keys()
-    keylist_ref_bk = ref_h2_qubit_ham_bk.keys()
-    ref_jw_array = np.array([ref_h2_qubit_ham_jw[key] for key in keylist_ref_jw])
-    ref_bk_array = np.array([ref_h2_qubit_ham_bk[key] for key in keylist_ref_bk])
+    ref_jw_array = np.array([terms for _, terms in ref_h2_qubit_ham_jw.items()])
+    ref_bk_array = np.array([terms for _, terms in ref_h2_qubit_ham_bk.items()])
 
     assert np.allclose(jw_array, ref_jw_array)
     assert np.allclose(bk_array, ref_bk_array)
@@ -253,3 +247,22 @@ def test_expectation_value():
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
+
+
+def test_eigenvalues():
+    dummy = Molecule()
+    # FermionOperator test:
+    ferm_ham = sum(
+        openfermion.FermionOperator(f"{_i}^ {_i}") + openfermion.FermionOperator(f"{_i} {_i}^") for _i in range(4)
+    )
+    ham_matrix = openfermion.get_sparse_operator(ferm_ham).toarray()
+    assert np.allclose(dummy.eigenvalues(ferm_ham), sorted(np.linalg.eigvals(ham_matrix))[:6])
+
+    # QubitOperator test:
+    qubit_ham = openfermion.QubitOperator("Z0 Z1")
+    ham_matrix = openfermion.get_sparse_operator(qubit_ham).toarray()
+    assert np.allclose(dummy.eigenvalues(qubit_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0])))[:2])
+
+    # SymbolicHamiltonian test:
+    sym_ham = SymbolicHamiltonian(Z(0) * Z(1))
+    assert np.allclose(dummy.eigenvalues(sym_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0]))))
