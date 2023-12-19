@@ -266,3 +266,7 @@ def test_eigenvalues():
     # SymbolicHamiltonian test:
     sym_ham = SymbolicHamiltonian(Z(0) * Z(1))
     assert np.allclose(dummy.eigenvalues(sym_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0]))))
+
+    # Unknown Hamiltonian type
+    with pytest.raises(TypeError):
+        dummy.eigenvalues(0.0)
