@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from qibo import gates
 from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
@@ -92,7 +93,7 @@ def test_uccsd():
     except ModuleNotFoundError:
         mol.run_psi4()
 
-    # Apply embedding and boson encoding
+    # Apply embedding
     mol.hf_embedding(active=[1, 5])
     hamiltonian = mol.hamiltonian(oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy)
 
@@ -164,3 +165,47 @@ def test_uccsd():
     lih_uccsd_energy = -7.847535097575567
 
     assert vqe.fun == pytest.approx(lih_uccsd_energy)
+
+
+def test_ucc_bk():
+    """Build a UCC-BK circuit"""
+    # Control
+    gate_list = [
+        gates.H(0),
+        gates.RX(1, -0.5 * np.pi, trainable=False),
+        gates.H(2),
+        gates.CNOT(2, 1),
+        gates.CNOT(1, 0),
+        gates.RZ(0, 0.0),
+        gates.CNOT(1, 0),
+        gates.CNOT(2, 1),
+        gates.H(0),
+        gates.RX(1, -0.5 * np.pi, trainable=False),
+        gates.H(2),
+        gates.RX(0, -0.5 * np.pi, trainable=False),
+        gates.RX(1, -0.5 * np.pi, trainable=False),
+        gates.RX(2, -0.5 * np.pi, trainable=False),
+        gates.CNOT(2, 1),
+        gates.CNOT(1, 0),
+        gates.RZ(0, 0.0),
+        gates.CNOT(1, 0),
+        gates.CNOT(2, 1),
+        gates.RX(0, -0.5 * np.pi, trainable=False),
+        gates.RX(1, -0.5 * np.pi, trainable=False),
+        gates.RX(2, -0.5 * np.pi, trainable=False),
+    ]
+    # Test ucc_function
+    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="bk")
+    # Check gates are correct
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(gate_list, circuit.queue)
+    )
+    # Check that only two parametrised gates
+    assert len(circuit.get_parameters()) == 2
+
+
+def test_ucc_ferm_qubit_map_error():
+    """If unknown fermion to qubit map used"""
+    with pytest.raises(KeyError):
+        ucc_circuit(2, [0, 1], "Unknown")
