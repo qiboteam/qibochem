@@ -2,9 +2,9 @@
 Hamiltonian
 ===========
 
-Central to quantum chemical calculations for molecules is the fermionic two-body Hamiltonian in second quantized form.
+Central to quantum chemical calculations for molecules is the fermionic spin-free nonrelativistic two-body Hamiltonian in second quantized form in the absence of external fields.
 
-TODO: spinfree, nonrelativistic, without external fields, without nuclear-repulsion energy
+In most literature it is written as follows, neglecting terms for the nuclear repulsion energy which is a constant under the Born-Oppenheimer approximation:
 
 .. math::
     \hat{H} = \sum_{pq} h_{pq} a^\dagger_p a_q + \frac12 \sum_{pqrs} g_{pqrs} a^\dagger_p a^\dagger_r a_s a_q

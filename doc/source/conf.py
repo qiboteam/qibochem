@@ -35,16 +35,14 @@ master_doc = "index"
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
     "sphinx.ext.coverage",
-    "recommonmark",
-    "sphinxcontrib.katex",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
     "recommonmark",
     "nbsphinx",
+    "sphinxcontrib.katex",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
