@@ -1,5 +1,7 @@
-
 # Qibochem
+
+![Tests](https://github.com/qiboteam/qibochem/workflows/Tests/badge.svg)
+[![codecov](https://codecov.io/gh/qiboteam/qibochem/graph/badge.svg?token=2CMDZP1GU2)](https://codecov.io/gh/qiboteam/qibochem)
 
 Qibochem is a plugin to [Qibo](https://github.com/qiboteam/qibo) for quantum chemistry simulations.
 
@@ -13,20 +15,12 @@ Qibochem key features
 
 ## Installation
 
-Using poetry (recommended)
+Using poetry
 
 ```
 git clone https://github.com/qiboteam/qibochem.git
 cd qibochem
 poetry install
-```
-
-Using pip
-
-```
-git clone https://github.com/qiboteam/qibochem.git
-cd qibochem
-pip install .
 ```
 
 ## Contributing

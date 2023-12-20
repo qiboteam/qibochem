@@ -41,7 +41,7 @@ def qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     elif ferm_qubit_map == "bk":
         q_hamiltonian = openfermion.bravyi_kitaev(fermion_hamiltonian)
     else:
-        raise NameError("Unknown fermion->qubit mapping!")
+        raise KeyError("Unknown fermion->qubit mapping!")
     q_hamiltonian.compress()  # Remove terms with v. small coefficients
     return q_hamiltonian
 

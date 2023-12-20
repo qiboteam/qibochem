@@ -53,10 +53,7 @@ def test_h2_hf_energy():
     h2_ref_energy = -1.117349035
 
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    try:
-        h2.run_pyscf()
-    except ModuleNotFoundError:
-        h2.run_psi4()
+    h2.run_pyscf()
 
     # JW-HF circuit
     circuit = Circuit(4)

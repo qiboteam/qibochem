@@ -21,16 +21,15 @@ import qibochem
 # -- Project information -----------------------------------------------------
 
 project = "qibochem"
-copyright = "2023, The Qibo team"
+copyright = "The Qibo team"
 author = "The Qibo team"
 
 # The full version, including alpha/beta/rc tags
 release = qibochem.__version__
-
-
 # -- General configuration ---------------------------------------------------
-#
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 # https://stackoverflow.com/questions/56336234/build-fail-sphinx-error-contents-rst-not-found
+
 master_doc = "index"
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -74,7 +73,7 @@ exclude_patterns = []
 # a list of builtin themes.
 
 html_theme = "furo"
-# html_favicon = "favicon.ico"
+html_favicon = "favicon.ico"
 
 # custom title
 html_title = "Qibochem · v" + release

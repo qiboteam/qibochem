@@ -142,7 +142,6 @@ def br_circuit(n_qubits, parameters, n_occ):
     # Add the Givens rotation circuits
     for g_rot_parameter in g_rotation_parameters:
         for orb1, orb2, theta, _phi in g_rot_parameter:
-            if not np.allclose(_phi, 0.0):
-                raise ValueError("Unitary rotation is not real")
+            assert np.allclose(_phi, 0.0), "Unitary rotation is not real!"
             circuit += givens_rotation_gate(n_qubits, orb1, orb2, theta)
     return circuit
