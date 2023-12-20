@@ -12,6 +12,5 @@ from qibochem.ansatz.ucc import (
     generate_excitations,
     mp2_amplitude,
     sort_excitations,
-    ucc_ansatz,
     ucc_circuit,
 )

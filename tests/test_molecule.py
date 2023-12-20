@@ -171,17 +171,17 @@ def test_qubit_hamiltonian():
         ((1, "Z"), (3, "Z")): 0.17627640804319608,
     }
 
-    jw_array = np.array([terms for _, terms in h2_qubit_ham_jw.terms.items()])
-    bk_array = np.array([terms for _, terms in h2_qubit_ham_bk.terms.items()])
+    jw_array = np.array([terms for terms in h2_qubit_ham_jw.terms.values()])
+    bk_array = np.array([terms for terms in h2_qubit_ham_bk.terms.values()])
 
-    ref_jw_array = np.array([terms for _, terms in ref_h2_qubit_ham_jw.items()])
-    ref_bk_array = np.array([terms for _, terms in ref_h2_qubit_ham_bk.items()])
+    ref_jw_array = np.array([terms for terms in ref_h2_qubit_ham_jw.values()])
+    ref_bk_array = np.array([terms for terms in ref_h2_qubit_ham_bk.values()])
 
     assert np.allclose(jw_array, ref_jw_array)
     assert np.allclose(bk_array, ref_bk_array)
 
     # incorrect mapping circuit
-    with pytest.raises(NameError):
+    with pytest.raises(KeyError):
         hamiltonian.qubit_hamiltonian(h2_ferm_ham, "incorrect")
 
 
@@ -213,7 +213,7 @@ def test_symbolic_hamiltonian():
     assert np.allclose(h2_sym_ham.matrix, ref_sym_ham.matrix)
 
 
-@pytest.mark.skip(reason="psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
+@pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
 def test_run_psi4():
     """PSI4 driver"""
     # Hardcoded benchmark results
@@ -233,10 +233,7 @@ def test_expectation_value():
     h2_ref_energy = -1.117349035
 
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    try:
-        h2.run_pyscf()
-    except ModuleNotFoundError:
-        h2.run_psi4()
+    h2.run_pyscf()
 
     # JW-HF circuit
     circuit = models.Circuit(h2.nso)

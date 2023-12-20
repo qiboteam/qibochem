@@ -88,10 +88,7 @@ def test_mp2_amplitude():
 def test_uccsd():
     # Define molecule and populate
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
-    try:
-        mol.run_pyscf()
-    except ModuleNotFoundError:
-        mol.run_psi4()
+    mol.run_pyscf()
 
     # Apply embedding
     active_space = [1, 5]
@@ -196,10 +193,7 @@ def test_ucc_ferm_qubit_map_error():
 
 # def test_ucc_ansatz_default_args():
 #     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-#     try:
-#         mol.run_pyscf()
-#     except ModuleNotFoundError:
-#         mol.run_psi4()
+#     mol.run_pyscf()
 #
 #     # Build control circuit
 #     control_circuit = hf_circuit(4, 2)
