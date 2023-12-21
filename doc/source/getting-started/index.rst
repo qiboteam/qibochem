@@ -2,8 +2,7 @@
 Getting started
 ===============
 
-This section covers the basics of qibochem. More details are given in the following subsections.
-
+This section covers how to install Qibochem and a basic example presenting the functionality of Qibochem.
 
 .. toctree::
     :maxdepth: 1
