@@ -22,11 +22,11 @@ class Molecule:
 
     Args:
         geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
-        charge (int): Net charge of molecule
-        multiplicity (int): Spin multiplicity of molecule
+        charge (int): Net electronic charge of molecule
+        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired electrons
         basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
-        xyz_file (str): .xyz file containing the molecular coordinates. The comment line should follow
-            "{charge} {multiplicity}"
+        xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
+            charge and spin multiplity if it is given in this format: "{charge} {multiplicity}"
         active: Iterable representing the set of MOs to be included in the quantum simulation
             e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
