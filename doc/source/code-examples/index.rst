@@ -6,7 +6,9 @@ Code examples
 This section provides examples of how to use Qibochem.
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
-    examples
-    advancedexamples
+    molecule
+    hamiltonian
+    ansatz
+    measurement

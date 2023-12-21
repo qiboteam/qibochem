@@ -9,9 +9,4 @@ This section covers the basics of qibochem. More details are given in the follow
     :maxdepth: 1
 
     installation
-    molecule
-    hamiltonian
-    ansatz
-    measurement
-..
-    measurement
+    quickstart
