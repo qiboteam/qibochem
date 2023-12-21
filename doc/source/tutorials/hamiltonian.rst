@@ -1,6 +1,20 @@
-===========
-Hamiltonian
-===========
+Molecular Hamiltonian
+=====================
+
+After the molecular integrals have been calculated, molecular Hamiltonian can then be constructed in the form of a Qibo ``SymbolicHamiltonian``:
+
+.. code-block::
+
+    from qibochem.driver.molecule import Molecule
+
+    # Inline definition of H2
+    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
+
+    # Calculate molecular integrals
+    h2.run_pyscf()
+
+    # Get molecular Hamiltonian
+    hamiltonian = h2.hamiltonian()
 
 Central to quantum chemical calculations for molecules is the fermionic spin-free nonrelativistic two-body Hamiltonian in second quantized form in the absence of external fields.
 
