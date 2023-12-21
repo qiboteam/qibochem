@@ -27,7 +27,7 @@ available.
 1. **Installation and Setup**: Begin by referring to the
    :doc:`/getting-started/index` guide to set up the ``Qibochem`` library in your environment.
 
-2. **Tutorials**: Explore the :doc:`/code-examples/index` section for a range of
+2. **Tutorials**: Explore the :doc:`/tutorials/index` section for a range of
    tutorials that cater to different levels of expertise. These tutorials cover
    basic examples, advanced examples and tutorials with algorithm for specific
    applications.
