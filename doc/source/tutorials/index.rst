@@ -1,7 +1,7 @@
-.. _examples:
+.. _tutorials:
 
-Code examples
-=============
+Tutorials
+=========
 
 This section provides examples of how to use Qibochem.
 
