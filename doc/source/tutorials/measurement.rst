@@ -1,14 +1,16 @@
-===========
 Measurement
 ===========
 
-Expectation values of Hamiltonians for a parameterized quantum circuit are estimated by repeated executions or shots. Qibochem provides this functionality with the method :code:`AbstractHamiltonian.expectation_from_samples` as implemented in Qibo.
+The previous examples were all carried out using state vector simulations of the quantum circuit.
+However, in actual quantum hardware, the expectation value of the molecular Hamiltonian for a parameterized quantum circuit have to be estimated by using repeated executions of the circuit, or shots in short.
+Qibochem provides this functionality using the :code:`AbstractHamiltonian.expectation_from_samples` method implemented in Qibo.
 
-The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei, as in [#f1]_
+The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
+as was done in [#f1]_:
 
 
-Example
-^^^^^^^
+Hamiltonian expectation value
+-----------------------------
 
 .. code-block:: python
 
@@ -48,7 +50,6 @@ Example
     print('VQE UCCSD energy: ', vqe_uccsd.fun + nuc_repulsion)
 
 
-
 .. code-block:: output
 
     q0: ─X──RX─X─RZ─X─RX─
@@ -64,8 +65,6 @@ Example
     VQE UCCSD loss:    -1.8841124999999999
     nuclear repulsion: 0.7559674441714287
     VQE UCCSD energy:  -1.128145055828571
-
-
 
 
 .. rubric:: References

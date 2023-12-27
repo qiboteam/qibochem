@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.abspath(".."))
 import qibochem
 
 # -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "qibochem"
 copyright = "The Qibo team"
@@ -33,6 +32,9 @@ release = qibochem.__version__
 
 master_doc = "index"
 
+# Add any Sphinx extension module names here, as strings. They can be
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
+# ones.
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
@@ -69,14 +71,13 @@ exclude_patterns = []
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
+
 html_theme = "furo"
 html_favicon = "favicon.ico"
 
 # custom title
 html_title = "Qibochem · v" + release
 
-# custom html theme options (colors and font)
 html_theme_options = {
     "top_of_page_button": "edit",
     "source_repository": "https://github.com/qiboteam/qibochem/",
