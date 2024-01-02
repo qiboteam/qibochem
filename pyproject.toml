@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "qibochem"
+version = "0.0.1"
+description = "Quantum chemistry module for quantum computing with Qibo"
+authors = ["The Qibo team"]
+license = "Apache License 2.0"
+readme = "README.md"
+repository = "https://github.com/qiboteam/qibochem/"
+documentation = "https://qibo.science/qibochem/latest/"
+keywords = []
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
+packages = [{ include = "qibochem", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+qibo = ">=0.2.0"
+openfermion = "^1.5"
+pyscf = "^2.4.0"
+scipy = "^1.10.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^7.0.0"
+furo = "^2023.3.27"
+recommonmark = "^0.7.1"
+sphinxcontrib-bibtex = "^2.5.0"
+sphinxcontrib-katex = "^0.9.6"
+sphinx-markdown-tables = "^0.0.17"
+nbsphinx = "^0.9.1"
+ipython = "^8.12.0"
+sphinx-copybutton = "^0.5.1"
+
+[tool.poetry.group.analysis]
+optional = true
+
+[tool.poetry.group.analysis.dependencies]
+pylint = ">=2.16.0"
+
+[tool.poetry.group.tests]
+optional = true
+
+[tool.poetry.group.tests.dependencies]
+pytest = ">=7.2.0"
+pytest-cov = ">=4.0.0"
+pytest-env = ">=0.8.1"
+
+[tool.poe.tasks]
+test = "pytest"
+lint = "pylint src --errors-only"
+lint-warnings = "pylint src --exit-zero"
+docs = "make -C doc html"
+docs-clean = "make -C doc clean"
+test-docs = "make -C doc doctest"
+
+[tool.pytest.ini_options]
+testpaths = ['tests/']
+addopts = ['--cov=qibochem', '--cov-report=xml', '--cov-report=html']

@@ -5,12 +5,12 @@ channels:
 - defaults
 dependencies:
 - python=3.9
-- psi4
+- psi4=1.7
 - numpy
 - sympy
 - scipy
-- pip 
+- pip
 - pip:
-  - openfermion
-  - qibo
-  - pyscf
+  - openfermion>=1.5
+  - qibo>=0.1.10
+  - pyscf>=2.2.1

@@ -3,8 +3,7 @@ Circuit representing a Hartree-Fock reference wave function
 """
 
 import numpy as np
-
-from qibo import models, gates
+from qibo import gates, models
 
 
 # Helper functions for the Brayvi-Kitaev mapping
@@ -19,16 +18,17 @@ def bk_matrix_power2(n: int):
     if n == 1:
         return np.ones((1, 1), dtype=np.int8)
     # Recursive definition
-    smaller_bk_matrix = bk_matrix_power2(n-1)
-    top_right = np.zeros((2**(n-2), 2**(n-2)), dtype=np.int8)
+    smaller_bk_matrix = bk_matrix_power2(n - 1)
+    top_right = np.zeros((2 ** (n - 2), 2 ** (n - 2)), dtype=np.int8)
     top_half = np.concatenate((smaller_bk_matrix, top_right), axis=1)
 
-    bottom_left = np.concatenate((np.zeros(((2**(n-2))-1, 2**(n-2)), dtype=np.int8),
-                                  np.ones((1, 2**(n-2)), dtype=np.int8)),
-                                 axis=0)
+    bottom_left = np.concatenate(
+        (np.zeros(((2 ** (n - 2)) - 1, 2 ** (n - 2)), dtype=np.int8), np.ones((1, 2 ** (n - 2)), dtype=np.int8)), axis=0
+    )
     bottom_half = np.concatenate((bottom_left, smaller_bk_matrix), axis=1)
     # Combine top and bottom half
     return np.concatenate((top_half, bottom_half), axis=0)
+
 
 def bk_matrix(n: int):
     """Exact Brayvi-Kitaev matrix of size n, obtained by slicing a larger BK matrix
@@ -51,25 +51,24 @@ def bk_matrix(n: int):
 
 # Main function
 def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
-    """Circuit for a Hartree-Fock reference
+    """Circuit to prepare a Hartree-Fock state
 
     Args:
-        n_qubits: Number of qubits in circuit
-        n_electrons: Number of electrons in molecular system
-        ferm_qubit_map: Fermion to qubit mapping; Jordan-Wigner ('jw') or Brayvi-Kitaev ('bk')
-            Defaults to 'jw'
+        n_qubits: Number of qubits in the quantum circuit
+        n_electrons: Number of electrons in the molecular system
+        ferm_qubit_map: Fermion to qubit map. Must be either Jordan-Wigner (``jw``) or Brayvi-Kitaev (``bk``). Default value is ``jw``.
 
     Returns:
-        Qibo Circuit initialized in a HF reference state
+        Qibo ``Circuit`` initialized in a HF reference state
     """
     # Which fermion-to-qubit map to use
     if ferm_qubit_map is None:
-        ferm_qubit_map = 'jw'
-    if ferm_qubit_map not in ('jw', 'bk'):
+        ferm_qubit_map = "jw"
+    if ferm_qubit_map not in ("jw", "bk"):
         raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
     # Occupation number of SOs
-    occ_n = np.concatenate((np.ones(n_electrons), np.zeros(n_qubits-n_electrons)))
+    occ_n = np.concatenate((np.ones(n_electrons), np.zeros(n_qubits - n_electrons)))
     if ferm_qubit_map == "jw":
         mapped_occ_n = occ_n
     elif ferm_qubit_map == "bk":
