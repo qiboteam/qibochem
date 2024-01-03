@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 import pytest
 from qibo import gates
@@ -8,6 +10,7 @@ from qibochem.ansatz.ucc import (  # ucc_ansatz
     generate_excitations,
     mp2_amplitude,
     sort_excitations,
+    ucc_ansatz,
     ucc_circuit,
 )
 from qibochem.driver.molecule import Molecule
@@ -76,7 +79,11 @@ def test_sort_excitations_3():
         sort_excitations([[1, 2, 3, 4, 5, 6]])
 
 
-def test_mp2_amplitude():
+def test_mp2_amplitude_singles():
+    assert mp2_amplitude([0, 2], np.random.rand(4), np.random.rand(4, 4)) == 0.0
+
+
+def test_mp2_amplitude_doubles():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
     l = mp2_amplitude([0, 1, 2, 3], h2.eps, h2.tei)
@@ -85,7 +92,113 @@ def test_mp2_amplitude():
     assert np.isclose(l, ref_l)
 
 
-def test_uccsd():
+def test_ucc_jw_singles():
+    """Build a UCC singles (JW) circuit"""
+    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
+    cnot_cascade = [gates.CNOT(2, 1), gates.CNOT(1, 0), gates.RZ(0, 0.0), gates.CNOT(1, 0), gates.CNOT(2, 1)]
+    basis_rotation_gates = ([rx_gate(0), gates.H(2)], [gates.H(0), rx_gate(2)])
+
+    # Build control list of gates
+    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
+    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
+
+    # Test ucc_function
+    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="jw")
+    # Check gates are correct
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(gate_list, list(circuit.queue))
+    )
+    # Check that only two parametrised gates
+    assert len(circuit.get_parameters()) == 2
+
+
+def test_ucc_jw_doubles():
+    """Build a UCC doubles (JW) circuit"""
+    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
+    cnot_cascade = [
+        gates.CNOT(3, 2),
+        gates.CNOT(2, 1),
+        gates.CNOT(1, 0),
+        gates.RZ(0, 0.0),
+        gates.CNOT(1, 0),
+        gates.CNOT(2, 1),
+        gates.CNOT(3, 2),
+    ]
+    basis_rotation_gates = (
+        [gates.H(0), gates.H(1), rx_gate(2), gates.H(3)],
+        [rx_gate(0), rx_gate(1), rx_gate(2), gates.H(3)],
+        [rx_gate(0), gates.H(1), gates.H(2), gates.H(3)],
+        [gates.H(0), rx_gate(1), gates.H(2), gates.H(3)],
+        [rx_gate(0), gates.H(1), rx_gate(2), rx_gate(3)],
+        [gates.H(0), rx_gate(1), rx_gate(2), rx_gate(3)],
+        [gates.H(0), gates.H(1), gates.H(2), rx_gate(3)],
+        [rx_gate(0), rx_gate(1), gates.H(2), rx_gate(3)],
+    )
+
+    # Build control list of gates
+    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
+    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
+
+    # Test ucc_function
+    circuit = ucc_circuit(4, [0, 1, 2, 3], ferm_qubit_map="jw")
+    # Check gates are correct
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(gate_list, list(circuit.queue))
+    )
+    # Check that only two parametrised gates
+    assert len(circuit.get_parameters()) == 8
+
+
+def test_ucc_bk_singles():
+    """Build a UCC doubles (BK) circuit"""
+    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
+    cnot_cascade = [gates.CNOT(2, 1), gates.CNOT(1, 0), gates.RZ(0, 0.0), gates.CNOT(1, 0), gates.CNOT(2, 1)]
+    basis_rotation_gates = ([gates.H(0), rx_gate(1), gates.H(2)], [rx_gate(0), rx_gate(1), rx_gate(2)])
+
+    # Build control list of gates
+    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
+    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
+
+    # Test ucc_function
+    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="bk")
+    # Check gates are correct
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(gate_list, list(circuit.queue))
+    )
+    # Check that only two parametrised gates
+    assert len(circuit.get_parameters()) == 2
+
+
+def test_ucc_ferm_qubit_map_error():
+    """If unknown fermion to qubit map used"""
+    with pytest.raises(KeyError):
+        ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
+
+
+def test_ucc_ansatz_h2():
+    """Test the default arguments of ucc_ansatz using H2"""
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+    mol.run_pyscf()
+
+    # Build control circuit
+    control_circuit = hf_circuit(4, 2)
+    for excitation in ([0, 1, 2, 3], [0, 2], [1, 3]):
+        control_circuit += ucc_circuit(4, excitation)
+
+    test_circuit = ucc_ansatz(mol)
+
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(list(control_circuit.queue), list(test_circuit.queue))
+    )
+    # Check that number of parametrised gates is the same
+    assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+
+def test_ucc_ansatz_h2():
     # Define molecule and populate
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.run_pyscf()
@@ -145,66 +258,3 @@ def test_uccsd():
     lih_uccsd_energy = -7.847535097575567
 
     assert vqe.fun == pytest.approx(lih_uccsd_energy)
-
-
-def test_ucc_bk():
-    """Build a UCC-BK circuit"""
-    # Control
-    gate_list = [
-        gates.H(0),
-        gates.RX(1, -0.5 * np.pi, trainable=False),
-        gates.H(2),
-        gates.CNOT(2, 1),
-        gates.CNOT(1, 0),
-        gates.RZ(0, 0.0),
-        gates.CNOT(1, 0),
-        gates.CNOT(2, 1),
-        gates.H(0),
-        gates.RX(1, -0.5 * np.pi, trainable=False),
-        gates.H(2),
-        gates.RX(0, -0.5 * np.pi, trainable=False),
-        gates.RX(1, -0.5 * np.pi, trainable=False),
-        gates.RX(2, -0.5 * np.pi, trainable=False),
-        gates.CNOT(2, 1),
-        gates.CNOT(1, 0),
-        gates.RZ(0, 0.0),
-        gates.CNOT(1, 0),
-        gates.CNOT(2, 1),
-        gates.RX(0, -0.5 * np.pi, trainable=False),
-        gates.RX(1, -0.5 * np.pi, trainable=False),
-        gates.RX(2, -0.5 * np.pi, trainable=False),
-    ]
-    # Test ucc_function
-    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="bk")
-    # Check gates are correct
-    assert all(
-        control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, list(circuit.queue))
-    )
-    # Check that only two parametrised gates
-    assert len(circuit.get_parameters()) == 2
-
-
-def test_ucc_ferm_qubit_map_error():
-    """If unknown fermion to qubit map used"""
-    with pytest.raises(KeyError):
-        ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
-
-
-# def test_ucc_ansatz_default_args():
-#     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-#     mol.run_pyscf()
-#
-#     # Build control circuit
-#     control_circuit = hf_circuit(4, 2)
-#     for excitation in ([0, 1, 2, 3], [0, 2], [1, 3]):
-#         control_circuit += ucc_circuit(4, excitation)
-#
-#     test_circuit = ucc_ansatz(mol)
-#
-#     assert all(
-#         control.name == test.name and control.target_qubits == test.target_qubits
-#         for control, test in zip(list(control_circuit.queue), list(test_circuit.queue))
-#     )
-#     # Check that number of parametrised gates is the same
-#     assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
