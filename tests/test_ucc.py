@@ -202,7 +202,8 @@ def test_ucc_ansatz_h2():
 
     # Build control circuit
     control_circuit = hf_circuit(4, 2)
-    for excitation in ([0, 1, 2, 3], [0, 2], [1, 3]):
+    excitations = ([0, 1, 2, 3], [0, 2], [1, 3])
+    for excitation in excitations:
         control_circuit += ucc_circuit(4, excitation)
 
     test_circuit = ucc_ansatz(mol)
@@ -213,6 +214,20 @@ def test_ucc_ansatz_h2():
     )
     # Check that number of parametrised gates is the same
     assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+    # Then check that the circuit parameters are the MP2 guess parameters
+    # Get the MP2 amplitudes first, then expand the list based on the excitation type
+    mp2_guess_amplitudes = []
+    for excitation in excitations:
+        mp2_guess_amplitudes += [
+            mp2_amplitude(excitation, mol.eps, mol.tei) for _ in range(2 ** (2 * (len(excitation) // 2) - 1))
+        ]
+    mp2_guess_amplitudes = np.array(mp2_guess_amplitudes)
+    coeffs = np.array([-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25, 0.0, 0.0, 0.0, 0.0])
+    mp2_guess_amplitudes *= coeffs
+    # Need to flatten the output of circuit.get_parameters() to compare it to mp2_guess_amplitudes
+    test_parameters = np.array([_x for _tuple in test_circuit.get_parameters() for _x in _tuple])
+    assert np.allclose(mp2_guess_amplitudes, test_parameters)
 
 
 def test_ucc_ansatz_embedding():

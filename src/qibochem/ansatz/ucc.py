@@ -276,6 +276,7 @@ def ucc_ansatz(
     trotter_steps=1,
     ferm_qubit_map=None,
     include_hf=True,
+    use_mp2_guess=True,
 ):
     """
     Build a circuit corresponding to the UCC ansatz with multiple excitations for a given Molecule.
@@ -293,6 +294,7 @@ def ucc_ansatz(
             theta=theta/trotter_steps. Default is 1
         ferm_qubit_map: fermion-to-qubit transformation. Default: Jordan-Wigner ("jw")
         include_hf: Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
+        use_mp2_guesses: Whether or not to use MP2 amplitudes as the initial guess parameter. Default: ``True``
 
     Returns:
         circuit: Qibo Circuit corresponding to the UCC ansatz
@@ -326,12 +328,14 @@ def ucc_ansatz(
         assert all(len(_ex) % 2 == 0 for _ex in excitations), "Excitation with an odd number of elements found!"
 
     # Check if thetas argument given, define to be all zeros if not
-    # TODO: Unsure if want to use MP2 guess amplitudes for the doubles? Some say good, some say bad
     # Number of circuit parameters: S->2, D->8, (T/Q->32/128; Not sure?)
     n_parameters = 2 * len([_ex for _ex in excitations if len(_ex) == 2])  # Singles
     n_parameters += 8 * len([_ex for _ex in excitations if len(_ex) == 4])  # Doubles
     if thetas is None:
-        thetas = np.zeros(n_parameters)
+        if use_mp2_guess:
+            thetas = np.array([mp2_amplitude(excitation, molecule.eps, molecule.tei) for excitation in excitations])
+        else:
+            thetas = np.zeros(n_parameters)
     else:
         # Check that number of circuit variables (i.e. thetas) matches the number of circuit parameters
         assert len(thetas) == n_parameters, "Number of input parameters doesn't match the number of circuit parameters!"
