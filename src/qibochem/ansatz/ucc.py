@@ -133,7 +133,7 @@ def mp2_amplitude(excitation, orbital_energies, tei):
         MP2 guess amplitude (float)
     """
     # Checks validity of excitation argument
-    assert len(excitation) // 2 == 0 and len(excitation) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
+    assert len(excitation) % 2 == 0 and len(excitation) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
     # If single excitation, can just return 0.0 directly
     if len(excitation) == 2:
         return 0.0
