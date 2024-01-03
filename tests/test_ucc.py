@@ -6,7 +6,7 @@ from qibo import gates
 from scipy.optimize import minimize
 
 from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.ucc import (  # ucc_ansatz
+from qibochem.ansatz.ucc import (
     generate_excitations,
     mp2_amplitude,
     sort_excitations,
@@ -178,6 +178,23 @@ def test_ucc_ferm_qubit_map_error():
         ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
 
 
+def test_ucc_parameter_coefficients():
+    """Coefficients used to multiply the parameters in the UCC circuit. Note: may change in future!"""
+    # UCC-JW singles
+    control_values = (-1.0, 1.0)
+    coeffs = []
+    circuit = ucc_circuit(2, [0, 1], coeffs=coeffs)
+    # Check that the signs of the coefficients have been saved
+    assert all(control == test for control, test in zip(control_values, coeffs))
+
+    # UCC-JW doubles
+    control_values = (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)
+    coeffs = []
+    circuit = ucc_circuit(4, [0, 1, 2, 3], coeffs=coeffs)
+    # Check that the signs of the coefficients have been saved
+    assert all(control == test for control, test in zip(control_values, coeffs))
+
+
 def test_ucc_ansatz_h2():
     """Test the default arguments of ucc_ansatz using H2"""
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
@@ -196,3 +213,76 @@ def test_ucc_ansatz_h2():
     )
     # Check that number of parametrised gates is the same
     assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+
+def test_ucc_ansatz_embedding():
+    """Test the default arguments of ucc_ansatz using LiH with HF embedding applied, but without the HF circuit"""
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
+    mol.run_pyscf()
+    mol.hf_embedding(active=[1, 2, 5])
+
+    # Generate all possible excitations
+    excitations = []
+    for order in range(2, 0, -1):
+        # 2 electrons, 6 spin-orbitals
+        excitations += sort_excitations(generate_excitations(order, range(0, 2), range(2, 6)))
+    # Build control circuit
+    control_circuit = hf_circuit(6, 0)
+    for excitation in excitations:
+        control_circuit += ucc_circuit(6, excitation)
+
+    test_circuit = ucc_ansatz(mol, include_hf=False)
+
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(list(control_circuit.queue), list(test_circuit.queue))
+    )
+    # Check that number of parametrised gates is the same
+    assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+
+def test_ucc_ansatz_excitations():
+    """Test the `excitations` argument of ucc_ansatz"""
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
+    mol.run_pyscf()
+    mol.hf_embedding(active=[1, 2, 5])
+
+    # Generate all possible excitations
+    excitations = [[0, 1, 2, 3], [0, 1, 4, 5]]
+    # Build control circuit
+    control_circuit = hf_circuit(6, 2)
+    for excitation in excitations:
+        control_circuit += ucc_circuit(6, excitation)
+
+    test_circuit = ucc_ansatz(mol, excitations=excitations)
+
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(list(control_circuit.queue), list(test_circuit.queue))
+    )
+    # Check that number of parametrised gates is the same
+    assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+
+def test_ucc_ansatz_error_checks():
+    """Test the checks for input validity"""
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
+    # Define number of electrons and spin-obritals by hand
+    mol.nelec = (2, 2)
+    mol.nso = 12
+
+    # Excitation level check: Input is in ("S", "D", "T", "Q")
+    with pytest.raises(AssertionError):
+        ucc_ansatz(mol, "Z")
+
+    # Excitation level check: Excitation > doubles
+    with pytest.raises(NotImplementedError):
+        ucc_ansatz(mol, "T")
+
+    # Excitations list check: excitation must have an even number of elements
+    with pytest.raises(AssertionError):
+        ucc_ansatz(mol, excitations=[[0]])
+
+    # Input parameter check: Must have correct number of input parameters
+    with pytest.raises(AssertionError):
+        ucc_ansatz(mol, excitations=[[0, 1, 2, 3]], thetas=np.zeros(2))
