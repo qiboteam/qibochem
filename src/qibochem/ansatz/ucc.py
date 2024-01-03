@@ -133,22 +133,22 @@ def mp2_amplitude(excitation, orbital_energies, tei):
         MP2 guess amplitude (float)
     """
     # Checks validity of excitation argument
-    assert len(orbitals) // 2 == 0 and len(orbitals) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
+    assert len(excitation) // 2 == 0 and len(excitation) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
     # If single excitation, can just return 0.0 directly
-    if len(orbitals) == 2:
+    if len(excitation) == 2:
         return 0.0
 
     # Convert orbital indices to be in MO basis
-    mo_orbitals = [orbitalin // 2 for orbital in excitation]
+    mo_orbitals = [orbital // 2 for orbital in excitation]
     # Numerator: g_ijab - g_ijba
     g_ijab = (
         tei[tuple(mo_orbitals)]  # Can index directly using the MO TEIs
-        if (orbitals[0] + orbitals[3]) % 2 == 0 and (orbitals[1] + orbitals[2]) % 2 == 0
+        if (excitation[0] + excitation[3]) % 2 == 0 and (excitation[1] + excitation[2]) % 2 == 0
         else 0.0
     )
     g_ijba = (
         tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])]  # Reverse last two terms
-        if (orbitals[0] + orbitals[2]) % 2 == 0 and (orbitals[1] + orbitals[3]) % 2 == 0
+        if (excitation[0] + excitation[2]) % 2 == 0 and (excitation[1] + excitation[3]) % 2 == 0
         else 0.0
     )
     numerator = g_ijab - g_ijba
