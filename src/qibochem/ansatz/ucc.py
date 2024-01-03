@@ -68,13 +68,13 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
         excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta: UCC parameter. Defaults to 0.0
-        trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with \theta = \theta / trotter_steps
+        trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with ``theta`` = ``theta / trotter_steps``. Default: 1
         ferm_qubit_map: Fermion-to-qubit transformation. Default is Jordan-Wigner (``jw``).
         coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
             May be useful in running the VQE. WARNING: Will be modified in this function
 
     Returns:
-        Qibo ``Circuit`` corresponding to a single UCC excitation
+        Qibo ``Circuit``: Circuit corresponding to a single UCC excitation
     """
     # Check size of orbitals input
     n_orbitals = len(excitation)
@@ -279,25 +279,25 @@ def ucc_ansatz(
     use_mp2_guess=True,
 ):
     """
-    Build a circuit corresponding to the UCC ansatz with multiple excitations for a given Molecule.
-        If no excitations are given, it defaults to returning the full UCCSD circuit ansatz for the
-        Molecule.
+    Convenience function for buildng a circuit corresponding to the UCC ansatz with multiple excitations for a given ``Molecule``.
+    If no excitations are given, it defaults to returning the full UCCSD circuit ansatz.
 
     Args:
-        molecule: Molecule of interest.
-        excitation_level: Include excitations up to how many electrons, i.e. ("S", "D", "T", "Q")
-            Ignored if `excitations` argument is given. Default is "D", i.e. double excitations
-        excitations: List of excitations (e.g. `[[0, 1, 2, 3], [0, 1, 4, 5]]`) used to build the
-            UCC circuit. Overrides the `excitation_level` argument
-        thetas: Parameters for the excitations. Defaults to an array of zeros if not given
+        molecule: The ``Molecule`` of interest.
+        excitation_level: Include excitations up to how many electrons, i.e. ``"S"`` or ``"D"``.
+            Ignored if ``excitations`` argument is given. Default: ``"D"``, i.e. double excitations
+        excitations: List of excitations (e.g. ``[[0, 1, 2, 3], [0, 1, 4, 5]]``) used to build the
+            UCC circuit. Overrides the ``excitation_level`` argument
+        thetas: Parameters for the excitations. Default value depends on the ``use_mp2_guess`` argument.
         trotter_steps: number of Trotter steps; i.e. number of times the UCC ansatz is applied with
-            theta=theta/trotter_steps. Default is 1
-        ferm_qubit_map: fermion-to-qubit transformation. Default: Jordan-Wigner ("jw")
+            ``theta`` = ``theta / trotter_steps``. Default: 1
+        ferm_qubit_map: fermion-to-qubit transformation. Default: Jordan-Wigner (``"jw"``)
         include_hf: Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
-        use_mp2_guesses: Whether or not to use MP2 amplitudes as the initial guess parameter. Default: ``True``
+        use_mp2_guess: Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter. Default: ``True``;
+            use the MP2 amplitudes as the default guess parameters
 
     Returns:
-        circuit: Qibo Circuit corresponding to the UCC ansatz
+        Qibo ``Circuit``: Circuit corresponding to an UCC ansatz
     """
     # Get the number of electrons and spin-orbitals from the molecule argument
     n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e

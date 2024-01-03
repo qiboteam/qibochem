@@ -246,7 +246,7 @@ def test_ucc_ansatz_embedding():
     for excitation in excitations:
         control_circuit += ucc_circuit(6, excitation)
 
-    test_circuit = ucc_ansatz(mol, include_hf=False)
+    test_circuit = ucc_ansatz(mol, include_hf=False, use_mp2_guess=False)
 
     assert all(
         control.name == test.name and control.target_qubits == test.target_qubits
@@ -254,6 +254,10 @@ def test_ucc_ansatz_embedding():
     )
     # Check that number of parametrised gates is the same
     assert len(control_circuit.get_parameters()) == len(test_circuit.get_parameters())
+
+    # Check that the circuit parameters are all zeros
+    test_parameters = np.array([_x for _tuple in test_circuit.get_parameters() for _x in _tuple])
+    assert np.allclose(test_parameters, np.zeros(len(test_parameters)))
 
 
 def test_ucc_ansatz_excitations():
