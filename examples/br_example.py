@@ -42,7 +42,7 @@ tei = np.einsum("up, vq, uvkl, kr, ls -> prsq", C, C, mol.aoeri, C, C, optimize=
 hamiltonian = mol.hamiltonian(oei=oei, tei=tei)
 
 # Check that the hamiltonian with a HF reference ansatz doesn't yield the correct HF energy
-circuit = hf_circuit(mol.nso, sum(mol.nelec))
+circuit = hf_circuit(mol.nso, mol.nelec)
 print(
     f"\nElectronic energy: {expectation(circuit, hamiltonian):.8f} (From the H_core guess, should be > actual HF energy)"
 )
@@ -52,14 +52,14 @@ def electronic_energy(parameters):
     """
     Loss function (Electronic energy) for the basis rotation ansatz
     """
-    circuit = hf_circuit(mol.nso, sum(mol.nelec))
-    circuit += br_circuit(mol.nso, parameters, sum(mol.nelec))
+    circuit = hf_circuit(mol.nso, mol.nelec)
+    circuit += br_circuit(mol.nso, parameters, mol.nelec)
 
     return expectation(circuit, hamiltonian)
 
 
 # Build  a basis rotation_circuit
-params = np.random.rand(sum(mol.nelec) * (mol.nso - sum(mol.nelec)))  # n_occ * n_virt
+params = np.random.rand(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
 
 best, params, extra = optimize(electronic_energy, params)
 
@@ -70,7 +70,7 @@ print(f"VQE energy: {best:.8f} (Basis rotation ansatz)")
 # print("Optimized parameters:", params)
 
 
-params = np.random.rand(sum(mol.nelec) * (mol.nso - sum(mol.nelec)))  # n_occ * n_virt
+params = np.random.rand(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
 
 result = minimize(electronic_energy, params)
 best, params = result.fun, result.x

@@ -19,7 +19,7 @@ def test_jw_circuit():
     h2.run_pyscf()
 
     # JW-HF circuit
-    circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map=None)
+    circuit = hf_circuit(h2.nso, h2.nelec, ferm_qubit_map=None)
 
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
@@ -38,7 +38,7 @@ def test_bk_circuit_1():
     h2.run_pyscf()
 
     # JW-HF circuit
-    circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map="bk")
+    circuit = hf_circuit(h2.nso, h2.nelec, ferm_qubit_map="bk")
 
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian(ferm_qubit_map="bk")
@@ -55,7 +55,7 @@ def test_bk_circuit_2():
     lih.run_pyscf()
 
     # JW-HF circuit
-    circuit = hf_circuit(lih.nso, sum(lih.nelec), ferm_qubit_map="bk")
+    circuit = hf_circuit(lih.nso, lih.nelec, ferm_qubit_map="bk")
 
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = lih.hamiltonian(ferm_qubit_map="bk")

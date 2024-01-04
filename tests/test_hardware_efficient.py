@@ -21,7 +21,7 @@ def test_hea_ansatz():
 
     hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
     qc = models.Circuit(nqubits)
-    qc.add(gates.X(_i) for _i in range(sum(mol.nelec)))
+    qc.add(gates.X(_i) for _i in range(mol.nelec))
     qc.add(hea_ansatz)
     qc.set_parameters(theta)
 
@@ -46,7 +46,7 @@ def test_vqe_hea_ansatz():
 
     hea_ansatz = hardware_efficient.hea(nlayers, nqubits, ["RY", "RZ"], "CNOT")
     qc = models.Circuit(nqubits)
-    qc.add(gates.X(_i) for _i in range(sum(mol.nelec)))
+    qc.add(gates.X(_i) for _i in range(mol.nelec))
     qc.add(hea_ansatz)
     qc.set_parameters(theta)
 
