@@ -6,7 +6,7 @@ authors = ["The Qibo team"]
 license = "Apache License 2.0"
 readme = "README.md"
 repository = "https://github.com/qiboteam/qibochem/"
-documentation = "https://qibo.science/qibochem/latest/"
+documentation = "https://qibo.science/qibochem/stable"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",
