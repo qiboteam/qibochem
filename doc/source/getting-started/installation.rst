@@ -50,4 +50,3 @@ Otherwise, Qibochem will have to be installed from source, and after some modifi
 First, but the PySCF driver for obtaining molecular integrals is not available on Windows systems, so the relevant line in ``pyproject.toml`` has to be commented out.
 The alternative driver for Windows is PSI4; after installing PSI4, uncomment out the ``run_psi4`` function in the ``Molecule`` class.
 After these changes, return to the ``qibochem`` folder and run ``pip install .``
-
