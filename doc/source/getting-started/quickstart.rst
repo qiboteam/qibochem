@@ -1,12 +1,16 @@
 Quick start
 -----------
 
-..
-  TODO: Add pip install when package on pypi
+To quickly install and run Qibochem, open a terminal with ``python >= 3.9`` and type:
+
+.. code-block::
+
+   pip install qibochem
 
 Here is an example of building the UCCD ansatz with the H2 molecule to test your installation:
 
 .. testcode::
+
     import numpy as np
     from qibo.models import VQE
 
@@ -29,7 +33,6 @@ Here is an example of building the UCCD ansatz with the H2 molecule to test your
 
     initial_parameters = np.random.uniform(0.0, 2*np.pi, 8)
     best, params, extra = vqe.minimize(initial_parameters)
-
 
 ..
   TODO: Another example with measurements

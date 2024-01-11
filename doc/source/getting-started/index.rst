@@ -7,5 +7,5 @@ This section covers how to install Qibochem and a basic example presenting the f
 .. toctree::
     :maxdepth: 1
 
-    installation
     quickstart
+    installation
