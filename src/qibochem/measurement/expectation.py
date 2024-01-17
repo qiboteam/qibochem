@@ -12,27 +12,6 @@ def symbolic_term_to_symbol(symbolic_term):
     return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
 
 
-def split_xy_z_terms(hamiltonian):
-    """
-    Split up the Z and X/Y terms in a Hamiltonian. If there are either no Z or X/Y terms, returns None for the
-        corresponding z_ham/xy_ham.
-
-    Args:
-        hamiltonian (qibo.hamiltonian.SymbolicHamiltonian): Molecular Hamiltonian
-
-    Returns:
-        z_ham, xy_ham: Two-tuple of SymbolicHamiltonians representing the Z and X/Y terms respectively.
-    """
-    z_only_terms = [
-        term for term in hamiltonian.terms if not any(factor.name[0] in ("X", "Y") for factor in term.factors)
-    ]
-    xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
-    # Convert the sorted SymbolicTerms back to SymbolicHamiltonians
-    z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in z_only_terms)) if z_only_terms else None
-    xy_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in xy_terms)) if xy_terms else None
-    return z_ham, xy_ham
-
-
 def pauli_term_measurement_expectation(pauli_term, frequencies):
     """
     Calculate the expectation value of a single general Pauli string for some measurement frequencies
@@ -121,36 +100,51 @@ def allocate_shots(hamiltonian, n_shots=1000, method=None, threshold=0.05):
     return shot_allocation.tolist()
 
 
-def measurement_basis_rotations(hamiltonian, grouping=None):
+def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     """
     Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
     respective (group of) terms in the Hamiltonian
 
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
+        n_qubits: Number of qubits in the quantum circuit.
         grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the expectation
             values of a group of terms simultaneously. Default value of ``None`` will not group any terms together
 
     Returns:
         List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]),
-        where term1, term2, ... are SymbolicTerms
+        where term1, term2, ... are SymbolicTerms. The first term always corresponds to all the Z terms present.
     """
-    if grouping is None:
-        return [
-            (
-                [
-                    gates.M(int(factor.target_qubit), basis=type(factor.gate))
-                    for factor in term.factors
-                    if factor.name[0] != "I"
-                ],
-                [
-                    term,
-                ],
-            )
-            for term in hamiltonian.terms
-        ]
+    result = []
+    # Split up the Z and X/Y terms first
+    z_only_terms = [
+        term for term in hamiltonian.terms if not any(factor.name[0] in ("X", "Y") for factor in term.factors)
+    ]
+    xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
+    # Add the Z terms into result first
+    if z_only_terms:
+        result.append(([gates.M(_i) for _i in range(n_qubits)], z_only_terms))
     else:
-        raise NotImplementedError("Not ready yet!")
+        result.append(([], []))
+    # Then add the X/Y terms in
+    if xy_terms:
+        if grouping is None:
+            result += [
+                (
+                    [
+                        gates.M(int(factor.target_qubit), basis=type(factor.gate))
+                        for factor in term.factors
+                        if factor.name[0] != "I"
+                    ],
+                    [
+                        term,
+                    ],
+                )
+                for term in xy_terms
+            ]
+        else:
+            raise NotImplementedError("Not ready yet!")
+    return result
 
 
 def expectation(
@@ -185,27 +179,23 @@ def expectation(
         total = 0.0
         # n_shots is used to get the expectation value of each individual Pauli term
         if n_shots_per_pauli_term:
-            # Split up the Z and non-Z terms
-            z_ham, xy_ham = split_xy_z_terms(hamiltonian)
-
-            # Z terms: Can just add M gates to every qubit and use expectation_from_samples directly
-            if z_ham is not None:
-                _circuit = circuit.copy()
-                _circuit.add(gates.M(_qubit) for _qubit in range(_circuit.nqubits))
-                result = _circuit(nshots=n_shots)
-                frequencies = result.frequencies(binary=True)
-                total += z_ham.expectation_from_samples(frequencies)
-
-            # Split up the X/Y terms in the Hamiltonian with their respective basis rotation gates
-            # (Eventually) measurement_basis_rotations can be used to group up some terms so that one
+            # (Eventually) measurement_basis_rotations will be used to group up some terms so that one
             # set of measurements can be used for multiple X/Y terms
-            if xy_ham is not None:
-                for measurement_gates, xy_terms in measurement_basis_rotations(xy_ham, grouping=group_pauli_terms):
+            for _i, (measurement_gates, terms) in enumerate(
+                measurement_basis_rotations(hamiltonian, circuit.nqubits, grouping=group_pauli_terms)
+            ):
+                if measurement_gates and terms:
                     _circuit = circuit.copy()
                     _circuit.add(measurement_gates)
                     result = _circuit(nshots=n_shots)
                     frequencies = result.frequencies(binary=True)
-                    total += sum(pauli_term_measurement_expectation(xy_term, frequencies) for xy_term in xy_terms)
+                    # First term is all Z terms, can use expectation_from_samples directly.
+                    # Otherwise, need to use the general pauli_term_measurement_expectation function
+                    if _i != 0:
+                        total += sum(pauli_term_measurement_expectation(term, frequencies) for term in terms)
+                    else:
+                        z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in terms))
+                        total += z_ham.expectation_from_samples(frequencies)
         else:
             # Define shot_allocation list if not given
             if shot_allocation is None:
