@@ -33,6 +33,24 @@ def split_xy_z_terms(hamiltonian):
     return z_ham, xy_ham
 
 
+def pauli_term_measurement_expectation(pauli_term, frequencies):
+    """
+    Calculate the expectation value of a single general Pauli string for some measurement frequencies
+
+    Args:
+        pauli_term (SymbolicTerm): Single general Pauli term, e.g. X0*Z2
+        frequencies: Measurement frequencies, taken from MeasurementOutcomes.frequencies(binary=True)
+
+    Returns:
+        Expectation value of the pauli_term (float)
+    """
+    # Replace every (non-I) Symbol with Z, then include the term coefficient
+    pauli_z = [Z(int(factor.target_qubit)) for factor in pauli_term.factors if factor.name[0] != "I"]
+    z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
+    # Can now apply expectation_from_samples directly
+    return z_only_ham.expectation_from_samples(frequencies)
+
+
 def pauli_term_sample_expectation(circuit, pauli_term, n_shots):
     """
     Calculate the expectation value of a general Pauli string for a given circuit ansatz and number of shots
@@ -54,18 +72,7 @@ def pauli_term_sample_expectation(circuit, pauli_term, n_shots):
     result = _circuit(nshots=n_shots)
     frequencies = result.frequencies(binary=True)
 
-    # Only works for Z terms, raises an error if ham_term has X/Y terms
-    # single_term_ham = SymbolicHamiltonian(reduce(lambda x, y: x*y, pauli_term.factors, 1))
-    # return single_term_ham.expectation_from_samples(frequencies, qubit_map=qubits)
-
-    # Workaround code to handle X/Y terms in the Hamiltonian:
-    # Get each Pauli string e.g. X0Y1
-    pauli = [factor.name for factor in pauli_term.factors]
-    # Replace each X and Y symbol with Z; then include the term coefficient
-    pauli_z = [Z(int(element[1:])) for element in pauli]
-    z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
-    # Can now apply expectation_from_samples directly
-    return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubits)
+    return pauli_term_measurement_expectation(pauli_term, frequencies)
 
 
 def allocate_shots(hamiltonian, n_shots=1000, method=None, threshold=0.05):
@@ -114,11 +121,44 @@ def allocate_shots(hamiltonian, n_shots=1000, method=None, threshold=0.05):
     return shot_allocation.tolist()
 
 
+def measurement_basis_rotations(hamiltonian, grouping=None):
+    """
+    Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
+    respective (group of) terms in the Hamiltonian
+
+    Args:
+        hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
+        grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the expectation
+            values of a group of terms simultaneously. Default value of ``None`` will not group any terms together
+
+    Returns:
+        List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]),
+        where term1, term2, ... are SymbolicTerms
+    """
+    if grouping is None:
+        return [
+            (
+                [
+                    gates.M(int(factor.target_qubit), basis=type(factor.gate))
+                    for factor in term.factors
+                    if factor.name[0] != "I"
+                ],
+                [
+                    term,
+                ],
+            )
+            for term in hamiltonian.terms
+        ]
+    else:
+        raise NotImplementedError("Not ready yet!")
+
+
 def expectation(
     circuit: qibo.models.Circuit,
     hamiltonian: SymbolicHamiltonian,
     from_samples: bool = False,
     n_shots: int = 1000,
+    group_pauli_terms=None,
     n_shots_per_pauli_term: bool = True,
     shot_allocation=None,
 ) -> float:
@@ -156,9 +196,16 @@ def expectation(
                 frequencies = result.frequencies(binary=True)
                 total += z_ham.expectation_from_samples(frequencies)
 
-            # XY terms: To handle separately
+            # Split up the X/Y terms in the Hamiltonian with their respective basis rotation gates
+            # (Eventually) measurement_basis_rotations can be used to group up some terms so that one
+            # set of measurements can be used for multiple X/Y terms
             if xy_ham is not None:
-                total += sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in xy_ham.terms)
+                for measurement_gates, xy_terms in measurement_basis_rotations(xy_ham, grouping=group_pauli_terms):
+                    _circuit = circuit.copy()
+                    _circuit.add(measurement_gates)
+                    result = _circuit(nshots=n_shots)
+                    frequencies = result.frequencies(binary=True)
+                    total += sum(pauli_term_measurement_expectation(xy_term, frequencies) for xy_term in xy_terms)
         else:
             # Define shot_allocation list if not given
             if shot_allocation is None:
