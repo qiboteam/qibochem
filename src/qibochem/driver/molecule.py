@@ -22,11 +22,11 @@ class Molecule:
 
     Args:
         geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
-        charge (int): Net charge of molecule
-        multiplicity (int): Spin multiplicity of molecule
+        charge (int): Net electronic charge of molecule
+        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired electrons
         basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
-        xyz_file (str): .xyz file containing the molecular coordinates. The comment line should follow
-            "{charge} {multiplicity}"
+        xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
+            charge and spin multiplity if it is given in this format: "{charge} {multiplicity}"
         active: Iterable representing the set of MOs to be included in the quantum simulation
             e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
@@ -42,7 +42,7 @@ class Molecule:
         else:
             # Check if xyz_file exists, then fill in the Molecule attributes
             assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self._process_xyz_file(xyz_file)
+            self._process_xyz_file(xyz_file, charge, multiplicity)
         if basis is None:
             # Default bais is STO-3G
             self.basis = "sto-3g"
@@ -80,7 +80,7 @@ class Molecule:
         self.n_active_e = None
         self.n_active_orbs = None  # Number of spin-orbitals in the active space
 
-    def _process_xyz_file(self, xyz_file):
+    def _process_xyz_file(self, xyz_file, charge, multiplicity):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
             charge, and multiplicity
@@ -91,7 +91,15 @@ class Molecule:
         with open(xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
             _n_atoms = int(file_handler.readline())  # Not needed/used
-            _charge, _multiplicity = (int(_num) for _num in file_handler.readline().split())
+
+            # Try to read charge and multiplicity from comment line
+            split_line = [int(_num) for _num in file_handler.readline().split()]
+            if len(split_line) == 2:
+                # Format of comment line matches (charge, multiplicity):
+                _charge, _multiplicity = split_line
+            else:
+                # Otherwise, use the default (from __init__) values of 0 and 1
+                _charge, _multiplicity = charge, multiplicity
 
             # Start reading xyz coordinates from the 3rd line onwards
             _geometry = []
@@ -161,78 +169,78 @@ class Molecule:
         tei = np.einsum("pqrs->prsq", eri4)
         self.tei = tei
 
-    def run_psi4(self, output=None):
-        """
-        Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
-            molecular integrals
+    # def run_psi4(self, output=None):
+    #     """
+    #     Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
+    #         molecular integrals
 
-        Args:
-            output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
-                and uses ``psi4_output.dat`` otherwise
-        """
-        import psi4  # pylint: disable=import-error
+    #     Args:
+    #         output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
+    #             and uses ``psi4_output.dat`` otherwise
+    #     """
+    #     import psi4  # pylint: disable=import-error
 
-        # PSI4 input string
-        chgmul_string = f"{self.charge} {self.multiplicity} \n"
-        geom_string = "\n".join("{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1]) for _atom in self.geometry)
-        opt1_string = "\n\nunits angstrom\nsymmetry c1\n"
-        mol_string = f"{chgmul_string}{geom_string}{opt1_string}"
-        # PSI4 calculation options
-        opts = {"basis": self.basis, "scf_type": "direct", "reference": "rhf", "save_jk": True}
-        psi4.core.clean()
-        psi4.set_memory("500 MB")
-        psi4.set_options(opts)
-        # Keep the output file of the PSI4 calculation?
-        if output is None:
-            # Doesn't work on Windows!
-            # See: https://psicode.org/psi4manual/master/api/psi4.core.be_quiet.html
-            try:
-                psi4.core.be_quiet()
-            except RuntimeError:
-                psi4.core.set_output_file("psi4_output.dat", False)
-        else:
-            psi4.core.set_output_file(output, False)
+    #     # PSI4 input string
+    #     chgmul_string = f"{self.charge} {self.multiplicity} \n"
+    #     geom_string = "\n".join("{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1]) for _atom in self.geometry)
+    #     opt1_string = "\n\nunits angstrom\nsymmetry c1\n"
+    #     mol_string = f"{chgmul_string}{geom_string}{opt1_string}"
+    #     # PSI4 calculation options
+    #     opts = {"basis": self.basis, "scf_type": "direct", "reference": "rhf", "save_jk": True}
+    #     psi4.core.clean()
+    #     psi4.set_memory("500 MB")
+    #     psi4.set_options(opts)
+    #     # Keep the output file of the PSI4 calculation?
+    #     if output is None:
+    #         # Doesn't work on Windows!
+    #         # See: https://psicode.org/psi4manual/master/api/psi4.core.be_quiet.html
+    #         try:
+    #             psi4.core.be_quiet()
+    #         except RuntimeError:
+    #             psi4.core.set_output_file("psi4_output.dat", False)
+    #     else:
+    #         psi4.core.set_output_file(output, False)
 
-        # Run HF calculation with PSI4
-        psi4_mol = psi4.geometry(mol_string)
-        ehf, wavefn = psi4.energy("hf", return_wfn=True)
+    #     # Run HF calculation with PSI4
+    #     psi4_mol = psi4.geometry(mol_string)
+    #     ehf, wavefn = psi4.energy("hf", return_wfn=True)
 
-        # Save 1- and 2-body integrals
-        ca = wavefn.Ca()  # MO coefficients
-        self.ca = np.asarray(ca)
-        # 1- electron integrals
-        oei = wavefn.H()  # 'Core' (potential + kinetic) integrals
-        # Convert from AO->MO basis
-        oei = np.einsum("ab,bc->ac", oei, self.ca)
-        oei = np.einsum("ab,ac->bc", self.ca, oei)
+    #     # Save 1- and 2-body integrals
+    #     ca = wavefn.Ca()  # MO coefficients
+    #     self.ca = np.asarray(ca)
+    #     # 1- electron integrals
+    #     oei = wavefn.H()  # 'Core' (potential + kinetic) integrals
+    #     # Convert from AO->MO basis
+    #     oei = np.einsum("ab,bc->ac", oei, self.ca)
+    #     oei = np.einsum("ab,ac->bc", self.ca, oei)
 
-        # 2- electron integrals
-        mints = psi4.core.MintsHelper(wavefn.basisset())
-        tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))  # Need original C_a array, not a np.array
-        tei = np.einsum("pqrs->prsq", tei)
+    #     # 2- electron integrals
+    #     mints = psi4.core.MintsHelper(wavefn.basisset())
+    #     tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))  # Need original C_a array, not a np.array
+    #     tei = np.einsum("pqrs->prsq", tei)
 
-        # Fill in the class attributes
-        self.nelec = (wavefn.nalpha(), wavefn.nbeta())
-        self.nalpha = self.nelec[0]
-        self.nbeta = self.nelec[1]
-        self.e_hf = ehf
-        self.e_nuc = psi4_mol.nuclear_repulsion_energy()
-        self.norb = wavefn.nmo()
-        self.nso = 2 * self.norb
-        self.oei = oei
-        self.tei = tei
-        self.aoeri = np.asarray(mints.ao_eri())
-        self.overlap = np.asarray(wavefn.S())
-        self.eps = np.asarray(wavefn.epsilon_a())
-        self.fa = np.asarray(wavefn.Fa())
-        self.hcore = np.asarray(wavefn.H())
+    #     # Fill in the class attributes
+    #     self.nelec = (wavefn.nalpha(), wavefn.nbeta())
+    #     self.nalpha = self.nelec[0]
+    #     self.nbeta = self.nelec[1]
+    #     self.e_hf = ehf
+    #     self.e_nuc = psi4_mol.nuclear_repulsion_energy()
+    #     self.norb = wavefn.nmo()
+    #     self.nso = 2 * self.norb
+    #     self.oei = oei
+    #     self.tei = tei
+    #     self.aoeri = np.asarray(mints.ao_eri())
+    #     self.overlap = np.asarray(wavefn.S())
+    #     self.eps = np.asarray(wavefn.epsilon_a())
+    #     self.fa = np.asarray(wavefn.Fa())
+    #     self.hcore = np.asarray(wavefn.H())
 
-        self.ja = np.asarray(wavefn.jk().J()[0])
-        self.ka = np.asarray(wavefn.jk().K()[0])
+    #     self.ja = np.asarray(wavefn.jk().J()[0])
+    #     self.ka = np.asarray(wavefn.jk().K()[0])
 
-        ca_occ = self.ca[:, 0 : self.nalpha]
-        self.pa = ca_occ @ ca_occ.T
-        self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+    #     ca_occ = self.ca[:, 0 : self.nalpha]
+    #     self.pa = ca_occ @ ca_occ.T
+    #     self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
     # HF embedding functions
     def _inactive_fock_matrix(self, frozen):
@@ -356,11 +364,7 @@ class Molecule:
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
             return symbolic_hamiltonian(ham)
-        # :DD
-        if ham_type in ("ham", "char siew", "siu yuk", "bacon"):
-            print(f"I like {ham_type} too!")
-            return ham_type  # Yummy!
-        raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
+        # raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
     def eigenvalues(hamiltonian):
@@ -376,8 +380,10 @@ class Molecule:
             from scipy.sparse import linalg
 
             hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
+            # k argument in eigsh will depend on the size of the Hamiltonian
+            n_eigenvals = min(6, hamiltonian_matrix.shape[0] - 2)
             # which=SA and return_eigenvalues=False returns the eigenvalues sorted by absolute value
-            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=6, which="SA", return_eigenvectors=False)
+            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=n_eigenvals, which="SA", return_eigenvectors=False)
             # So need to sort again by their (algebraic) value to get the order: smallest->largest
             return sorted(eigenvalues)
         if isinstance(hamiltonian, SymbolicHamiltonian):

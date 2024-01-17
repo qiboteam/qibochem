@@ -16,10 +16,7 @@ def test_jw_circuit():
     h2_ref_energy = -1.117349035
 
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    try:
-        h2.run_pyscf()
-    except ModuleNotFoundError:
-        h2.run_psi4()
+    h2.run_pyscf()
 
     # JW-HF circuit
     circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map=None)
@@ -38,10 +35,7 @@ def test_bk_circuit_1():
     h2_ref_energy = -1.117349035
 
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    try:
-        h2.run_pyscf()
-    except ModuleNotFoundError:
-        h2.run_psi4()
+    h2.run_pyscf()
 
     # JW-HF circuit
     circuit = hf_circuit(h2.nso, sum(h2.nelec), ferm_qubit_map="bk")
@@ -58,10 +52,7 @@ def test_bk_circuit_2():
     """Tests the HF circuit with the Brayvi-Kitaev mapping for LiH"""
     # Hardcoded benchmark results
     lih = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.3))])
-    try:
-        lih.run_pyscf()
-    except ModuleNotFoundError:
-        lih.run_psi4()
+    lih.run_pyscf()
 
     # JW-HF circuit
     circuit = hf_circuit(lih.nso, sum(lih.nelec), ferm_qubit_map="bk")
@@ -71,3 +62,9 @@ def test_bk_circuit_2():
     hf_energy = expectation(circuit, hamiltonian)
 
     assert lih.e_hf == pytest.approx(hf_energy)
+
+
+def test_mapping_error():
+    """Tests the HF circuit with an incorrect mapping"""
+    with pytest.raises(KeyError):
+        hf_circuit(4, 2, ferm_qubit_map="incorrect")

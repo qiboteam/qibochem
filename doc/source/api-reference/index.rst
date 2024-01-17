@@ -1,3 +1,4 @@
+=============
 API Reference
 =============
 
@@ -6,6 +7,6 @@ In this section we document the main Qibochem components and primitives in the p
 .. toctree::
     :maxdepth: 1
 
-    driver
+    molecule
     ansatz
     measurement
