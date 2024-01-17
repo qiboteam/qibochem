@@ -7,6 +7,32 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
 
 
+def symbolic_term_to_symbol(symbolic_term):
+    """Convert a single Pauli word in the form of a Qibo SymbolicTerm to a Qibo Symbol"""
+    return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
+
+
+def split_xy_z_terms(hamiltonian):
+    """
+    Split up the Z and X/Y terms in a Hamiltonian. If there are either no Z or X/Y terms, returns None for the
+        corresponding z_ham/xy_ham.
+
+    Args:
+        hamiltonian (qibo.hamiltonian.SymbolicHamiltonian): Molecular Hamiltonian
+
+    Returns:
+        z_ham, xy_ham: Two-tuple of SymbolicHamiltonians representing the Z and X/Y terms respectively.
+    """
+    z_only_terms = [
+        term for term in hamiltonian.terms if not any(factor.name[0] in ("X", "Y") for factor in term.factors)
+    ]
+    xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
+    # Convert the sorted SymbolicTerms back to SymbolicHamiltonians
+    z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in z_only_terms)) if z_only_terms else None
+    xy_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in xy_terms)) if xy_terms else None
+    return z_ham, xy_ham
+
+
 def pauli_term_sample_expectation(circuit, pauli_term, n_shots):
     """
     Calculate the expectation value of a general Pauli string for a given circuit ansatz and number of shots
@@ -116,9 +142,23 @@ def expectation(
         Hamiltonian expectation value (float)
     """
     if from_samples:
+        total = 0.0
         # n_shots is used to get the expectation value of each individual Pauli term
         if n_shots_per_pauli_term:
-            total = sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in hamiltonian.terms)
+            # Split up the Z and non-Z terms
+            z_ham, xy_ham = split_xy_z_terms(hamiltonian)
+
+            # Z terms: Can just add M gates to every qubit and use expectation_from_samples directly
+            if z_ham is not None:
+                _circuit = circuit.copy()
+                _circuit.add(gates.M(_qubit) for _qubit in range(_circuit.nqubits))
+                result = _circuit(nshots=n_shots)
+                frequencies = result.frequencies(binary=True)
+                total += z_ham.expectation_from_samples(frequencies)
+
+            # XY terms: To handle separately
+            if xy_ham is not None:
+                total += sum(pauli_term_sample_expectation(circuit, term, n_shots) for term in xy_ham.terms)
         else:
             # Define shot_allocation list if not given
             if shot_allocation is None:
