@@ -5,22 +5,45 @@
 
 Qibochem is a plugin to [Qibo](https://github.com/qiboteam/qibo) for quantum chemistry simulations.
 
-Qibochem key features
+Some of the features of Qibochem are:
 
-* General purpose Molecule class
-  * PySCF or Psi4 for calculation of 1- and 2-electron integrals
+* General purpose `Molecule` class
+  * PySCF for calculating the molecular  1- and 2-electron integrals
   * User defined orbital active space
 * Unitary Coupled Cluster Ansatz
 * Various Qibo backends (numpy, JIT, TN) for efficient simulation
 
-## Installation
+## Documentation
 
-Using poetry
+The Qibochem documentation can be found [here](https://qibo.science/qibochem/stable)
+
+## Minimum working example:
+
+An example of building the UCCD ansatz with a H2 molecule
 
 ```
-git clone https://github.com/qiboteam/qibochem.git
-cd qibochem
-poetry install
+import numpy as np
+from qibo.models import VQE
+
+from qibochem.driver.molecule import Molecule
+from qibochem.ansatz.hf_reference import hf_circuit
+from qibochem.ansatz.ucc import ucc_circuit
+
+# Define the H2 molecule and obtain its 1-/2- electron integrals with PySCF
+h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])
+h2.run_pyscf()
+# Generate the molecular Hamiltonian
+hamiltonian = h2.hamiltonian()
+
+# Build a UCC circuit ansatz for running VQE
+circuit = hf_circuit(h2.nso, sum(h2.nelec))
+circuit += ucc_circuit(h2.nso, [0, 1, 2, 3])
+
+# Create and run the VQE, starting with random initial parameters
+vqe = VQE(circuit, hamiltonian)
+
+initial_parameters = np.random.uniform(0.0, 2*np.pi, 8)
+best, params, extra = vqe.minimize(initial_parameters)
 ```
 
 ## Contributing

@@ -24,7 +24,7 @@ Welcome to the comprehensive documentation for ``Qibochem``! This guide will hel
 you navigate through the various sections and make the most of the resources
 available.
 
-1. **Installation and Setup**: Begin by referring to the
+1. **Getting started**: Begin by referring to the
    :doc:`/getting-started/index` guide to set up the ``Qibochem`` library in your environment.
 
 2. **Tutorials**: Explore the :doc:`/tutorials/index` section for a range of
