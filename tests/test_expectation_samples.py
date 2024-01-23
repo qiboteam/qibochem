@@ -8,8 +8,9 @@ from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Z
 
-from qibochem.driver.molecule import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.driver import Molecule
+from qibochem.measurement import expectation
+from qibochem.measurement.expectation import measurement_basis_rotations
 
 
 def test_expectation_z0():
@@ -45,6 +46,50 @@ def test_expectation_x0_2():
     circuit = Circuit(2)
     result = expectation(circuit, hamiltonian, from_samples=True, n_shots=10000)
     assert pytest.approx(result, abs=0.05) == 0.00
+
+
+def test_measurement_basis_rotations_error():
+    """If unknown measurement grouping scheme used"""
+    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    with pytest.raises(NotImplementedError):
+        _ = measurement_basis_rotations(hamiltonian, 2, grouping="test")
+
+
+def test_expectation_manual_shot_allocation():
+    # State vector: -|1>
+    circuit = Circuit(1)
+    circuit.add(gates.X(0))
+    circuit.add(gates.Z(0))
+    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    shot_allocation = (10, 0)
+    result = expectation(
+        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+    )
+    assert pytest.approx(result) == -1.0
+
+
+def test_expectation_manual_shot_allocation2():
+    # State vector: |1>
+    circuit = Circuit(1)
+    circuit.add(gates.X(0))
+    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    shot_allocation = (0, 100)
+    result = expectation(
+        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+    )
+    assert pytest.approx(result, abs=0.1) == 0.0
+
+
+def test_expectation_invalid_shot_allocation():
+    circuit = Circuit(1)
+    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    shot_allocation = [
+        1,
+    ]
+    with pytest.raises(AssertionError):
+        _ = expectation(
+            circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+        )
 
 
 def test_h2_hf_energy():
