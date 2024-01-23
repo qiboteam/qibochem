@@ -15,7 +15,7 @@ def hea(n_layers, n_qubits, parameter_gates=["RY", "RZ"], coupling_gates="CZ"):
             valid two-qubit ``Qibo`` gate. Default: ``"CZ"``
 
     Returns:
-        List of gates corresponding to the hardware-efficient ansatz
+        ``list``: Gates corresponding to the hardware-efficient ansatz
     """
     gate_list = []
 
