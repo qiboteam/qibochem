@@ -10,7 +10,7 @@ from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
-from qibochem.measurement.expectation import measurement_basis_rotations
+from qibochem.measurement.expectation import allocate_shots, measurement_basis_rotations
 
 
 def test_expectation_z0():
@@ -55,6 +55,14 @@ def test_measurement_basis_rotations_error():
         _ = measurement_basis_rotations(hamiltonian, 2, grouping="test")
 
 
+def test_allocate_shots():
+    hamiltonian = SymbolicHamiltonian(100 * Z(0) + Z(1) + 10 * X(0))
+    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    n_shots = 200
+    # Uniform distribution
+    assert allocate_shots(grouped_terms, method="u", n_shots=n_shots) == [100, 100]
+
+
 def test_expectation_manual_shot_allocation():
     # State vector: -|1>
     circuit = Circuit(1)
@@ -83,9 +91,7 @@ def test_expectation_manual_shot_allocation2():
 def test_expectation_invalid_shot_allocation():
     circuit = Circuit(1)
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    shot_allocation = [
-        1,
-    ]
+    shot_allocation = (1,)
     with pytest.raises(AssertionError):
         _ = expectation(
             circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation

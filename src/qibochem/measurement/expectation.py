@@ -7,6 +7,83 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
 
 
+def allocate_shots(grouped_terms, n_shots=1000, method=None, max_shots_per_term=500, threshold=0.05):
+    """
+    Allocate shots to each group of terms in the Hamiltonian for the calculation of the expectation value
+    TODO: Clean up documentation!
+
+    Args:
+        grouped_terms (list): Output of measurement_basis_rotations(hamiltonian, n_qubits, grouping=None
+        n_shots (int): Total number of shots to be allocated. Default: ``1000``
+        method (str): How to allocate the shots. The available options are: ``c``/``coefficients``: ``n_shots`` is distributed
+            based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
+            amongst each term.
+        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual term
+        threshold: Used in the ``coefficients`` method to decide which terms to ignore, i.e. no shots will be allocated to
+            terms with coefficient < threshold*np.max(term_coefficients)
+
+    Returns:
+        shot_allocation: A list containing the number of shots to be used for each group of Pauli terms respectively
+    """
+    if method is None:
+        method = "c"
+    n_terms = len(grouped_terms)
+    shot_allocation = np.zeros(n_terms, dtype=int)
+
+    while True:
+        remaining_shots = n_shots - sum(shot_allocation)
+        if not remaining_shots:
+            break
+
+        if method in ("c", "coefficients"):
+            pass
+
+        elif method in ("u", "uniform"):
+            # Even distribution of shots for every group of Pauli terms
+            _shot_allocation = np.array([remaining_shots // n_terms for _ in range(n_terms)])
+            if not _shot_allocation.any():  # In case n_shots < n_terms
+                _shot_allocation = np.array(
+                    [1 if _i < remaining_shots else 0 for _i, _shots in enumerate(shot_allocation)]
+                )
+
+        else:
+            raise NameError("Unknown method!")
+
+        # Add on to the current allocation, and set upper limit to the number of shots for a given term
+        shot_allocation += _shot_allocation
+        shot_allocation = np.clip(shot_allocation, 0, max_shots_per_term)
+
+        # In case n_shots is too high s.t. max_shots_per_term is too low
+        # Increase max_shots_per_term, and redo the shot allocation
+        if np.min(shot_allocation) == max_shots_per_term:
+            max_shots_per_term *= 2
+            shot_allocation = np.zeros(n_terms, dtype=int)
+
+    # if method in ("c", "coefficients"):
+    #     # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
+    #     term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
+    #     # Only keep terms that are at least threshold*largest_coefficient
+    #     # Element-wise multiplication of the mask
+    #     term_coefficients *= term_coefficients > threshold * np.max(term_coefficients)
+    #     term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
+    #     shot_allocation = (n_shots * term_coefficients).astype(int)
+    # elif method in ("u", "uniform"):
+    #     # Split evenly amongst all the terms in the Hamiltonian
+    #     shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
+    # else:
+    #     raise NameError("Unknown method!")
+
+    # # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
+    #     remaining_shots = n_shots - sum(shot_allocation)
+    #     if not remaining_shots:
+    #         break
+    #     shot_allocation += np.array(
+    #         [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
+    #     )
+
+    return shot_allocation.astype(int).tolist()
+
+
 def symbolic_term_to_symbol(symbolic_term):
     """Convert a single Pauli word in the form of a Qibo SymbolicTerm to a Qibo Symbol"""
     return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
@@ -28,52 +105,6 @@ def pauli_term_measurement_expectation(pauli_term, frequencies):
     z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
     # Can now apply expectation_from_samples directly
     return z_only_ham.expectation_from_samples(frequencies)
-
-
-def allocate_shots(hamiltonian, n_shots=1000, method=None, threshold=0.05):
-    """
-    Allocate shots to each term in the Hamiltonian for the calculation of the expectation value
-
-    Args:
-        hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
-        n_shots (int): Total number of shots to be allocated. Default: ``1000``
-        method (str): How to allocate the shots. The available options are: ``c``/``coefficients``: ``n_shots`` is distributed
-            based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
-            amongst each term.
-        threshold: Used in the ``coefficients`` method to decide which terms to ignore, i.e. no shots will be allocated to
-            terms with coefficient < threshold*np.max(term_coefficients)
-
-    Returns:
-        shot_allocation: A list containing the number of shots to be used for each Pauli term respectively
-    """
-    if method is None:
-        method = "c"
-    n_terms = len(hamiltonian.terms)
-    shot_allocation = []
-
-    if method in ("c", "coefficients"):
-        # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
-        term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
-        # Only keep terms that are at least threshold*largest_coefficient
-        # Element-wise multiplication of the mask
-        term_coefficients *= term_coefficients > threshold * np.max(term_coefficients)
-        term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
-        shot_allocation = (n_shots * term_coefficients).astype(int)
-    elif method in ("u", "uniform"):
-        # Split evenly amongst all the terms in the Hamiltonian
-        shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
-    else:
-        raise NameError("Unknown method!")
-
-    # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
-    while True:
-        remaining_shots = n_shots - sum(shot_allocation)
-        if not remaining_shots:
-            break
-        shot_allocation += np.array(
-            [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
-        )
-    return shot_allocation.tolist()
 
 
 def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
