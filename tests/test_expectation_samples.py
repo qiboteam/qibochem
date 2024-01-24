@@ -62,6 +62,7 @@ def test_allocate_shots_uniform():
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
     grouped_terms = measurement_basis_rotations(hamiltonian, 1)
     n_shots = 200
+    # Control test; i.e. working normally
     assert allocate_shots(grouped_terms, method="u", n_shots=n_shots) == [100, 100]
 
 
@@ -86,6 +87,16 @@ def test_allocate_shots_coefficient():
         190,
         10,
     ], "max_shots_per_term error: Too big test"
+    # Too few shots to allocate
+    n_shots = 2
+    assert allocate_shots(grouped_terms, n_shots=n_shots) == [1, 1]
+
+
+def test_allocate_shots_input_validity():
+    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
+    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    with pytest.raises(NameError):
+        _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
 
 
 def test_expectation_manual_shot_allocation():
@@ -106,7 +117,7 @@ def test_expectation_manual_shot_allocation2():
     circuit = Circuit(1)
     circuit.add(gates.X(0))
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    shot_allocation = (0, 500)
+    shot_allocation = (0, 1000)
     result = expectation(
         circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
@@ -134,9 +145,13 @@ def test_h2_hf_energy():
     # JW-HF circuit
     circuit = Circuit(4)
     circuit.add(gates.X(_i) for _i in range(2))
-
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
-    hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots=10000)
 
-    assert h2_ref_energy == pytest.approx(hf_energy, abs=0.005)
+    # n_shots (=10000) allocated to each term
+    hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots=10000)
+    assert pytest.approx(hf_energy, abs=0.005) == h2_ref_energy
+
+    # n_shots divided amongst every term
+    hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, n_shots=10000)
+    assert pytest.approx(hf_energy, abs=0.005) == h2_ref_energy
