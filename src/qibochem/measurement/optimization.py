@@ -49,7 +49,7 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     return result
 
 
-def allocate_shots(grouped_terms, n_shots=1000, method=None, max_shots_per_term=500, threshold=0.05):
+def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
     """
     Allocate shots to each group of terms in the Hamiltonian for the calculation of the expectation value
     TODO: Clean up documentation!
@@ -61,14 +61,20 @@ def allocate_shots(grouped_terms, n_shots=1000, method=None, max_shots_per_term=
             based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
             amongst each term.
         max_shots_per_term (int): Upper limit for the number of shots allocated to an individual term
-        threshold: Used in the ``coefficients`` method to decide which terms to ignore, i.e. no shots will be allocated to
-            terms with coefficient < threshold*np.max(term_coefficients)
 
     Returns:
         shot_allocation: A list containing the number of shots to be used for each group of Pauli terms respectively
     """
     if method is None:
         method = "c"
+    if max_shots_per_term is None:
+        # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
+        term_coefficients = np.array(
+            [sum(abs(term.coefficient.real) for term in terms) for (_, terms) in grouped_terms]
+        )
+        max_shots_per_term = int(n_shots * (np.max(term_coefficients) / sum(term_coefficients)))
+        max_shots_per_term = min(max_shots_per_term, 250)  #  Can be explored further?
+
     n_terms = len(grouped_terms)
     shot_allocation = np.zeros(n_terms, dtype=int)
 
@@ -78,7 +84,36 @@ def allocate_shots(grouped_terms, n_shots=1000, method=None, max_shots_per_term=
             break
 
         if method in ("c", "coefficients"):
-            pass
+            # Split shots based on the relative magnitudes of the coefficients of the (group of) Pauli term(s)
+            # and only for terms that haven't reached the upper limit yet
+            term_coefficients = np.array(
+                [
+                    sum(abs(term.coefficient.real) for term in terms) if shots < max_shots_per_term else 0.0
+                    for shots, (_, terms) in zip(shot_allocation, grouped_terms)
+                ]
+            )
+
+            # Normalise term_coefficients, then get an initial distribution of remaining_shots
+            term_coefficients /= sum(term_coefficients)
+            _shot_allocation = (remaining_shots * term_coefficients).astype(int)
+            # Only keep the terms with >0 shots allocated, renormalise term_coefficients, and distribute again
+            term_coefficients *= _shot_allocation > 0
+            _shot_allocation = (remaining_shots * term_coefficients).astype(int)
+
+            # Check that not too many shots have been allocated
+            if sum(_shot_allocation) > remaining_shots:
+                indices_to_deduct = np.nonzero(shot_allocation)[: (sum(_shot_allocation) - remaining_shots)]
+                np.add.at(_shot_allocation, indices_to_deduct, -1)
+
+            # Check to see if shots could be allocated? For distributing the remaining few shots
+            if not _shot_allocation.any():
+                # No shots allocated, need to re-distribute the remaining shots
+                # Check to see which terms have shots allocated, and haven't reached the max shot limit
+                nonzero_indices = np.where((shot_allocation * (shot_allocation < max_shots_per_term)) != 0)[0]
+                # Check if there are enough shots to allocate to the remaining terms equally
+                if remaining_shots < len(nonzero_indices):
+                    nonzero_indices = nonzero_indices[:remaining_shots]
+                np.add.at(_shot_allocation, nonzero_indices, 1)
 
         elif method in ("u", "uniform"):
             # Even distribution of shots for every group of Pauli terms
@@ -100,27 +135,5 @@ def allocate_shots(grouped_terms, n_shots=1000, method=None, max_shots_per_term=
         if np.min(shot_allocation) == max_shots_per_term:
             max_shots_per_term *= 2
             shot_allocation = np.zeros(n_terms, dtype=int)
-
-    # if method in ("c", "coefficients"):
-    #     # Split shots based on the relative magnitudes of the coefficients of the Pauli terms
-    #     term_coefficients = np.array([abs(term.coefficient.real) for term in hamiltonian.terms])
-    #     # Only keep terms that are at least threshold*largest_coefficient
-    #     # Element-wise multiplication of the mask
-    #     term_coefficients *= term_coefficients > threshold * np.max(term_coefficients)
-    #     term_coefficients /= sum(term_coefficients)  # Normalise term_coefficients
-    #     shot_allocation = (n_shots * term_coefficients).astype(int)
-    # elif method in ("u", "uniform"):
-    #     # Split evenly amongst all the terms in the Hamiltonian
-    #     shot_allocation = np.array([n_shots // n_terms for _ in range(n_terms)])
-    # else:
-    #     raise NameError("Unknown method!")
-
-    # # Remaining shots distributed evenly amongst the terms that already have shots allocated to them
-    #     remaining_shots = n_shots - sum(shot_allocation)
-    #     if not remaining_shots:
-    #         break
-    #     shot_allocation += np.array(
-    #         [1 if (_i < remaining_shots and shots) else 0 for _i, shots in enumerate(shot_allocation)]
-    #     )
 
     return shot_allocation.astype(int).tolist()
