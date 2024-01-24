@@ -56,7 +56,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
 
     Args:
         grouped_terms (list): Output of measurement_basis_rotations(hamiltonian, n_qubits, grouping=None
-        n_shots (int): Total number of shots to be allocated. Default: ``1000``
+        n_shots (int): Total number of shots to be allocated
         method (str): How to allocate the shots. The available options are: ``c``/``coefficients``: ``n_shots`` is distributed
             based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
             amongst each term.
@@ -74,6 +74,8 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         )
         max_shots_per_term = int(n_shots * (np.max(term_coefficients) / sum(term_coefficients)))
         max_shots_per_term = min(max_shots_per_term, 250)  #  Can be explored further?
+    # Don't let max_shots_per_term exceed the total number of shots
+    max_shots_per_term = min(n_shots, max_shots_per_term)
 
     n_terms = len(grouped_terms)
     shot_allocation = np.zeros(n_terms, dtype=int)
@@ -82,6 +84,12 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         remaining_shots = n_shots - sum(shot_allocation)
         if not remaining_shots:
             break
+
+        # In case n_shots is too high s.t. max_shots_per_term is too low
+        # Increase max_shots_per_term, and redo the shot allocation
+        if np.min(shot_allocation) == max_shots_per_term:
+            max_shots_per_term = min(2 * max_shots_per_term, n_shots)
+            shot_allocation = np.zeros(n_terms, dtype=int)
 
         if method in ("c", "coefficients"):
             # Split shots based on the relative magnitudes of the coefficients of the (group of) Pauli term(s)
@@ -98,30 +106,25 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             _shot_allocation = (remaining_shots * term_coefficients).astype(int)
             # Only keep the terms with >0 shots allocated, renormalise term_coefficients, and distribute again
             term_coefficients *= _shot_allocation > 0
-            _shot_allocation = (remaining_shots * term_coefficients).astype(int)
+            if _shot_allocation.any():
+                term_coefficients /= sum(term_coefficients)
+                _shot_allocation = (remaining_shots * term_coefficients).astype(int)
+            else:
+                # For distributing the remaining few shots, i.e. remaining_shots << n_terms
+                _shot_allocation = np.array(allocate_shots(grouped_terms, remaining_shots, method="u"))
 
             # Check that not too many shots have been allocated
             if sum(_shot_allocation) > remaining_shots:
                 indices_to_deduct = np.nonzero(shot_allocation)[: (sum(_shot_allocation) - remaining_shots)]
                 np.add.at(_shot_allocation, indices_to_deduct, -1)
 
-            # Check to see if shots could be allocated? For distributing the remaining few shots
-            if not _shot_allocation.any():
-                # No shots allocated, need to re-distribute the remaining shots
-                # Check to see which terms have shots allocated, and haven't reached the max shot limit
-                nonzero_indices = np.where((shot_allocation * (shot_allocation < max_shots_per_term)) != 0)[0]
-                # Check if there are enough shots to allocate to the remaining terms equally
-                if remaining_shots < len(nonzero_indices):
-                    nonzero_indices = nonzero_indices[:remaining_shots]
-                np.add.at(_shot_allocation, nonzero_indices, 1)
-
         elif method in ("u", "uniform"):
-            # Even distribution of shots for every group of Pauli terms
+            # Uniform distribution of shots for every term. Extra shots are randomly distributed
             _shot_allocation = np.array([remaining_shots // n_terms for _ in range(n_terms)])
-            if not _shot_allocation.any():  # In case n_shots < n_terms
-                _shot_allocation = np.array(
-                    [1 if _i < remaining_shots else 0 for _i, _shots in enumerate(shot_allocation)]
-                )
+            if not _shot_allocation.any():
+                _shot_allocation = np.zeros(n_terms)
+                _shot_allocation[:remaining_shots] = 1
+                np.random.shuffle(_shot_allocation)
 
         else:
             raise NameError("Unknown method!")
@@ -130,10 +133,5 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         shot_allocation += _shot_allocation
         shot_allocation = np.clip(shot_allocation, 0, max_shots_per_term)
 
-        # In case n_shots is too high s.t. max_shots_per_term is too low
-        # Increase max_shots_per_term, and redo the shot allocation
-        if np.min(shot_allocation) == max_shots_per_term:
-            max_shots_per_term *= 2
-            shot_allocation = np.zeros(n_terms, dtype=int)
-
-    return shot_allocation.astype(int).tolist()
+    return shot_allocation.tolist()
+    # return shot_allocation.astype(int).tolist()
