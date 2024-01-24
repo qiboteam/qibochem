@@ -6,11 +6,14 @@ Test expectation functionality
 import pytest
 from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import X, Z
+from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
-from qibochem.measurement.expectation import allocate_shots, measurement_basis_rotations
+from qibochem.measurement.optimization import (
+    allocate_shots,
+    measurement_basis_rotations,
+)
 
 
 def test_expectation_z0():
@@ -55,12 +58,34 @@ def test_measurement_basis_rotations_error():
         _ = measurement_basis_rotations(hamiltonian, 2, grouping="test")
 
 
-def test_allocate_shots():
-    hamiltonian = SymbolicHamiltonian(100 * Z(0) + Z(1) + 10 * X(0))
+def test_allocate_shots_uniform():
+    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
     grouped_terms = measurement_basis_rotations(hamiltonian, 1)
     n_shots = 200
-    # Uniform distribution
     assert allocate_shots(grouped_terms, method="u", n_shots=n_shots) == [100, 100]
+
+
+def test_allocate_shots_coefficient():
+    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
+    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    n_shots = 200
+    # Default arguments
+    assert allocate_shots(grouped_terms, n_shots=n_shots) == [190, 10], "Default arguments error!"
+    # Reasonable max_shots_per_term test
+    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=100) == [
+        100,
+        100,
+    ], "max_shots_per_term error!"
+    # Too small max_shots_per_term test
+    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=25) == [
+        100,
+        100,
+    ], "max_shots_per_term error: Too small test"
+    # Too big max_shots_per_term test
+    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=1000) == [
+        190,
+        10,
+    ], "max_shots_per_term error: Too big test"
 
 
 def test_expectation_manual_shot_allocation():
@@ -81,7 +106,7 @@ def test_expectation_manual_shot_allocation2():
     circuit = Circuit(1)
     circuit.add(gates.X(0))
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    shot_allocation = (0, 100)
+    shot_allocation = (0, 500)
     result = expectation(
         circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
