@@ -111,12 +111,9 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
                 _shot_allocation = (remaining_shots * term_coefficients).astype(int)
             else:
                 # For distributing the remaining few shots, i.e. remaining_shots << n_terms
-                _shot_allocation = np.array(allocate_shots(grouped_terms, remaining_shots, method="u"))
-
-            # Check that not too many shots have been allocated
-            if sum(_shot_allocation) > remaining_shots:
-                indices_to_deduct = np.nonzero(shot_allocation)[: (sum(_shot_allocation) - remaining_shots)]
-                np.add.at(_shot_allocation, indices_to_deduct, -1)
+                _shot_allocation = np.array(
+                    allocate_shots(grouped_terms, remaining_shots, max_shots_per_term=remaining_shots, method="u")
+                )
 
         elif method in ("u", "uniform"):
             # Uniform distribution of shots for every term. Extra shots are randomly distributed
