@@ -87,9 +87,14 @@ def test_allocate_shots_coefficient():
         190,
         10,
     ], "max_shots_per_term error: Too big test"
-    # Too few shots to allocate
-    n_shots = 2
-    assert allocate_shots(grouped_terms, n_shots=n_shots) == [1, 1]
+
+
+def test_allocate_shots_coefficient_edges():
+    """Edge cases of allocate_shots"""
+    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    n_shots = 1
+    assert allocate_shots(grouped_terms, n_shots=n_shots) in ([0, 1], [1, 0])
 
 
 def test_allocate_shots_input_validity():

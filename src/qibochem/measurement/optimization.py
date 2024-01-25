@@ -72,7 +72,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         term_coefficients = np.array(
             [sum(abs(term.coefficient.real) for term in terms) for (_, terms) in grouped_terms]
         )
-        max_shots_per_term = int(n_shots * (np.max(term_coefficients) / sum(term_coefficients)))
+        max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
         max_shots_per_term = min(max_shots_per_term, 250)  #  Can be explored further?
     # Don't let max_shots_per_term exceed the total number of shots
     max_shots_per_term = min(n_shots, max_shots_per_term)
@@ -90,6 +90,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         if np.min(shot_allocation) == max_shots_per_term:
             max_shots_per_term = min(2 * max_shots_per_term, n_shots)
             shot_allocation = np.zeros(n_terms, dtype=int)
+            continue
 
         if method in ("c", "coefficients"):
             # Split shots based on the relative magnitudes of the coefficients of the (group of) Pauli term(s)
@@ -127,8 +128,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             raise NameError("Unknown method!")
 
         # Add on to the current allocation, and set upper limit to the number of shots for a given term
-        shot_allocation += _shot_allocation
+        shot_allocation += _shot_allocation.astype(int)
         shot_allocation = np.clip(shot_allocation, 0, max_shots_per_term)
 
     return shot_allocation.tolist()
-    # return shot_allocation.astype(int).tolist()
