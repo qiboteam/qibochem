@@ -129,7 +129,7 @@ def br_circuit(n_qubits, parameters, n_occ):
         n_occ: Number of occupied orbitals
 
     Returns:
-        Qibo ``Circuit`` corresponding to the basis rotation ansatz between the occupied and virtual orbitals
+        Qibo ``Circuit``: Circuit corresponding to the basis rotation ansatz between the occupied and virtual orbitals
     """
     assert len(parameters) == (n_occ * (n_qubits - n_occ)), "Need len(parameters) == (n_occ * n_virt)"
     # Unitary rotation matrix \exp(\kappa)

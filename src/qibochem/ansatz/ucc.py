@@ -6,6 +6,8 @@ import numpy as np
 import openfermion
 from qibo import gates, models
 
+from qibochem.ansatz.hf_reference import hf_circuit
+
 
 def expi_pauli(n_qubits, theta, pauli_string):
     """
@@ -66,13 +68,13 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
         excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta: UCC parameter. Defaults to 0.0
-        trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with \theta = \theta / trotter_steps
+        trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with ``theta`` = ``theta / trotter_steps``. Default: 1
         ferm_qubit_map: Fermion-to-qubit transformation. Default is Jordan-Wigner (``jw``).
         coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
             May be useful in running the VQE. WARNING: Will be modified in this function
 
     Returns:
-        Qibo ``Circuit`` corresponding to a single UCC excitation
+        Qibo ``Circuit``: Circuit corresponding to a single UCC excitation
     """
     # Check size of orbitals input
     n_orbitals = len(excitation)
@@ -116,31 +118,37 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 # Utility functions
 
 
-def mp2_amplitude(orbitals, orbital_energies, tei):
+def mp2_amplitude(excitation, orbital_energies, tei):
     """
-    Calculate the MP2 guess amplitudes to be used in the UCC doubles ansatz
-        In SO basis: t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)
+    Calculate the MP2 guess amplitude for a single UCC circuit: 0.0 for a single excitation.
+        for a double excitation (In SO basis): t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)
 
     Args:
-        orbitals: list of spin-orbitals representing a double excitation, must have exactly
-            4 elements
+        excitation: Iterable of spin-orbitals representing a excitation. Must have either 2 or 4 elements exactly,
+            representing a single or double excitation respectively.
         orbital_energies: eigenvalues of the Fock operator, i.e. orbital energies
         tei: Two-electron integrals in MO basis and second quantization notation
-    """
-    # Checks orbitals
-    assert len(orbitals) == 4, f"{orbitals} must have only 4 orbitals for a double excitation"
-    # Convert orbital indices to be in MO basis
-    mo_orbitals = [_orb // 2 for _orb in orbitals]
 
+    Returns:
+        MP2 guess amplitude (float)
+    """
+    # Checks validity of excitation argument
+    assert len(excitation) % 2 == 0 and len(excitation) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
+    # If single excitation, can just return 0.0 directly
+    if len(excitation) == 2:
+        return 0.0
+
+    # Convert orbital indices to be in MO basis
+    mo_orbitals = [orbital // 2 for orbital in excitation]
     # Numerator: g_ijab - g_ijba
     g_ijab = (
         tei[tuple(mo_orbitals)]  # Can index directly using the MO TEIs
-        if (orbitals[0] + orbitals[3]) % 2 == 0 and (orbitals[1] + orbitals[2]) % 2 == 0
+        if (excitation[0] + excitation[3]) % 2 == 0 and (excitation[1] + excitation[2]) % 2 == 0
         else 0.0
     )
     g_ijba = (
         tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])]  # Reverse last two terms
-        if (orbitals[0] + orbitals[2]) % 2 == 0 and (orbitals[1] + orbitals[3]) % 2 == 0
+        if (excitation[0] + excitation[2]) % 2 == 0 and (excitation[1] + excitation[3]) % 2 == 0
         else 0.0
     )
     numerator = g_ijab - g_ijba
@@ -166,9 +174,9 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
     if order > min(len(excite_from), len(excite_to)):
         return [[]]
 
+    # Generate all possible excitations first
     from itertools import combinations
 
-    # Generate all possible excitations first
     all_excitations = [
         [*_from, *_to] for _from in combinations(excite_from, order) for _to in combinations(excite_to, order)
     ]
@@ -228,7 +236,7 @@ def sort_excitations(excitations):
                 pair_excitations = sorted(pair_excitations)
                 ex_to_remove = pair_excitations.pop(0)
                 if ex_to_remove in copy_excitations:
-                    # 'Move' the first entry of same_mo_index from copy_excitations to result
+                    # 'Move' the first pair excitation from copy_excitations to result
                     index = copy_excitations.index(ex_to_remove)
                     result.append(copy_excitations.pop(index))
 
@@ -253,77 +261,96 @@ def sort_excitations(excitations):
                     result.append(copy_excitations.pop(index))
             prev = None
             continue
-        # Remove the first entry from the sorted list of remaining excitations and add it to result
-        prev = copy_excitations.pop(0)
-        result.append(prev)
+        if copy_excitations:
+            # Remove the first entry from the sorted list of remaining excitations and add it to result
+            prev = copy_excitations.pop(0)
+            result.append(prev)
     return result
 
 
-# def ucc_ansatz(molecule, excitation_level=None, excitations=None, thetas=None, trotter_steps=1, ferm_qubit_map=None):
-#     """
-#     Build a circuit corresponding to the UCC ansatz with multiple excitations for a given Molecule.
-#         If no excitations are given, it defaults to returning the full UCCSD circuit ansatz for the
-#         Molecule.
-#
-#     Args:
-#         molecule: Molecule of interest.
-#         excitation_level: Include excitations up to how many electrons, i.e. ("S", "D", "T", "Q")
-#             Ignored if `excitations` argument is given. Default is "D", i.e. double excitations
-#         excitations: List of excitations (e.g. `[[0, 1, 2, 3], [0, 1, 4, 5]]`) used to build the
-#             UCC circuit. Overrides the `excitation_level` argument
-#         thetas: Parameters for the excitations. Defaults to an array of zeros if not given
-#         trotter_steps: number of Trotter steps; i.e. number of times the UCC ansatz is applied with
-#             theta=theta/trotter_steps. Default is 1
-#         ferm_qubit_map: fermion-to-qubit transformation. Default is Jordan-Wigner ("jw")
-#
-#     Returns:
-#         circuit: Qibo Circuit corresponding to the UCC ansatz
-#     """
-#     # Get the number of electrons and virtual orbitals from the molecule argument
-#     n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e
-#     n_orbs = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
-#
-#     # Define the excitation level to be used if no excitations given
-#     if excitations is None:
-#         excitation_levels = ("S", "D", "T", "Q")
-#         if excitation_level is None:
-#             excitation_level = "D"
-#         else:
-#             # Check validity of input
-#             assert len(excitation_level) == 1 and excitation_level.upper() in excitation_levels
-#             # Note: Probably don't be too ambitious and try to do 'T'/'Q' at the moment...
-#             if excitation_level.upper() in ("T", "Q"):
-#                 raise NotImplementedError("Cannot handle triple and quadruple excitations!")
-#         # Get the (largest) order of excitation to use
-#         excitation_order = excitation_levels.index(excitation_level.upper()) + 1
-#
-#         # Generate and sort all the possible excitations
-#         excitations = []
-#         for order in range(excitation_order, 0, -1):  # Reversed to get higher excitations first
-#             excitations += sort_excitations(generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs)))
-#     else:
-#         # Some checks to ensure the given excitations are valid
-#         assert all(len(_ex) % 2 == 0 for _ex in excitations), "Excitation with an odd number of elements found!"
-#
-#     # Check if thetas argument given, define to be all zeros if not
-#     # TODO: Unsure if want to use MP2 guess amplitudes for the doubles? Some say good, some say bad
-#     # Number of circuit parameters: S->2, D->8, (T/Q->32/128; Not sure?)
-#     n_parameters = 2 * len([_ex for _ex in excitations if len(_ex) == 2])  # Singles
-#     n_parameters += 8 * len([_ex for _ex in excitations if len(_ex) == 4])  # Doubles
-#     if thetas is None:
-#         thetas = np.zeros(n_parameters)
-#     else:
-#         # Check that number of circuit variables (i.e. thetas) matches the number of circuit parameters
-#         assert len(thetas) == n_parameters, "Number of input parameters doesn't match the number of circuit parameters!"
-#
-#     # Build the circuit
-#     circuit = models.Circuit(n_orbs)
-#     for excitation, theta in zip(excitations, thetas):
-#         # coeffs = []
-#         circuit += ucc_circuit(
-#             n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map  # , coeffs=coeffs)
-#         )
-#         # if isinstance(all_coeffs, list):
-#         #     all_coeffs.append(np.array(coeffs))
-#
-#     return circuit
+def ucc_ansatz(
+    molecule,
+    excitation_level=None,
+    excitations=None,
+    thetas=None,
+    trotter_steps=1,
+    ferm_qubit_map=None,
+    include_hf=True,
+    use_mp2_guess=True,
+):
+    """
+    Convenience function for buildng a circuit corresponding to the UCC ansatz with multiple excitations for a given ``Molecule``.
+    If no excitations are given, it defaults to returning the full UCCSD circuit ansatz.
+
+    Args:
+        molecule: The ``Molecule`` of interest.
+        excitation_level: Include excitations up to how many electrons, i.e. ``"S"`` or ``"D"``.
+            Ignored if ``excitations`` argument is given. Default: ``"D"``, i.e. double excitations
+        excitations: List of excitations (e.g. ``[[0, 1, 2, 3], [0, 1, 4, 5]]``) used to build the
+            UCC circuit. Overrides the ``excitation_level`` argument
+        thetas: Parameters for the excitations. Default value depends on the ``use_mp2_guess`` argument.
+        trotter_steps: number of Trotter steps; i.e. number of times the UCC ansatz is applied with
+            ``theta`` = ``theta / trotter_steps``. Default: 1
+        ferm_qubit_map: fermion-to-qubit transformation. Default: Jordan-Wigner (``"jw"``)
+        include_hf: Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
+        use_mp2_guess: Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter. Default: ``True``;
+            use the MP2 amplitudes as the default guess parameters
+
+    Returns:
+        Qibo ``Circuit``: Circuit corresponding to an UCC ansatz
+    """
+    # Get the number of electrons and spin-orbitals from the molecule argument
+    n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e
+    n_orbs = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
+
+    # Define the excitation level to be used if no excitations given
+    if excitations is None:
+        excitation_levels = ("S", "D", "T", "Q")
+        if excitation_level is None:
+            excitation_level = "D"
+        else:
+            # Check validity of input
+            assert (
+                len(excitation_level) == 1 and excitation_level.upper() in excitation_levels
+            ), "Unknown input for excitation_level"
+            # Note: Probably don't be too ambitious and try to do 'T'/'Q' at the moment...
+            if excitation_level.upper() in ("T", "Q"):
+                raise NotImplementedError("Cannot handle triple and quadruple excitations!")
+        # Get the (largest) order of excitation to use
+        excitation_order = excitation_levels.index(excitation_level.upper()) + 1
+
+        # Generate and sort all the possible excitations
+        excitations = []
+        for order in range(excitation_order, 0, -1):  # Reversed to get higher excitations first
+            excitations += sort_excitations(generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs)))
+    else:
+        # Some checks to ensure the given excitations are valid
+        assert all(len(_ex) % 2 == 0 for _ex in excitations), "Excitation with an odd number of elements found!"
+
+    # Check if thetas argument given, define to be all zeros if not
+    # Number of circuit parameters: S->2, D->8, (T/Q->32/128; Not sure?)
+    n_parameters = 2 * len([_ex for _ex in excitations if len(_ex) == 2])  # Singles
+    n_parameters += 8 * len([_ex for _ex in excitations if len(_ex) == 4])  # Doubles
+    if thetas is None:
+        if use_mp2_guess:
+            thetas = np.array([mp2_amplitude(excitation, molecule.eps, molecule.tei) for excitation in excitations])
+        else:
+            thetas = np.zeros(n_parameters)
+    else:
+        # Check that number of circuit variables (i.e. thetas) matches the number of circuit parameters
+        assert len(thetas) == n_parameters, "Number of input parameters doesn't match the number of circuit parameters!"
+
+    # Build the circuit
+    if include_hf:
+        circuit = hf_circuit(n_orbs, n_elec, ferm_qubit_map=ferm_qubit_map)
+    else:
+        circuit = models.Circuit(n_orbs)
+    for excitation, theta in zip(excitations, thetas):
+        # coeffs = []
+        circuit += ucc_circuit(
+            n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map  # , coeffs=coeffs)
+        )
+        # if isinstance(all_coeffs, list):
+        #     all_coeffs.append(np.array(coeffs))
+
+    return circuit
