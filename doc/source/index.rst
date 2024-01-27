@@ -4,6 +4,9 @@
 What is Qibochem?
 =================
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg
+  :target: https://doi.org/10.5281/zenodo.10473173
+
 Qibochem is a plugin to Qibo for quantum chemistry simulations.
 
 Key features of Qibochem:
