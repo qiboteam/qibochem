@@ -2,6 +2,7 @@
 
 ![Tests](https://github.com/qiboteam/qibochem/workflows/Tests/badge.svg)
 [![codecov](https://codecov.io/gh/qiboteam/qibochem/graph/badge.svg?token=2CMDZP1GU2)](https://codecov.io/gh/qiboteam/qibochem)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg)](https://doi.org/10.5281/zenodo.10473173)
 
 Qibochem is a plugin to [Qibo](https://github.com/qiboteam/qibo) for quantum chemistry simulations.
 
@@ -48,9 +49,7 @@ best, params, extra = vqe.minimize(initial_parameters)
 
 ## Citation policy
 
-If you use Qibochem in your research, please cite the following Zenodo DOI:
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg)](https://doi.org/10.5281/zenodo.10473173)
+If you use the Qibochem plugin please refer to the documentation for citation instructions.
 
 ## Contact
 
