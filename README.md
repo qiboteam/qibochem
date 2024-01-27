@@ -46,6 +46,16 @@ initial_parameters = np.random.uniform(0.0, 2*np.pi, 8)
 best, params, extra = vqe.minimize(initial_parameters)
 ```
 
+## Citation policy
+
+If you use Qibochem in your research, please cite the following Zenodo DOI:
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg)](https://doi.org/10.5281/zenodo.10473173)
+
+## Contact
+
+For questions, comments and suggestions please contact us at [https://matrix.to/#/#qibo:matrix.org](url)
+
 ## Contributing
 
 Contributions, issues and feature requests are welcome.
