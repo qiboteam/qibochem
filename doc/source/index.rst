@@ -55,6 +55,12 @@ Contents
     developer-guides/index
 
 .. toctree::
+    :maxdepth: 2
+    :caption: Appendix
+
+    appendix/citing-qibochem
+
+.. toctree::
     :maxdepth: 1
     :caption: Documentation links
 
@@ -62,7 +68,7 @@ Contents
     Qibolab docs <https://qibo.science/qibolab/stable/>
     Qibocal docs <https://qibo.science/qibocal/stable/>
     Qibosoq docs <https://qibo.science/qibosoq/stable/>
-
+    Qibochem docs <https://qibo.science/qibochem/stable/>
 
 Indices and tables
 ==================
