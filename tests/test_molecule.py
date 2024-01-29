@@ -1,6 +1,7 @@
 """
 Test Molecule class functions
 """
+
 from pathlib import Path
 
 import numpy as np
