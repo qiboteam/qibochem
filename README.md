@@ -2,6 +2,7 @@
 
 ![Tests](https://github.com/qiboteam/qibochem/workflows/Tests/badge.svg)
 [![codecov](https://codecov.io/gh/qiboteam/qibochem/graph/badge.svg?token=2CMDZP1GU2)](https://codecov.io/gh/qiboteam/qibochem)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg)](https://doi.org/10.5281/zenodo.10473173)
 
 Qibochem is a plugin to [Qibo](https://github.com/qiboteam/qibo) for quantum chemistry simulations.
 
@@ -45,6 +46,14 @@ vqe = VQE(circuit, hamiltonian)
 initial_parameters = np.random.uniform(0.0, 2*np.pi, 8)
 best, params, extra = vqe.minimize(initial_parameters)
 ```
+
+## Citation policy
+
+If you use the Qibochem plugin please refer to the documentation for citation instructions.
+
+## Contact
+
+For questions, comments and suggestions please contact us at [https://matrix.to/#/#qibo:matrix.org](url)
 
 ## Contributing
 
