@@ -3,7 +3,6 @@ Example of the basis rotation circuit with H3+ molecule. Starts with the guess w
     and runs the VQE to obtain the HF energy.
 """
 
-
 import numpy as np
 from qibo.optimizers import optimize
 from scipy.optimize import minimize
