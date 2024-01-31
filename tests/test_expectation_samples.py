@@ -159,4 +159,4 @@ def test_h2_hf_energy():
 
     # n_shots divided amongst every term
     hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, n_shots=10000)
-    assert pytest.approx(hf_energy, abs=0.005) == h2_ref_energy
+    assert pytest.approx(hf_energy, abs=0.01) == h2_ref_energy

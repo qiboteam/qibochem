@@ -11,11 +11,13 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
         hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
         n_qubits: Number of qubits in the quantum circuit.
         grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the expectation
-            values of a group of terms simultaneously. Default value of ``None`` will not group any terms together
+            values of a group of terms simultaneously. Default value of ``None`` will not group any terms together, which is
+            the only option currently implemented.
 
     Returns:
-        List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]),
-        where term1, term2, ... are SymbolicTerms. The first term always corresponds to all the Z terms present.
+        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
+        term1, term2, ... are SymbolicTerms. The first tuple always corresponds to all the Z terms present, which will be two
+        empty lists - ``([], [])`` - if there are no Z terms present.
     """
     result = []
     # Split up the Z and X/Y terms first
@@ -51,19 +53,19 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
 
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
     """
-    Allocate shots to each group of terms in the Hamiltonian for the calculation of the expectation value
-    TODO: Clean up documentation!
+    Allocate shots to each group of terms in the Hamiltonian for calculating the expectation value of the Hamiltonian.
 
     Args:
         grouped_terms (list): Output of measurement_basis_rotations(hamiltonian, n_qubits, grouping=None
         n_shots (int): Total number of shots to be allocated
-        method (str): How to allocate the shots. The available options are: ``c``/``coefficients``: ``n_shots`` is distributed
-            based on the relative magnitudes of the term coefficients, ``u``/``uniform``: ``n_shots`` is distributed evenly
-            amongst each term.
-        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual term
+        method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is distributed
+            based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots`` is distributed evenly
+            amongst each term. Default value: ``"c"``.
+        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual group of terms. If not given,
+            will be defined as a fraction (largest coefficient over the sum of all coefficients in the Hamiltonian) of ``n_shots``.
 
     Returns:
-        shot_allocation: A list containing the number of shots to be used for each group of Pauli terms respectively
+        list: A list containing the number of shots to be used for each group of Pauli terms respectively.
     """
     if method is None:
         method = "c"
@@ -73,9 +75,8 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             [sum(abs(term.coefficient.real) for term in terms) for (_, terms) in grouped_terms]
         )
         max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
-        max_shots_per_term = min(max_shots_per_term, 250)  #  Can be explored further?
-    # Don't let max_shots_per_term exceed the total number of shots
-    max_shots_per_term = min(n_shots, max_shots_per_term)
+        # max_shots_per_term = min(max_shots_per_term, 250)  #  Is there an optimal value - Explore further?
+    max_shots_per_term = min(n_shots, max_shots_per_term)  # Don't let max_shots_per_term > n_shots if manually defined
 
     n_terms = len(grouped_terms)
     shot_allocation = np.zeros(n_terms, dtype=int)

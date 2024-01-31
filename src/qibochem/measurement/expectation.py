@@ -25,7 +25,7 @@ def pauli_term_measurement_expectation(pauli_term, frequencies):
         frequencies: Measurement frequencies, taken from MeasurementOutcomes.frequencies(binary=True)
 
     Returns:
-        Expectation value of the pauli_term (float)
+        float: Expectation value of pauli_term
     """
     # Replace every (non-I) Symbol with Z, then include the term coefficient
     pauli_z = [Z(int(factor.target_qubit)) for factor in pauli_term.factors if factor.name[0] != "I"]
@@ -49,20 +49,21 @@ def expectation(
 
     Args:
         circuit (qibo.models.Circuit): Quantum circuit ansatz
-        hamiltonian (SymbolicHamiltonian): Molecular Hamiltonian
-        from_samples (Boolean): Whether the expectation value calculation uses samples or the simulated
+        hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        from_samples (bool): Whether the expectation value calculation uses samples or the simulated
             state vector. Default: ``False``; Results are from a state vector simulation
         n_shots (int): Number of times the circuit is run if ``from_samples=True``. Default: ``1000``
-        group_pauli_terms: Whether or not to group Pauli X/Y terms in the Hamiltonian together to reduce the measurement cost
-            TODO: Draft code and documentation!
-        n_shots_per_pauli_term (Boolean): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
+        group_pauli_terms: Whether or not to group Pauli X/Y terms in the Hamiltonian together to reduce the measurement cost.
+            Default: ``None``; each of the Hamiltonian terms containing X/Y are in their own individual groups.
+        n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
             *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
             term in the Hamiltonian.
-        shot_allocation: Iterable containing the number of shots to be allocated to each term in the Hamiltonian respectively.
-            Default: ``None``; then the ``allocate_shots`` function is called to build the list.
+        shot_allocation: Iterable containing the number of shots to be allocated to each term in the Hamiltonian respectively if
+            n_shots_per_pauli_term is ``False``. Default: ``None``; shots are allocated based on the magnitudes of the coefficients
+            of the Hamiltonian terms.
 
     Returns:
-        Hamiltonian expectation value (float)
+        float: Hamiltonian expectation value
     """
     if not from_samples:
         # Expectation value from state vector simulation
