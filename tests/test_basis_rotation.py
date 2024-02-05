@@ -82,12 +82,12 @@ def test_br_ansatz():
 
     # Define quantum circuit
     circuit = Circuit(mol.nso)
-    circuit.add(gates.X(_i) for _i in range(sum(mol.nelec)))
+    circuit.add(gates.X(_i) for _i in range(mol.nelec))
 
     # Add basis rotation ansatz
     # Initialize all at zero
-    parameters = np.zeros(sum(mol.nelec) * (mol.nso - sum(mol.nelec)))  # n_occ * n_virt
-    circuit += basis_rotation.br_circuit(mol.nso, parameters, sum(mol.nelec))
+    parameters = np.zeros(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
+    circuit += basis_rotation.br_circuit(mol.nso, parameters, mol.nelec)
 
     def electronic_energy(parameters):
         """

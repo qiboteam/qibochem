@@ -214,18 +214,28 @@ def test_symbolic_hamiltonian():
     assert np.allclose(h2_sym_ham.matrix, ref_sym_ham.matrix)
 
 
-@pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
-def test_run_psi4():
-    """PSI4 driver"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
-    h2_ref_hcore = np.array([[-1.14765024, -1.00692423], [-1.00692423, -1.14765024]])
-
+def test_hamiltonian_input_error():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_psi4()
+    h2.e_nuc = 0.0
+    h2.oei = np.random.rand(4, 4)
+    h2.tei = np.random.rand(4, 4, 4, 4)
+    with pytest.raises(NameError):
+        h2.hamiltonian("ihpc")
 
-    assert h2.e_hf == pytest.approx(h2_ref_energy)
-    assert np.allclose(h2.hcore, h2_ref_hcore)
+
+# Commenting out since not actively supporting PSI4 at the moment
+# @pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
+# def test_run_psi4():
+#     """PSI4 driver"""
+#     # Hardcoded benchmark results
+#     h2_ref_energy = -1.117349035
+#     h2_ref_hcore = np.array([[-1.14765024, -1.00692423], [-1.00692423, -1.14765024]])
+#
+#     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+#     h2.run_psi4()
+#
+#     assert h2.e_hf == pytest.approx(h2_ref_energy)
+#     assert np.allclose(h2.hcore, h2_ref_hcore)
 
 
 def test_expectation_value():
@@ -238,7 +248,7 @@ def test_expectation_value():
 
     # JW-HF circuit
     circuit = models.Circuit(h2.nso)
-    circuit.add(gates.X(_i) for _i in range(sum(h2.nelec)))
+    circuit.add(gates.X(_i) for _i in range(h2.nelec))
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
     hf_energy = expectation(circuit, hamiltonian)
