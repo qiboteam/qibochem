@@ -49,18 +49,19 @@ class Molecule:
         else:
             self.basis = basis
 
+        self.nelec = None  #: Total number of electrons for the molecule
+        self.norb = None  #: Number of molecular orbitals considered for the molecule
+        self.nso = None  #: Number of molecular spin-orbitals considered for the molecule
+        self.e_hf = None  #: Hartree-Fock energy
+        self.oei = None  #: One-electron integrals
+        self.tei = None  #: Two-electron integrals, order follows the second quantization notation
+
         self.ca = None
         self.pa = None
         self.da = None
-        self.nelec = None
         self.nalpha = None
         self.nbeta = None
-        self.oei = None
-        self.tei = None
-        self.e_hf = None
         self.e_nuc = None
-        self.norb = None
-        self.nso = None
         self.overlap = None
         self.eps = None
         self.fa = None
@@ -70,15 +71,15 @@ class Molecule:
         self.aoeri = None
 
         # For HF embedding
-        self.active = active  # List of active MOs included in the active space
+        self.active = active  #: Iterable of molecular orbitals included in the active space
         self.frozen = None
 
         self.inactive_energy = None
         self.embed_oei = None
         self.embed_tei = None
 
-        self.n_active_e = None
-        self.n_active_orbs = None  # Number of spin-orbitals in the active space
+        self.n_active_e = None  #: Number of electrons included in the active space if HF embedding is used
+        self.n_active_orbs = None  #: Number of spin-orbitals in the active space if HF embedding is used
 
     def _process_xyz_file(self, xyz_file, charge, multiplicity):
         """
@@ -136,9 +137,9 @@ class Molecule:
 
         # Save results from HF calculation
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
-        self.nelec = pyscf_mol.nelec
-        self.nalpha = self.nelec[0]
-        self.nbeta = self.nelec[1]
+        self.nalpha = pyscf_mol.nelec[0]
+        self.nbeta = pyscf_mol.nelec[1]
+        self.nelec = sum(pyscf_mol.nelec)
         self.e_hf = pyscf_job.e_tot  # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
         self.norb = self.ca.shape[1]
@@ -220,9 +221,9 @@ class Molecule:
     #     tei = np.einsum("pqrs->prsq", tei)
 
     #     # Fill in the class attributes
-    #     self.nelec = (wavefn.nalpha(), wavefn.nbeta())
-    #     self.nalpha = self.nelec[0]
-    #     self.nbeta = self.nelec[1]
+    #     self.nelec = sum(wavefn.nalpha(), wavefn.nbeta())
+    #     self.nalpha = wavefn.nalpha()
+    #     self.nbeta = wavefn.nbeta()
     #     self.e_hf = ehf
     #     self.e_nuc = psi4_mol.nuclear_repulsion_energy()
     #     self.norb = wavefn.nmo()
@@ -288,7 +289,7 @@ class Molecule:
         assert max(active) < self.norb and min(active) >= 0, "Active space must be between 0 " "and the number of MOs"
         if frozen:
             assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
-            assert max(frozen) + 1 < sum(self.nelec) // 2 and min(frozen) >= 0, (
+            assert max(frozen) + 1 < self.nelec // 2 and min(frozen) >= 0, (
                 "Frozen orbitals must" " be occupied orbitals"
             )
 
@@ -309,7 +310,7 @@ class Molecule:
         self.active = active
         self.frozen = frozen
         self.n_active_orbs = 2 * len(active)
-        self.n_active_e = sum(self.nelec) - 2 * len(self.frozen)
+        self.n_active_e = self.nelec - 2 * len(self.frozen)
 
     def hamiltonian(
         self,
@@ -364,7 +365,7 @@ class Molecule:
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
             return symbolic_hamiltonian(ham)
-        # raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
+        raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
     def eigenvalues(hamiltonian):
