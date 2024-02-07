@@ -60,7 +60,7 @@ def test_molecule_custom_basis():
     assert np.isclose(mol.e_hf, -7.94129296352493)
 
 
-def test_hf_embedding_1():
+def test_hf_embedding():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.run_pyscf()
     ref_oei = mol.oei
@@ -71,10 +71,6 @@ def test_hf_embedding_1():
     assert np.allclose(embed_oei, ref_oei)
     assert np.allclose(embed_tei, ref_tei)
 
-
-def test_hf_embedding_2():
-    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
-    mol.run_pyscf()
     mol.frozen = [0]
     mol.active = [1, 2]
     mol.hf_embedding()
