@@ -72,7 +72,7 @@ class Molecule:
 
         # For HF embedding
         self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None
+        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
         self.inactive_energy = None
         self.embed_oei = None
@@ -341,11 +341,11 @@ class Molecule:
         if ham_type is None:
             ham_type = "sym"
         if oei is None:
-            oei = self.oei
+            oei = self.oei if self.embed_oei is None else self.embed_oei
         if tei is None:
-            tei = self.tei
+            tei = self.tei if self.embed_tei is None else self.embed_tei
         if constant is None:
-            constant = 0.0
+            constant = 0.0 if self.inactive_energy is None else self.inactive_energy
         if ferm_qubit_map is None:
             ferm_qubit_map = "jw"
 
