@@ -281,50 +281,41 @@ class Molecule:
 
         _active, _frozen = None, None
         if active is None:
+            # No arguments given
             if frozen is None:
                 # Default active: Full set of orbitals, frozen: empty list
                 _active = list(range(n_orbs))
                 _frozen = []
+            # Only frozen argument given
+            else:
+                if frozen:
+                    # Non-empty frozen space must be occupied orbitals
+                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
+                _frozen = frozen
+                # Default active: All orbitals not in frozen
+                _active = [_i for _i in range(n_orbs) if _i not in _frozen]
+        # active argument given
         else:
             # Check that active argument is valid
             assert max(active) < n_orbs and min(active) >= 0, "Active space must be between 0 and the number of MOs"
             _active = active
-            # active, frozen arguments both given
-            if frozen is not None:
+            # frozen argument not given
+            if frozen is None:
+                # Default frozen: All occupied orbitals not in active
+                _frozen = [_i for _i in range(n_occ_orbs) if _i not in _active]
+            # active, frozen arguments both given:
+            else:
                 # Check that active/frozen arguments don't overlap
                 assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
-                # Frozen space must be occupied orbitals
-                assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
+                if frozen:
+                    # Non-empty frozen space must be occupied orbitals
+                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
                 # All occupied orbitals have to be in active or frozen
                 assert all(
                     _occ in set(active + frozen) for _occ in range(n_occ_orbs)
                 ), "All occupied orbitals have to be in either the active or frozen space"
                 # Hopefully no more problems with the input
                 _frozen = frozen
-            # frozen argument not given
-            else:
-                # Default frozen: All occupied orbitals not in active
-                _frozen = [_i for _i in range(n_occ_orbs) if _i not in _active]
-
-        """
-            if self.active is None:
-                _active = list(range(self.norb))
-            else:
-                _active = self.active
-        if frozen is None:
-            if self.frozen is None:
-                _frozen = [_i for _i in range(self.nalpha) if _i not in _active]
-            else:
-                _frozen = self.frozen
-
-        # Check that arguments are valid
-        assert max(_active) < self.norb and min(_active) >= 0, "Active space must be between 0 " "and the number of MOs"
-        if _frozen:
-            assert not (set(_active) & set(_frozen)), "Active and frozen space cannot overlap"
-            assert max(_frozen) + 1 < self.nelec // 2 and min(_frozen) >= 0, (
-                "Frozen orbitals must" " be occupied orbitals"
-            )
-        """
         return _active, _frozen
 
     def hf_embedding(self, active=None, frozen=None):
