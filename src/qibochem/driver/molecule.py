@@ -264,6 +264,69 @@ class Molecule:
                     inactive_fock[_p][_q] += 2 * self.tei[_orb][_p][_q][_orb] - self.tei[_orb][_p][_orb][_q]
         return inactive_fock
 
+    def _active_space(self, active, frozen):
+        """
+        Helper function to check the input for active/frozen space and define the default values
+        for them where necessary
+
+        Args:
+            active: Iterable representing the active-space for quantum simulation
+            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+
+        Returns:
+            _active, _frozen: Iterables representing the active/frozen space
+        """
+        n_orbs = self.norb
+        n_occ_orbs = self.nalpha
+
+        _active, _frozen = None, None
+        if active is None:
+            if frozen is None:
+                # Default active: Full set of orbitals, frozen: empty list
+                _active = list(range(n_orbs))
+                _frozen = []
+        else:
+            # Check that active argument is valid
+            assert max(active) < n_orbs and min(active) >= 0, "Active space must be between 0 and the number of MOs"
+            _active = active
+            # active, frozen arguments both given
+            if frozen is not None:
+                # Check that active/frozen arguments don't overlap
+                assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
+                # Frozen space must be occupied orbitals
+                assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
+                # All occupied orbitals have to be in active or frozen
+                assert all(
+                    _occ in set(active + frozen) for _occ in range(n_occ_orbs)
+                ), "All occupied orbitals have to be in either the active or frozen space"
+                # Hopefully no more problems with the input
+                _frozen = frozen
+            # frozen argument not given
+            else:
+                # Default frozen: All occupied orbitals not in active
+                _frozen = [_i for _i in range(n_occ_orbs) if _i not in _active]
+
+        """
+            if self.active is None:
+                _active = list(range(self.norb))
+            else:
+                _active = self.active
+        if frozen is None:
+            if self.frozen is None:
+                _frozen = [_i for _i in range(self.nalpha) if _i not in _active]
+            else:
+                _frozen = self.frozen
+
+        # Check that arguments are valid
+        assert max(_active) < self.norb and min(_active) >= 0, "Active space must be between 0 " "and the number of MOs"
+        if _frozen:
+            assert not (set(_active) & set(_frozen)), "Active and frozen space cannot overlap"
+            assert max(_frozen) + 1 < self.nelec // 2 and min(_frozen) >= 0, (
+                "Frozen orbitals must" " be occupied orbitals"
+            )
+        """
+        return _active, _frozen
+
     def hf_embedding(self, active=None, frozen=None):
         """
         Turns on HF embedding for a given active/frozen space, and fills in the class attributes:
@@ -273,25 +336,15 @@ class Molecule:
             active: Iterable representing the active-space for quantum simulation
             frozen: Iterable representing the occupied orbitals to be removed from the simulation
         """
-        # Default arguments for active and frozen
-        if active is None:
-            if self.active is None:
-                active = list(range(self.norb))
-            else:
-                active = self.active
-        if frozen is None:
-            if self.frozen is None:
-                frozen = [_i for _i in range(self.nalpha) if _i not in active]
-            else:
-                frozen = self.frozen
-
-        # Check that arguments are valid
-        assert max(active) < self.norb and min(active) >= 0, "Active space must be between 0 " "and the number of MOs"
-        if frozen:
-            assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
-            assert max(frozen) + 1 < self.nelec // 2 and min(frozen) >= 0, (
-                "Frozen orbitals must" " be occupied orbitals"
-            )
+        # Default arguments for active and frozen if no arguments given
+        if active is None and frozen is None:
+            _active, _frozen = self._active_space(self.active, self.frozen)
+        else:
+            # active/frozen arguments given, process them using _active_space similarly
+            _active, _frozen = self._active_space(active, frozen)
+        # Update the class attributes with the checked arguments
+        self.active = _active
+        self.frozen = _frozen
 
         # Build the inactive Fock matrix first
         inactive_fock = self._inactive_fock_matrix(frozen)
