@@ -338,22 +338,20 @@ class Molecule:
         self.frozen = _frozen
 
         # Build the inactive Fock matrix first
-        inactive_fock = self._inactive_fock_matrix(frozen)
+        inactive_fock = self._inactive_fock_matrix(self.frozen)
 
         # Calculate the inactive Fock energy
         # Only want frozen part of original OEI and inactive Fock matrix
-        _oei = self.oei[np.ix_(frozen, frozen)]
-        _inactive_fock = inactive_fock[np.ix_(frozen, frozen)]
+        _oei = self.oei[np.ix_(self.frozen, self.frozen)]
+        _inactive_fock = inactive_fock[np.ix_(self.frozen, self.frozen)]
         self.inactive_energy = np.einsum("ii->", _oei + _inactive_fock)
 
         # Keep only the active part
-        self.embed_oei = inactive_fock[np.ix_(active, active)]
-        self.embed_tei = self.tei[np.ix_(active, active, active, active)]
+        self.embed_oei = inactive_fock[np.ix_(self.active, self.active)]
+        self.embed_tei = self.tei[np.ix_(self.active, self.active, self.active, self.active)]
 
-        # Update class attributes
-        self.active = active
-        self.frozen = frozen
-        self.n_active_orbs = 2 * len(active)
+        # Update other class attributes
+        self.n_active_orbs = 2 * len(self.active)
         self.n_active_e = self.nelec - 2 * len(self.frozen)
 
     def hamiltonian(
