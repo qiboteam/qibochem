@@ -60,6 +60,36 @@ def test_molecule_custom_basis():
     assert np.isclose(mol.e_hf, -7.94129296352493)
 
 
+def test_define_active_space():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.nalpha = 2
+    mol.norb = 6
+    # Default arguments: Nothing given
+    assert mol._active_space(None, None) == (list(range(mol.norb)), [])
+    # Default frozen argument if active given
+    assert mol._active_space([1, 2, 5], None) == ([1, 2, 5], [0])
+    # Default active argument if frozen given
+    assert mol._active_space(None, [0]) == (list(range(1, 6)), [0])
+    # active, frozen arguments both given
+    assert mol._active_space([0, 1, 2, 3], []) == (list(range(4)), [])
+
+
+def test_define_active_space_assertions():
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.nalpha = 2
+    mol.norb = 6
+
+    # Invalid active argument
+    with pytest.raises(AssertionError):
+        _ = mol._active_space([10], None)
+    # Invalid frozen argument
+    with pytest.raises(AssertionError):
+        _ = mol._active_space(None, [100])
+    # active/frozen spaces overlap
+    with pytest.raises(AssertionError):
+        _ = mol._active_space([0, 1], [0])
+
+
 def test_hf_embedding():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.run_pyscf()
