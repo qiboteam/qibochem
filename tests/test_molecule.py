@@ -72,6 +72,8 @@ def test_define_active_space():
     assert mol._active_space(None, [0]) == (list(range(1, 6)), [0])
     # active, frozen arguments both given
     assert mol._active_space([0, 1, 2, 3], []) == (list(range(4)), [])
+    # active, frozen arguments both given
+    assert mol._active_space([1, 2, 3], [0]) == (list(range(1, 4)), [0])
 
 
 def test_define_active_space_assertions():
@@ -91,10 +93,10 @@ def test_define_active_space_assertions():
 
 
 def test_hf_embedding():
-    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))], active=[0])
     mol.run_pyscf()
     # Remove all virtual orbitals from the active space
-    mol.hf_embedding(active=[0])
+    mol.hf_embedding()
     # Check that the class attributes have been updated correctly
     assert mol.frozen == []
     assert mol.n_active_orbs == 2
