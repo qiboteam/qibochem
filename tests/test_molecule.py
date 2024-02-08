@@ -91,21 +91,18 @@ def test_define_active_space_assertions():
 
 
 def test_hf_embedding():
-    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     mol.run_pyscf()
-    ref_oei = mol.oei
-    ref_tei = mol.tei
-    mol.hf_embedding()
-    embed_oei = mol.embed_oei
-    embed_tei = mol.embed_tei
-    assert np.allclose(embed_oei, ref_oei)
-    assert np.allclose(embed_tei, ref_tei)
-
-    mol.frozen = [0]
-    mol.active = [1, 2]
-    mol.hf_embedding()
-    assert mol.n_active_orbs == 4
+    # Remove all virtual orbitals from the active space
+    mol.hf_embedding(active=[0])
+    # Check that the class attributes have been updated correctly
+    assert mol.frozen == []
+    assert mol.n_active_orbs == 2
     assert mol.n_active_e == 2
+    # OEI/TEI (in MO basis) for the occupied orbitals should remain unchanged
+    dim = mol.n_active_orbs // 2
+    assert np.allclose(mol.embed_oei, mol.oei[:dim, :dim])
+    assert np.allclose(mol.embed_tei, mol.tei[:dim, :dim, :dim, :dim])
 
 
 def test_fermionic_hamiltonian():
