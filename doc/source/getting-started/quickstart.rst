@@ -25,7 +25,7 @@ Here is an example of building the UCCD ansatz with the H2 molecule to test your
     hamiltonian = h2.hamiltonian()
 
     # Build a UCC circuit ansatz for running VQE
-    circuit = hf_circuit(h2.nso, sum(h2.nelec))
+    circuit = hf_circuit(h2.nso, h2.nelec)
     circuit += ucc_circuit(h2.nso, [0, 1, 2, 3])
 
     # Create and run the VQE, starting with random initial parameters

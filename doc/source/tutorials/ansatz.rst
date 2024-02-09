@@ -120,7 +120,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 
     # Set parameters for the rest of the experiment
     n_qubits = mol.nso
-    n_electrons = mol.nalpha + mol.nbeta
+    n_electrons = mol.nelec
 
     # Build UCCD circuit
     circuit = hf_circuit(n_qubits, n_electrons) # Start with HF circuit
