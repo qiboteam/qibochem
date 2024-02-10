@@ -300,7 +300,7 @@ def ucc_ansatz(
         Qibo ``Circuit``: Circuit corresponding to an UCC ansatz
     """
     # Get the number of electrons and spin-orbitals from the molecule argument
-    n_elec = sum(molecule.nelec) if molecule.n_active_e is None else molecule.n_active_e
+    n_elec = molecule.nelec if molecule.n_active_e is None else molecule.n_active_e
     n_orbs = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
 
     # Define the excitation level to be used if no excitations given
