@@ -363,16 +363,23 @@ class Molecule:
         ferm_qubit_map=None,
     ):
         """
-        Builds a molecular Hamiltonian using the one-/two- electron integrals
+        Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
+        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` attributes are all not ``None``), the
+        corresponding values for the molecular integrals will be used instead.
 
         Args:
             ham_type: Format of molecular Hamiltonian returned. The available options are:
                 ``("f", "ferm")``: OpenFermion ``FermionOperator``,
                 ``("q", "qubit")``: OpenFermion ``QubitOperator``, or
                 ``("s", "sym")``: Qibo ``SymbolicHamiltonian`` (default)
-            oei: 1-electron integrals. Default: ``self.oei`` (MO basis)
-            tei: 2-electron integrals in 2ndQ notation. Default: ``self.tei`` (MO basis)
-            constant: For inactive Fock energy if embedding used. Default: 0.0
+            oei: 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute , unless
+                the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
+            tei: 2-electron integrals in the second-quantization notation (and MO basis). The default value is the
+                ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then ``embed_tei``
+                is used.
+            constant: Constant value to be added to the electronic energy. Mainly used for adding the inactive Fock
+                energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute exists
+                and is not ``None``, then ``inactive_energy`` is used.
             ferm_qubit_map: Which fermion to qubit transformation to use.
                 Must be either ``jw`` (default) or ``bk``
 
