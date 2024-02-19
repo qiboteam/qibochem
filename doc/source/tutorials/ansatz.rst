@@ -88,6 +88,7 @@ The following example demonstrates how the energy of the H2 molecule is affected
     |   0.2 |   0.673325849299  |
     -----------------------------
 
+.. _UCC Ansatz:
 
 Unitary Coupled Cluster Ansatz
 ------------------------------

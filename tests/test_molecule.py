@@ -60,26 +60,51 @@ def test_molecule_custom_basis():
     assert np.isclose(mol.e_hf, -7.94129296352493)
 
 
-def test_hf_embedding_1():
+def test_define_active_space():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
-    mol.run_pyscf()
-    ref_oei = mol.oei
-    ref_tei = mol.tei
-    mol.hf_embedding()
-    embed_oei = mol.embed_oei
-    embed_tei = mol.embed_tei
-    assert np.allclose(embed_oei, ref_oei)
-    assert np.allclose(embed_tei, ref_tei)
+    mol.nalpha = 2
+    mol.norb = 6
+    # Default arguments: Nothing given
+    assert mol._active_space(None, None) == (list(range(mol.norb)), [])
+    # Default frozen argument if active given
+    assert mol._active_space([1, 2, 5], None) == ([1, 2, 5], [0])
+    # Default active argument if frozen given
+    assert mol._active_space(None, [0]) == (list(range(1, 6)), [0])
+    # active, frozen arguments both given
+    assert mol._active_space([0, 1, 2, 3], []) == (list(range(4)), [])
+    # active, frozen arguments both given
+    assert mol._active_space([1, 2, 3], [0]) == (list(range(1, 4)), [0])
 
 
-def test_hf_embedding_2():
+def test_define_active_space_assertions():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
+    mol.nalpha = 2
+    mol.norb = 6
+
+    # Invalid active argument
+    with pytest.raises(AssertionError):
+        _ = mol._active_space([10], None)
+    # Invalid frozen argument
+    with pytest.raises(AssertionError):
+        _ = mol._active_space(None, [100])
+    # active/frozen spaces overlap
+    with pytest.raises(AssertionError):
+        _ = mol._active_space([0, 1], [0])
+
+
+def test_hf_embedding():
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))], active=[0])
     mol.run_pyscf()
-    mol.frozen = [0]
-    mol.active = [1, 2]
+    # Remove all virtual orbitals from the active space
     mol.hf_embedding()
-    assert mol.n_active_orbs == 4
+    # Check that the class attributes have been updated correctly
+    assert mol.frozen == []
+    assert mol.n_active_orbs == 2
     assert mol.n_active_e == 2
+    # OEI/TEI (in MO basis) for the occupied orbitals should remain unchanged
+    dim = mol.n_active_orbs // 2
+    assert np.allclose(mol.embed_oei, mol.oei[:dim, :dim])
+    assert np.allclose(mol.embed_tei, mol.tei[:dim, :dim, :dim, :dim])
 
 
 def test_fermionic_hamiltonian():

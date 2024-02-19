@@ -72,7 +72,7 @@ class Molecule:
 
         # For HF embedding
         self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None
+        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
         self.inactive_energy = None
         self.embed_oei = None
@@ -264,6 +264,60 @@ class Molecule:
                     inactive_fock[_p][_q] += 2 * self.tei[_orb][_p][_q][_orb] - self.tei[_orb][_p][_orb][_q]
         return inactive_fock
 
+    def _active_space(self, active, frozen):
+        """
+        Helper function to check the input for active/frozen space and define the default values
+        for them where necessary
+
+        Args:
+            active: Iterable representing the active-space for quantum simulation
+            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+
+        Returns:
+            _active, _frozen: Iterables representing the active/frozen space
+        """
+        n_orbs = self.norb
+        n_occ_orbs = self.nalpha
+
+        _active, _frozen = None, None
+        if active is None:
+            # No arguments given
+            if frozen is None:
+                # Default active: Full set of orbitals, frozen: empty list
+                _active = list(range(n_orbs))
+                _frozen = []
+            # Only frozen argument given
+            else:
+                if frozen:
+                    # Non-empty frozen space must be occupied orbitals
+                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
+                _frozen = frozen
+                # Default active: All orbitals not in frozen
+                _active = [_i for _i in range(n_orbs) if _i not in _frozen]
+        # active argument given
+        else:
+            # Check that active argument is valid
+            assert max(active) < n_orbs and min(active) >= 0, "Active space must be between 0 and the number of MOs"
+            _active = active
+            # frozen argument not given
+            if frozen is None:
+                # Default frozen: All occupied orbitals not in active
+                _frozen = [_i for _i in range(n_occ_orbs) if _i not in _active]
+            # active, frozen arguments both given:
+            else:
+                # Check that active/frozen arguments don't overlap
+                assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
+                if frozen:
+                    # Non-empty frozen space must be occupied orbitals
+                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
+                # All occupied orbitals have to be in active or frozen
+                assert all(
+                    _occ in set(active + frozen) for _occ in range(n_occ_orbs)
+                ), "All occupied orbitals have to be in either the active or frozen space"
+                # Hopefully no more problems with the input
+                _frozen = frozen
+        return _active, _frozen
+
     def hf_embedding(self, active=None, frozen=None):
         """
         Turns on HF embedding for a given active/frozen space, and fills in the class attributes:
@@ -273,43 +327,31 @@ class Molecule:
             active: Iterable representing the active-space for quantum simulation
             frozen: Iterable representing the occupied orbitals to be removed from the simulation
         """
-        # Default arguments for active and frozen
-        if active is None:
-            if self.active is None:
-                active = list(range(self.norb))
-            else:
-                active = self.active
-        if frozen is None:
-            if self.frozen is None:
-                frozen = [_i for _i in range(self.nalpha) if _i not in active]
-            else:
-                frozen = self.frozen
-
-        # Check that arguments are valid
-        assert max(active) < self.norb and min(active) >= 0, "Active space must be between 0 " "and the number of MOs"
-        if frozen:
-            assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
-            assert max(frozen) + 1 < self.nelec // 2 and min(frozen) >= 0, (
-                "Frozen orbitals must" " be occupied orbitals"
-            )
+        # Default arguments for active and frozen if no arguments given
+        if active is None and frozen is None:
+            _active, _frozen = self._active_space(self.active, self.frozen)
+        else:
+            # active/frozen arguments given, process them using _active_space similarly
+            _active, _frozen = self._active_space(active, frozen)
+        # Update the class attributes with the checked arguments
+        self.active = _active
+        self.frozen = _frozen
 
         # Build the inactive Fock matrix first
-        inactive_fock = self._inactive_fock_matrix(frozen)
+        inactive_fock = self._inactive_fock_matrix(self.frozen)
 
         # Calculate the inactive Fock energy
         # Only want frozen part of original OEI and inactive Fock matrix
-        _oei = self.oei[np.ix_(frozen, frozen)]
-        _inactive_fock = inactive_fock[np.ix_(frozen, frozen)]
+        _oei = self.oei[np.ix_(self.frozen, self.frozen)]
+        _inactive_fock = inactive_fock[np.ix_(self.frozen, self.frozen)]
         self.inactive_energy = np.einsum("ii->", _oei + _inactive_fock)
 
         # Keep only the active part
-        self.embed_oei = inactive_fock[np.ix_(active, active)]
-        self.embed_tei = self.tei[np.ix_(active, active, active, active)]
+        self.embed_oei = inactive_fock[np.ix_(self.active, self.active)]
+        self.embed_tei = self.tei[np.ix_(self.active, self.active, self.active, self.active)]
 
-        # Update class attributes
-        self.active = active
-        self.frozen = frozen
-        self.n_active_orbs = 2 * len(active)
+        # Update other class attributes
+        self.n_active_orbs = 2 * len(self.active)
         self.n_active_e = self.nelec - 2 * len(self.frozen)
 
     def hamiltonian(
@@ -321,16 +363,23 @@ class Molecule:
         ferm_qubit_map=None,
     ):
         """
-        Builds a molecular Hamiltonian using the one-/two- electron integrals
+        Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
+        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` attributes are all not ``None``), the
+        corresponding values for the molecular integrals will be used instead.
 
         Args:
             ham_type: Format of molecular Hamiltonian returned. The available options are:
                 ``("f", "ferm")``: OpenFermion ``FermionOperator``,
                 ``("q", "qubit")``: OpenFermion ``QubitOperator``, or
                 ``("s", "sym")``: Qibo ``SymbolicHamiltonian`` (default)
-            oei: 1-electron integrals. Default: ``self.oei`` (MO basis)
-            tei: 2-electron integrals in 2ndQ notation. Default: ``self.tei`` (MO basis)
-            constant: For inactive Fock energy if embedding used. Default: 0.0
+            oei: 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute , unless
+                the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
+            tei: 2-electron integrals in the second-quantization notation (and MO basis). The default value is the
+                ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then ``embed_tei``
+                is used.
+            constant: Constant value to be added to the electronic energy. Mainly used for adding the inactive Fock
+                energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute exists
+                and is not ``None``, then ``inactive_energy`` is used.
             ferm_qubit_map: Which fermion to qubit transformation to use.
                 Must be either ``jw`` (default) or ``bk``
 
@@ -341,11 +390,11 @@ class Molecule:
         if ham_type is None:
             ham_type = "sym"
         if oei is None:
-            oei = self.oei
+            oei = self.oei if self.embed_oei is None else self.embed_oei
         if tei is None:
-            tei = self.tei
+            tei = self.tei if self.embed_tei is None else self.embed_tei
         if constant is None:
-            constant = 0.0
+            constant = 0.0 if self.inactive_energy is None else self.inactive_energy
         if ferm_qubit_map is None:
             ferm_qubit_map = "jw"
 
