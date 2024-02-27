@@ -19,30 +19,9 @@ from qibochem.measurement.optimization import (
 @pytest.mark.parametrize(
     "terms,gates_to_add,expected,threshold",
     [
-        (
-            Z(0),
-            [
-                gates.X(0),
-            ],
-            -1.0,
-            None,
-        ),
-        (
-            Z(0) * Z(1),
-            [
-                gates.X(0),
-            ],
-            -1.0,
-            None,
-        ),
-        (
-            X(0),
-            [
-                gates.H(0),
-            ],
-            1.0,
-            None,
-        ),
+        (Z(0), [gates.X(0)], -1.0, None),
+        (Z(0) * Z(1), [gates.X(0)], -1.0, None),
+        (X(0), [gates.H(0)], 1.0, None),
         (X(0), [gates.X(0), gates.X(0)], 0.0, 0.05),
     ],
 )
