@@ -17,64 +17,33 @@ from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
 
-def test_generate_excitations_1():
-    ex1 = generate_excitations(1, [0, 1], [2, 3])
-    ref_ex1 = np.array([[0, 2], [1, 3]])
-
-    assert np.allclose(ex1, ref_ex1)
-
-
-def test_generate_excitations_2():
-    ex2 = generate_excitations(2, [0, 1], [2, 3])
-    ref_ex2 = np.array([[0, 1, 2, 3]])
-
-    assert np.allclose(ex2, ref_ex2)
-
-
-def test_generate_excitations_3():
-    ex3 = generate_excitations(3, [0, 1], [2, 3])
-
-    assert np.allclose(ex3, [[]])
+@pytest.mark.parametrize(
+    "order,excite_from,excite_to,expected",
+    [
+        (1, [0, 1], [2, 3], [[0, 2], [1, 3]]),
+        (2, [2, 3], [4, 5], [[2, 3, 4, 5]]),
+        (3, [0, 1], [2, 3], [[]]),
+    ],
+)
+def test_generate_excitations(order, excite_from, excite_to, expected):
+    """Test generation of all possible excitations between two lists of orbitals"""
+    test = generate_excitations(order, excite_from, excite_to)
+    assert test == expected
 
 
-def test_sort_excitations_1():
-    ex1 = generate_excitations(1, [0, 1], [2, 3, 4, 5])
-    sorted_excitations = sort_excitations(ex1)
-    ref_sorted_ex1 = np.array([[0, 2], [1, 3], [0, 4], [1, 5]])
-
-    assert np.allclose(sorted_excitations, ref_sorted_ex1)
-
-
-def test_sort_excitations_2():
-    ex2 = generate_excitations(2, [0, 1, 2, 3], [4, 5, 6, 7])
-    sorted_excitations = sort_excitations(ex2)
-    ref_sorted_ex2 = np.array(
-        [
-            [0, 1, 4, 5],
-            [0, 1, 6, 7],
-            [2, 3, 4, 5],
-            [2, 3, 6, 7],
-            [0, 1, 4, 7],
-            [0, 1, 5, 6],
-            [2, 3, 4, 7],
-            [2, 3, 5, 6],
-            [0, 3, 4, 5],
-            [1, 2, 4, 5],
-            [0, 3, 6, 7],
-            [1, 2, 6, 7],
-            [0, 2, 4, 6],
-            [1, 3, 5, 7],
-            [0, 3, 4, 7],
-            [0, 3, 5, 6],
-            [1, 2, 4, 7],
-            [1, 2, 5, 6],
-        ]
-    )
-
-    assert np.allclose(sorted_excitations, ref_sorted_ex2)
+@pytest.mark.parametrize(
+    "order,excite_from,excite_to,expected",
+    [
+        (1, [0, 1], [2, 3, 4, 5], [[0, 2], [1, 3], [0, 4], [1, 5]]),
+        (2, [0, 1], [2, 3, 4, 5], [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4]]),
+    ],
+)
+def test_sort_excitations(order, excite_from, excite_to, expected):
+    test = sort_excitations(generate_excitations(order, excite_from, excite_to))
+    assert test == expected
 
 
-def test_sort_excitations_3():
+def test_sort_excitations_triples():
     with pytest.raises(NotImplementedError):
         sort_excitations([[1, 2, 3, 4, 5, 6]])
 
