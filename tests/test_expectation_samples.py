@@ -2,11 +2,10 @@
 Test expectation functionality
 """
 
-# import numpy as np
 import pytest
 from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import X, Y, Z
+from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
