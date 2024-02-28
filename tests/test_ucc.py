@@ -1,3 +1,7 @@
+"""
+Tests for the UCC ansatz and related functions
+"""
+
 from functools import partial
 
 import numpy as np
