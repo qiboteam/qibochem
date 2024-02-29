@@ -16,17 +16,12 @@ For the H\ :sub:`2` case discussed in previous sections, a possible hardware eff
 
 .. code-block:: python
 
-    from qibo import Circuit
+    from qibochem.ansatz import hea_circuit
 
-    from qibochem.ansatz import hardware_efficient
-
-    nlayers = 1
     nqubits = 4
-    nfermions = 2
+    nlayers = 1
 
-    circuit = Circuit(4)
-    hardware_efficient_ansatz = hardware_efficient.hea(nlayers, nqubits)
-    circuit.add(hardware_efficient_ansatz)
+    circuit = hea_circuit(nqubits, nlayers)
     print(circuit.draw())
 
 .. code-block:: output
@@ -43,11 +38,10 @@ The following example demonstrates how the energy of the H2 molecule is affected
 .. code-block:: python
 
     import numpy as np
-    from qibo import Circuit
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
     from qibochem.measurement.expectation import expectation
-    from qibochem.ansatz import hardware_efficient
+    from qibochem.ansatz import hea_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
@@ -57,10 +51,7 @@ The following example demonstrates how the energy of the H2 molecule is affected
     nlayers = 1
     nqubits = mol.nso
     ntheta = 2 * nqubits * nlayers
-    hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
-
-    circuit = Circuit(nqubits)
-    circuit.add(hea_ansatz)
+    circuit = hea_circuit(nqubits, nlayers)
 
     print("Energy expectation values for thetas: ")
     print("-----------------------------")

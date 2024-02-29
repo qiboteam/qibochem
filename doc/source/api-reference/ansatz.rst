@@ -2,12 +2,12 @@
 Ansatz
 ======
 
-This section covers the API reference for various chemistry ansatzes.
+This section covers the API reference for various chemistry circuit ansatzes.
 
 Hardware-efficient
 ------------------
 
-.. autofunction:: qibochem.ansatz.hardware_efficient.hea
+.. autofunction:: qibochem.ansatz.hardware_efficient.hea_circuit
 
 
 Hartree-Fock
