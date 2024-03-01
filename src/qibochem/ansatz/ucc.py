@@ -42,7 +42,7 @@ def expi_pauli(n_qubits, pauli_string, theta):
     # 2. Add CNOTs to all pairs of qubits in pauli_ops, starting from the last letter
     circuit.add(gates.CNOT(pauli_ops[_i][0], pauli_ops[_i - 1][0]) for _i in range(n_pauli_ops - 1, 0, -1))
     # 3. Add RZ gate to last element of pauli_ops
-    circuit.add(gates.RZ(pauli_ops[0][0], theta))
+    circuit.add(gates.RZ(pauli_ops[0][0], rz_parameter))
     # 4. Add CNOTs to all pairs of qubits in pauli_ops
     circuit.add(gates.CNOT(pauli_ops[_i + 1][0], pauli_ops[_i][0]) for _i in range(n_pauli_ops - 1))
     # 3. Change back to the Z basis
@@ -55,7 +55,7 @@ def expi_pauli(n_qubits, pauli_string, theta):
     return circuit
 
 
-def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
+def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None):
     r"""
     Circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
@@ -66,8 +66,6 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
         theta: UCC parameter. Defaults to 0.0
         trotter_steps: Number of Trotter steps; i.e. number of times the UCC ansatz is applied with ``theta`` = ``theta / trotter_steps``. Default: 1
         ferm_qubit_map: Fermion-to-qubit transformation. Default is Jordan-Wigner (``jw``).
-        coeffs: List to hold the coefficients for the rotation parameter in each Pauli string.
-            May be useful in running the VQE. WARNING: Will be modified in this function
 
     Returns:
         Qibo ``Circuit``: Circuit corresponding to a single UCC excitation
@@ -343,11 +341,5 @@ def ucc_ansatz(
     else:
         circuit = Circuit(n_orbs)
     for excitation, theta in zip(excitations, thetas):
-        # coeffs = []
-        circuit += ucc_circuit(
-            n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map  # , coeffs=coeffs)
-        )
-        # if isinstance(all_coeffs, list):
-        #     all_coeffs.append(np.array(coeffs))
-
+        circuit += ucc_circuit(n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map)
     return circuit

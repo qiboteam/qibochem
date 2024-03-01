@@ -178,23 +178,6 @@ def test_ucc_ferm_qubit_map_error():
         ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
 
 
-def test_ucc_parameter_coefficients():
-    """Coefficients used to multiply the parameters in the UCC circuit. Note: may change in future!"""
-    # UCC-JW singles
-    control_values = (-1.0, 1.0)
-    coeffs = []
-    circuit = ucc_circuit(2, [0, 1], coeffs=coeffs)
-    # Check that the signs of the coefficients have been saved
-    assert all(control == test for control, test in zip(control_values, coeffs))
-
-    # UCC-JW doubles
-    control_values = (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)
-    coeffs = []
-    circuit = ucc_circuit(4, [0, 1, 2, 3], coeffs=coeffs)
-    # Check that the signs of the coefficients have been saved
-    assert all(control == test for control, test in zip(control_values, coeffs))
-
-
 def test_ucc_ansatz_h2():
     """Test the default arguments of ucc_ansatz using H2"""
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
