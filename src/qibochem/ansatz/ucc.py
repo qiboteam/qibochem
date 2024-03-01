@@ -4,51 +4,47 @@ Circuit representing the Unitary Coupled Cluster ansatz in quantum chemistry
 
 import numpy as np
 import openfermion
-from qibo import gates, models
+from qibo import Circuit, gates
 
 from qibochem.ansatz.hf_reference import hf_circuit
 
 
-def expi_pauli(n_qubits, theta, pauli_string):
+def expi_pauli(n_qubits, pauli_string, theta):
     """
-    Build circuit representing exp(i*theta*pauli_string)
+    Build circuit representing exp(theta*pauli_string), where theta is a complex number
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
-        theta: parameter
-        pauli_string: OpenFermion QubitOperator object, e.g. X_0 Y_1 Z_2 X_4
+        pauli_string: String in the format: ``"X0 Z1 Y3"``
+        theta: Purely complex number, i.e. Re(theta) == 0
 
     Returns:
-        circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
-        coeff: Coefficient of theta. May be useful for VQE
+        circuit: Qibo Circuit object representing exp(theta*pauli_string)
     """
-    # Unpack the dictionary from pauli_string.terms.items() into
-    # a (tuple of Pauli letters) and the coefficient of the pauli_string
-    [(p_letters, _coeff)] = pauli_string.terms.items()
+    # Split pauli_string into the old p_letters format
+    pauli_ops = sorted(((int(_op[1]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
+    n_pauli_ops = len(pauli_ops)
 
-    # _coeff is an imaginary number, i.e. exp(i\theta something)
-    # Convert to the real coefficient for multiplying theta
-    coeff = -2.0 * np.real(_coeff * -1.0j)
+    # Convert theta into a real number for applying with a RZ gate
+    rz_parameter = -2.0 * np.real_if_close(theta * -1.0j)
 
-    # Generate the list of basis change gates using the p_letters list
+    # Generate the list of basis change gates using the pauli_ops list
     basis_changes = [
         gates.H(_qubit) if _gate == "X" else gates.RX(_qubit, -0.5 * np.pi, trainable=False)
-        for _qubit, _gate in p_letters
+        for _qubit, _gate in pauli_ops
         if _gate != "Z"
     ]
 
     # Build the circuit
-    circuit = models.Circuit(n_qubits)
+    circuit = Circuit(n_qubits)
     # 1. Change to X/Y where necessary
-    circuit.add(_gate for _gate in basis_changes)
-    # 2. Add CNOTs to all pairs of qubits in p_letters, starting from the last letter
-    circuit.add(
-        gates.CNOT(_qubit1, _qubit2) for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters[::-1], p_letters[::-1][1:])
-    )
-    # 3. Add RZ gate to last element of p_letters
-    circuit.add(gates.RZ(p_letters[0][0], coeff * theta))
-    # 4. Add CNOTs to all pairs of qubits in p_letters
-    circuit.add(gates.CNOT(_qubit2, _qubit1) for (_qubit1, _g1), (_qubit2, _g2) in zip(p_letters, p_letters[1:]))
+    circuit.add(basis_changes)
+    # 2. Add CNOTs to all pairs of qubits in pauli_ops, starting from the last letter
+    circuit.add(gates.CNOT(pauli_ops[_i][0], pauli_ops[_i - 1][0]) for _i in range(n_pauli_ops - 1, 0, -1))
+    # 3. Add RZ gate to last element of pauli_ops
+    circuit.add(gates.RZ(pauli_ops[0][0], theta))
+    # 4. Add CNOTs to all pairs of qubits in pauli_ops
+    circuit.add(gates.CNOT(pauli_ops[_i + 1][0], pauli_ops[_i][0]) for _i in range(n_pauli_ops - 1))
     # 3. Change back to the Z basis
     # .dagger() doesn't keep trainable=False, so need to use a for loop
     # circuit.add(_gate.dagger() for _gate in basis_changes)
@@ -56,7 +52,7 @@ def expi_pauli(n_qubits, theta, pauli_string):
         gate = _gate.dagger()
         gate.trainable = False
         circuit.add(gate)
-    return circuit, coeff
+    return circuit
 
 
 def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, coeffs=None):
@@ -103,15 +99,16 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 
     # Apply the qubit_ucc_operator 'trotter_steps' times:
     assert trotter_steps > 0, f"{trotter_steps} must be > 0!"
-    circuit = models.Circuit(n_qubits)
+    circuit = Circuit(n_qubits)
     for _i in range(trotter_steps):
         # Use the get_operators() generator to get the list of excitation operators
-        for pauli_string in qubit_ucc_operator.get_operators():
-            _circuit, coeff = expi_pauli(n_qubits, theta / trotter_steps, pauli_string)
+        for raw_pauli_string in qubit_ucc_operator.get_operators():
+            # Convert each operator into a string and get the associated coefficient
+            ((pauli_ops, coeff),) = raw_pauli_string.terms.items()  # Unpack the single-item dictionary
+            pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
+            # Build the circuit and add it on
+            _circuit = expi_pauli(n_qubits, pauli_string, coeff * theta / trotter_steps)
             circuit += _circuit
-            if isinstance(coeffs, list):
-                coeffs.append(coeff)
-
     return circuit
 
 
@@ -344,7 +341,7 @@ def ucc_ansatz(
     if include_hf:
         circuit = hf_circuit(n_orbs, n_elec, ferm_qubit_map=ferm_qubit_map)
     else:
-        circuit = models.Circuit(n_orbs)
+        circuit = Circuit(n_orbs)
     for excitation, theta in zip(excitations, thetas):
         # coeffs = []
         circuit += ucc_circuit(
