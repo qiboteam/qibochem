@@ -15,8 +15,7 @@ Here is an example of building the UCCD ansatz with the H2 molecule to test your
     from qibo.models import VQE
 
     from qibochem.driver.molecule import Molecule
-    from qibochem.ansatz.hf_reference import hf_circuit
-    from qibochem.ansatz.ucc import ucc_circuit
+    from qibochem.ansatz import hf_circuit, ucc_circuit
 
     # Define the H2 molecule and obtain its 1-/2- electron integrals with PySCF
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])

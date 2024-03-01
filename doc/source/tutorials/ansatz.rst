@@ -103,8 +103,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 .. code-block:: python
 
     from qibochem.driver.molecule import Molecule
-    from qibochem.ansatz.hf_reference import hf_circuit
-    from qibochem.ansatz.ucc import ucc_circuit
+    from qibochem.ansatz import hf_circuit, ucc_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
