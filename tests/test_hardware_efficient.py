@@ -3,12 +3,12 @@ import pytest
 from qibo import Circuit, gates
 from qibo.optimizers import optimize
 
-from qibochem.ansatz import hea_circuit
+from qibochem.ansatz import he_circuit
 from qibochem.driver import Molecule
 from qibochem.measurement.expectation import expectation
 
 
-def test_hea_circuit():
+def test_he_circuit():
     n_qubits = 4
     n_layers = 1
     rotation_gates = ["RX"]
@@ -22,7 +22,7 @@ def test_hea_circuit():
         # Entanglement gates
         gate_list += [getattr(gates, entanglement_gate)(_i, _i + 1) for _i in range(n_qubits - 1)]
     # Test function
-    test_circuit = hea_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
+    test_circuit = he_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
 
     # Check gates are correct
     assert all(
@@ -33,7 +33,7 @@ def test_hea_circuit():
     assert len(test_circuit.get_parameters()) == n_layers * n_qubits * len(rotation_gates)
 
 
-def test_vqe_hea_ansatz():
+def test_vqe_he_ansatz():
     # Loss function for VQE
     def electronic_energy(parameters, circuit, hamiltonian):
         circuit.set_parameters(parameters)
@@ -47,7 +47,7 @@ def test_vqe_hea_ansatz():
     n_qubits = mol.nso
     rotation_gates = None
     entanglement_gate = "CNOT"
-    circuit = hea_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
+    circuit = he_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
 
     n_parameters = len(circuit.get_parameters())
     thetas = np.full(n_parameters, 0.25 * np.pi)

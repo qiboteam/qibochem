@@ -7,7 +7,7 @@ This section covers the API reference for various chemistry circuit ansatzes.
 Hardware-efficient
 ------------------
 
-.. autofunction:: qibochem.ansatz.hardware_efficient.hea_circuit
+.. autofunction:: qibochem.ansatz.hardware_efficient.he_circuit
 
 
 Hartree-Fock

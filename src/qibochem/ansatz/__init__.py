@@ -1,5 +1,5 @@
 from qibochem.ansatz.basis_rotation import br_circuit
-from qibochem.ansatz.hardware_efficient import hea_circuit
+from qibochem.ansatz.hardware_efficient import he_circuit
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import (
     generate_excitations,

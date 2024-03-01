@@ -5,7 +5,7 @@ Hardware efficient ansatz, e.g. Kandala et al. (https://doi.org/10.1038/nature23
 from qibo import Circuit, gates
 
 
-def hea_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
+def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
     """
     Builds the generalized hardware-efficient ansatz, in which the rotation and entangling gates used can be
     chosen by the user
