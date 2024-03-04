@@ -3,8 +3,8 @@ Functions for obtaining and transforming the molecular Hamiltonian
 """
 
 import openfermion
-from qibo import hamiltonians
-from qibo.symbols import X, Y, Z
+from qibo import symbols
+from qibo.hamiltonians import SymbolicHamiltonian
 
 
 def fermionic_hamiltonian(oei, tei, constant):
@@ -74,7 +74,7 @@ def parse_pauli_string(pauli_string, coeff):
     return qibo_pauli_string
 
 
-def symbolic_hamiltonian(q_hamiltonian):
+def qubit_to_symbolic_hamiltonian(q_hamiltonian):
     """
     Converts a OpenFermion QubitOperator to a Qibo SymbolicHamiltonian
 
@@ -84,6 +84,19 @@ def symbolic_hamiltonian(q_hamiltonian):
     Returns:
         qibo.hamiltonians.SymbolicHamiltonian
     """
+    symbolic_ham = 0.0
+    for operator in q_hamiltonian.get_operators():
+        for pauli_string, coeff in operator.terms.items():
+            qibo_pauli_string = 1.0
+            if pauli_string:
+                # Add the individual Pauli operators if Pauli string exists
+                for p_letter in pauli_string:
+                    qibo_pauli_string *= getattr(symbols, p_letter[1])(p_letter[0])
+            # Include coefficient after all symbols
+            qibo_pauli_string = coeff * qibo_pauli_string
+            symbolic_ham += SymbolicHamiltonian(qibo_pauli_string)
+
+    """
     # Sums over each individual Pauli string in the QubitOperator
     symbolic_ham = sum(
         parse_pauli_string(pauli_string, coeff)
@@ -92,6 +105,6 @@ def symbolic_hamiltonian(q_hamiltonian):
         # .terms gives one operator as a dictionary with one entry
         for pauli_string, coeff in operator.terms.items()
     )
+    """
 
-    # Map the QubitHamiltonian to a Qibo SymbolicHamiltonian and return it
-    return hamiltonians.SymbolicHamiltonian(symbolic_ham)
+    return symbolic_ham
