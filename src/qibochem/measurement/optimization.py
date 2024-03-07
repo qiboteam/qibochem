@@ -2,6 +2,38 @@ import numpy as np
 from qibo import gates
 
 
+def check_terms_commutativity(term1, term2, qubitwise=False):
+    """
+    Check if terms 1 and 2 are mutually commuting. The 'qubitwise' flag determines if the check is for general
+    commutativity (False), or the stricter qubitwise commutativity.
+
+    Args:
+        term1/term2: Lists of strings representing a single Pauli term. E.g. ["X0", "Z1", "Y3"]. Obtained from a Qibo
+            SymbolicTerm as ``[factor.name for factor in term.factors]``.
+        qubitwise: Determines if the check is for general commutativity, or the stricter qubitwise commutativity
+
+    Returns:
+        bool: Do terms 1 and 2 commute?
+    """
+    # Get a list of common qubits for each term
+    common_qubits = sorted(
+        {_term[1] for _term in term1 if _term[0] != "I"} & {_term[1] for _term in term2 if _term[0] != "I"}
+    )
+    if not common_qubits:
+        return True
+    # Get the single Pauli operators for the common qubits for both Pauli terms
+    term1_ops = [_op for _op in term1 if _op[1] in common_qubits]
+    term2_ops = [_op for _op in term2 if _op[1] in common_qubits]
+    if qubitwise:
+        # Qubitwise: Compare the Pauli terms at the common qubits. Any difference => False
+        return all(_op1 == _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
+    # General commutativity:
+    # Get the number of single Pauli operators that do NOT commute
+    n_noncommuting_ops = sum(_op1 != _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
+    # term1 and term2 have general commutativity iff n_noncommuting_ops is even
+    return n_noncommuting_ops % 2 == 0
+
+
 def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     """
     Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
