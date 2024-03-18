@@ -5,8 +5,9 @@ Circuit representing an unitary rotation of the molecular (spin-)orbital basis s
 import numpy as np
 from openfermion.linalg.givens_rotations import givens_decomposition
 from qibo import gates, models
-from qibochem.ansatz import ucc
 from scipy.linalg import expm
+
+from qibochem.ansatz import ucc
 
 # Helper functions
 
@@ -24,7 +25,7 @@ def unitary_rot_matrix(parameters, occ_orbitals, virt_orbitals, orbital_pairs=No
         conserve_spin: (optional) in the case where orbital pairs are unspecified, they are generated
                         from ucc.generate_excitations for singles excitations. If True, only singles
                         excitations with spin conserved are considered
-    Returns: 
+    Returns:
         exp(k): Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric
                 kappa matrix
     """
@@ -32,7 +33,7 @@ def unitary_rot_matrix(parameters, occ_orbitals, virt_orbitals, orbital_pairs=No
     kappa = np.zeros((n_orbitals, n_orbitals))
     if orbital_pairs == None:
         # Get all possible (occ, virt) pairs
-        #orbital_pairs = [(_o, _v) for _o in occ_orbitals for _v in virt_orbitals]
+        # orbital_pairs = [(_o, _v) for _o in occ_orbitals for _v in virt_orbitals]
         orbital_pairs = ucc.generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=conserve_spin)
     # occ/occ and virt/virt orbital mixing doesn't change the energy, so can ignore
     for _i, (_occ, _virt) in enumerate(orbital_pairs):
@@ -115,14 +116,14 @@ def givens_rotation_gate(n_qubits, orb1, orb2, theta):
         circuit: Qibo Circuit object representing a Givens rotation between orb1 and orb2
     """
     # Define 2x2 sqrt(iSwap) matrix
-    #iswap_mat = np.array([[1.0, 1.0j], [1.0j, 1.0]]) / np.sqrt(2.0)
+    # iswap_mat = np.array([[1.0, 1.0j], [1.0j, 1.0]]) / np.sqrt(2.0)
     # Build and add the gates to circuit
     circuit = models.Circuit(n_qubits)
-    #circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
+    # circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
     circuit.add(gates.SiSWAP(orb1, orb2))
     circuit.add(gates.RZ(orb1, -theta))
     circuit.add(gates.RZ(orb2, theta + np.pi))
-    #circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
+    # circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
     circuit.add(gates.SiSWAP(orb1, orb2))
     circuit.add(gates.RZ(orb1, np.pi, trainable=False))
     return circuit
@@ -160,7 +161,8 @@ def br_circuit(n_qubits, parameters, n_occ):
 
 # clements qr routines
 
-def givens_qr_decompose(U): 
+
+def givens_qr_decompose(U):
     r"""
     Clements scheme QR decompose a unitary matrix U using Givens rotations
     see arxiv:1603.08788
@@ -173,7 +175,7 @@ def givens_qr_decompose(U):
 
     def move_step(U, row, col, row_change, col_change):
         """
-        internal function to move a step in Givens QR decomposition of 
+        internal function to move a step in Givens QR decomposition of
         unitary rotation matrix
         """
         row += row_change
@@ -182,7 +184,7 @@ def givens_qr_decompose(U):
 
     def row_op(U, row, col):
         """
-        internal function to zero out a row using Givens rotation 
+        internal function to zero out a row using Givens rotation
         with angle z
         """
         Uc = U.copy()
@@ -191,15 +193,15 @@ def givens_qr_decompose(U):
         z = np.arctan2(-Uc[row][col], Uc[srow][scol])
         temp_srow = Uc[srow, :]
         temp_row = Uc[row, :]
-        new_srow = np.cos(z)*temp_srow - np.sin(z)*temp_row
-        new_row = np.sin(z)*temp_srow + np.cos(z)*temp_row
+        new_srow = np.cos(z) * temp_srow - np.sin(z) * temp_row
+        new_row = np.sin(z) * temp_srow + np.cos(z) * temp_row
         Uc[srow, :] = new_srow
         Uc[row, :] = new_row
         return z, Uc
 
     def col_op(U, row, col):
         """
-        internal function to zero out a column using Givens rotation 
+        internal function to zero out a column using Givens rotation
         with angle z
         """
         Uc = U.copy()
@@ -208,23 +210,22 @@ def givens_qr_decompose(U):
         z = np.arctan2(-Uc[row][col], Uc[srow][scol])
         temp_scol = Uc[:, scol]
         temp_col = Uc[:, col]
-        new_scol = np.cos(z)*temp_scol - np.sin(z)*temp_col
-        new_col = np.sin(z)*temp_scol + np.cos(z)*temp_col
+        new_scol = np.cos(z) * temp_scol - np.sin(z) * temp_col
+        new_col = np.sin(z) * temp_scol + np.cos(z) * temp_col
         Uc[:, scol] = new_scol
         Uc[:, col] = new_col
         return z, Uc
-
 
     N = len(U[0])
 
     z_array = []
 
     # start QR from bottom left element
-    row = N-1
+    row = N - 1
     col = 0
     z, U = col_op(U, row, col)
     z_array.append(z)
-    # traverse the U matrix in diagonal-zig-zag manner until the main 
+    # traverse the U matrix in diagonal-zig-zag manner until the main
     # diagonal is reached
     # if move = up, do a row op
     # if move = diagonal-down-right, do a row op
@@ -234,11 +235,11 @@ def givens_qr_decompose(U):
         U, row, col = move_step(U, row, col, -1, 0)
         z, U = row_op(U, row, col)
         z_array.append(z)
-        while row < N-1:
+        while row < N - 1:
             U, row, col = move_step(U, row, col, 1, 1)
             z, U = row_op(U, row, col)
             z_array.append(z)
-        if col != N-2:
+        if col != N - 2:
             U, row, col = move_step(U, row, col, 0, 1)
             z, U = col_op(U, row, col)
             z_array.append(z)
@@ -258,23 +259,23 @@ def basis_rotation_layout(N):
     Args:
         N: number of qubits/modes
     Returns:
-        A:  NxN matrix, with -1 being null, 0 is the control and integers 
-            1 or greater being the index for angles in clements QR decomposition of 
-            the unitary matrix representing the unitary transforms that 
+        A:  NxN matrix, with -1 being null, 0 is the control and integers
+            1 or greater being the index for angles in clements QR decomposition of
+            the unitary matrix representing the unitary transforms that
             rotate the basis
     """
 
     def move_step(A, row, col, row_change, col_change):
         """
-        internal function to move a step in gate layout of br circuit 
-        """        
+        internal function to move a step in gate layout of br circuit
+        """
         row += row_change
         col += col_change
         return A, row, col, updown
 
     def check_top(A, row, col, row_change, col_change):
         """
-        check if we are at the top of layout matrix, 
+        check if we are at the top of layout matrix,
         return false if we are at the top, i.e. row == 1
         (row 0 is not assigned any operation; just control)
         """
@@ -288,32 +289,30 @@ def basis_rotation_layout(N):
         """
         N = len(A)
         move_step(A, row, col, row_change, col_change)
-        return row < N-1
+        return row < N - 1
 
     def jump_right(A, row, col, updown):
-        """
-
-        """
+        """ """
         N = len(A)
-        row = N-2-col
-        col = N-1
+        row = N - 2 - col
+        col = N - 1
         updown = -1
-        return A, row, col, updown 
+        return A, row, col, updown
 
     def jump_left(A, row, col, updown):
         N = len(A)
-        row = N+1-col
+        row = N + 1 - col
         col = 0
         updown = 1
         return A, row, col, updown
 
     def assign_element(A, row, col, k):
-        A[row-1][col] = 0
+        A[row - 1][col] = 0
         A[row][col] = k
         return A, row, col
 
-    nangles = (N-1) * N // 2 # half-triangle
-    A = np.full([N,N], -1, dtype=int)
+    nangles = (N - 1) * N // 2  # half-triangle
+    A = np.full([N, N], -1, dtype=int)
 
     # first step
     row = 1
@@ -324,28 +323,28 @@ def basis_rotation_layout(N):
     updown = 1
 
     while k <= nangles:
-        
+
         if updown == 1:
             if check_top(A, row, col, -1, 1):
                 A, row, col, updown = move_step(A, row, col, -1, 1)
                 A, row, col = assign_element(A, row, col, k)
-            else: # jump
-                #print('jump_right') 
+            else:  # jump
+                # print('jump_right')
                 A, row, col, updown = jump_right(A, row, col, updown)
                 A, row, col = assign_element(A, row, col, k)
         elif updown == -1:
             if check_bottom(A, row, col, 1, -1):
                 A, row, col, updown = move_step(A, row, col, 1, -1)
                 A, row, col = assign_element(A, row, col, k)
-            else: #jump
-                #print('jump left')
+            else:  # jump
+                # print('jump left')
                 A, row, col, updown = jump_left(A, row, col, updown)
                 A, row, col = assign_element(A, row, col, k)
         else:
-            raise ValueError('Bad direction')
+            raise ValueError("Bad direction")
 
-        #print(row, col)
-        k+= 1
+        # print(row, col)
+        k += 1
 
     return A
 
@@ -354,13 +353,13 @@ def basis_rotation_gates(A, z_array, parameters):
     r"""
     places the basis rotation gates on circuit in the order of Clements scheme QR decomposition
     Args:
-        A:  
-            NxN matrix, with -1 being null, 0 is the control and integers 
-            1 or greater being the index for angles in clements QR decomposition of 
-            the unitary matrix representing the unitary transforms that 
+        A:
+            NxN matrix, with -1 being null, 0 is the control and integers
+            1 or greater being the index for angles in clements QR decomposition of
+            the unitary matrix representing the unitary transforms that
             rotate the basis
-        z_array: 
-            array of givens rotation angles in order of traversal from 
+        z_array:
+            array of givens rotation angles in order of traversal from
             QR decomposition
         parameters:
             array of parameters in order of traversal from QR decomposition
@@ -371,13 +370,13 @@ def basis_rotation_gates(A, z_array, parameters):
     N = len(A[0])
     gate_list = []
 
-    # 
+    #
     for j in range(N):
         for i in range(N):
             if A[i][j] == 0:
-                print('CRY', i, i+1, j, z_array[A[i+1][j]-1])
-                gate_list.append(gates.CNOT(i+1,i))
-                gate_list.append(gates.CRY(i,i+1,z_array[A[i+1][j]-1]))
-                gate_list.append(gates.CNOT(i+1,i))
-                
+                print("CRY", i, i + 1, j, z_array[A[i + 1][j] - 1])
+                gate_list.append(gates.CNOT(i + 1, i))
+                gate_list.append(gates.CRY(i, i + 1, z_array[A[i + 1][j] - 1]))
+                gate_list.append(gates.CNOT(i + 1, i))
+
     return gate_list
