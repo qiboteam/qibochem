@@ -4,6 +4,9 @@ from qibochem.ansatz.basis_rotation import (
     givens_rotation_parameters,
     swap_matrices,
     unitary_rot_matrix,
+    givens_qr_decompose,
+    basis_rotation_layout,
+    basis_rotation_gates,
 )
 from qibochem.ansatz.hardware_efficient import hea
 from qibochem.ansatz.hf_reference import bk_matrix, bk_matrix_power2, hf_circuit

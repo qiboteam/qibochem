@@ -63,7 +63,7 @@ def test_unitary_rot_matrix():
     vir = [1, 2]
     parameters = np.zeros(len(occ) * len(vir))
     parameters += 0.1
-    u = basis_rotation.unitary_rot_matrix(parameters, occ, vir)
+    u = basis_rotation.unitary_rot_matrix(parameters, occ, vir, orbital_pairs=None, conserve_spin=False)
     ref_u = np.array(
         [[0.99001666, 0.099667, 0.099667], [-0.099667, 0.99500833, -0.00499167], [-0.099667, -0.00499167, 0.99500833]]
     )
