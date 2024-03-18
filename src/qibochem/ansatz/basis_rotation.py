@@ -116,15 +116,15 @@ def givens_rotation_gate(n_qubits, orb1, orb2, theta):
         circuit: Qibo Circuit object representing a Givens rotation between orb1 and orb2
     """
     # Define 2x2 sqrt(iSwap) matrix
-    # iswap_mat = np.array([[1.0, 1.0j], [1.0j, 1.0]]) / np.sqrt(2.0)
+    iswap_mat = np.array([[1.0, 1.0j], [1.0j, 1.0]]) / np.sqrt(2.0)
     # Build and add the gates to circuit
     circuit = models.Circuit(n_qubits)
-    # circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
-    circuit.add(gates.SiSWAP(orb1, orb2))
+    circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
+    # circuit.add(gates.SiSWAP(orb1, orb2))
     circuit.add(gates.RZ(orb1, -theta))
     circuit.add(gates.RZ(orb2, theta + np.pi))
-    # circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
-    circuit.add(gates.SiSWAP(orb1, orb2))
+    circuit.add(gates.GeneralizedfSim(orb1, orb2, iswap_mat, 0.0, trainable=False))
+    # circuit.add(gates.SiSWAP(orb1, orb2))
     circuit.add(gates.RZ(orb1, np.pi, trainable=False))
     return circuit
 
