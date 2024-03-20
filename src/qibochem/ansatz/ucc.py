@@ -11,28 +11,28 @@ from qibochem.ansatz.hf_reference import hf_circuit
 
 def expi_pauli(n_qubits, pauli_string, theta):
     """
-    Build circuit representing exp(theta*pauli_string), where theta is a complex number
+    Build circuit representing exp(i*theta*pauli_string)
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
-        pauli_string: String in the format: ``"X0 Z1 Y3"``
-        theta: Purely complex number, i.e. Re(theta) == 0
+        pauli_string: String in the format: "X0 Z1 Y3"
+        theta: Real number
 
     Returns:
-        circuit: Qibo Circuit object representing exp(theta*pauli_string)
+        circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
     """
     # Split pauli_string into the old p_letters format
     pauli_ops = sorted(((int(_op[1]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
     n_pauli_ops = len(pauli_ops)
 
     # Convert theta into a real number for applying with a RZ gate
-    rz_parameter = -2.0 * np.real_if_close(theta * -1.0j)
+    rz_parameter = -2.0 * theta
 
     # Generate the list of basis change gates using the pauli_ops list
     basis_changes = [
         gates.H(_qubit) if _gate == "X" else gates.RX(_qubit, -0.5 * np.pi, trainable=False)
         for _qubit, _gate in pauli_ops
-        if _gate != "Z"
+        if _gate not in ("I", "Z")
     ]
 
     # Build the circuit
@@ -105,7 +105,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
             ((pauli_ops, coeff),) = raw_pauli_string.terms.items()  # Unpack the single-item dictionary
             pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
             # Build the circuit and add it on
-            _circuit = expi_pauli(n_qubits, pauli_string, coeff * theta / trotter_steps)
+            _circuit = expi_pauli(n_qubits, pauli_string, 1.0j * coeff * theta / trotter_steps)
             circuit += _circuit
     return circuit
 
@@ -170,7 +170,7 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
         return [[]]
 
     # Generate all possible excitations first
-    from itertools import combinations
+    from itertools import combinations  # pylint: disable=C0415
 
     all_excitations = [
         [*_from, *_to] for _from in combinations(excite_from, order) for _to in combinations(excite_to, order)
@@ -214,8 +214,9 @@ def sort_excitations(excitations):
     prev = []
 
     # No idea how I came up with this, but it seems to work for double excitations
-    # Default sorting is OK for single excitations
-    sorting_fn = lambda x: sum((order + 1 - _i) * abs(x[2 * _i + 1] // 2 - x[2 * _i] // 2) for _i in range(0, order))
+    def sorting_fn(x):
+        # Default sorting is OK for single excitations
+        return sum((order + 1 - _i) * abs(x[2 * _i + 1] // 2 - x[2 * _i] // 2) for _i in range(0, order))
 
     # Make a copy of the list of excitations, and use it populate a new list iteratively
     while copy_excitations:

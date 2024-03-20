@@ -10,6 +10,7 @@ from qibo import gates
 
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.ucc import (
+    expi_pauli,
     generate_excitations,
     mp2_amplitude,
     sort_excitations,
@@ -61,6 +62,31 @@ def test_mp2_amplitude_doubles():
     ref_l = 0.06834019757197053
 
     assert np.isclose(l, ref_l)
+
+
+@pytest.mark.parametrize(
+    "pauli_string,qubit0_matrix",
+    [
+        ("Z1", np.identity(2)),
+        ("Z0 Z1", np.diag((1, -1))),
+    ],
+)
+def test_expi_pauli(pauli_string, qubit0_matrix):
+    n_qubits = 2
+    theta = 0.25 * np.pi
+    dim = 2**n_qubits
+    # Expected: cos(theta)*I + i*sin(theta)*(something \otimes Z)
+    expected = np.cos(theta) * np.identity(dim) + 1.0j * np.sin(theta) * np.kron(qubit0_matrix, np.diag((1, -1)))
+    # Test matrix
+    circuit = expi_pauli(n_qubits, pauli_string, theta)
+    test_matrix = np.identity(dim)
+    for _gate in circuit.queue:
+        if _gate.matrix().shape[0] != dim:
+            _matrix = np.kron(np.identity(2), _gate.matrix())
+        else:
+            _matrix = _gate.matrix().T  # .T is to swap the control/target qubits
+        test_matrix = np.dot(_matrix, test_matrix)
+    assert np.allclose(np.diagonal(test_matrix), np.diagonal(expected))
 
 
 @pytest.mark.parametrize(
