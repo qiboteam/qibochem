@@ -12,7 +12,6 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
 
 from qibochem.driver import Molecule
-from qibochem.driver.hamiltonian import parse_pauli_string
 from qibochem.measurement.expectation import expectation
 
 
@@ -110,18 +109,6 @@ def test_hf_embedding():
     dim = mol.n_active_orbs // 2
     assert np.allclose(mol.embed_oei, mol.oei[:dim, :dim])
     assert np.allclose(mol.embed_tei, mol.tei[:dim, :dim, :dim, :dim])
-
-
-@pytest.mark.parametrize(
-    "pauli_string,coeff,expected",
-    [
-        (((0, "X"), (1, "Y")), 0.5, "0.5*X0*Y1"),
-        (None, 0.1, "0.1"),
-    ],
-)
-def test_parse_pauli_string(pauli_string, coeff, expected):
-    test = parse_pauli_string(pauli_string, coeff)
-    assert str(test) == expected
 
 
 def test_fermionic_hamiltonian():
@@ -261,24 +248,24 @@ def test_expectation_value():
     assert h2_ref_energy == pytest.approx(hf_energy)
 
 
-def test_eigenvalues():
+@pytest.mark.parametrize(
+    "hamiltonian,n_eigvals",
+    [
+        (openfermion.reverse_jordan_wigner(openfermion.QubitOperator("Z0 Z1")), 2),
+        (openfermion.QubitOperator("Z0 Z1"), 2),
+        (SymbolicHamiltonian(Z(0) * Z(1)), None),
+    ],
+)
+def test_eigenvalues(hamiltonian, n_eigvals):
+    """Common set of eigenvalues: [-1.0, -1.0, 1.0, 1.0]"""
     dummy = Molecule()
-    # FermionOperator test:
-    ferm_ham = sum(
-        openfermion.FermionOperator(f"{_i}^ {_i}") + openfermion.FermionOperator(f"{_i} {_i}^") for _i in range(4)
-    )
-    ham_matrix = openfermion.get_sparse_operator(ferm_ham).toarray()
-    assert np.allclose(dummy.eigenvalues(ferm_ham), sorted(np.linalg.eigvals(ham_matrix))[:6])
+    result = dummy.eigenvalues(hamiltonian)
+    # Expected: sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0])))
+    assert np.allclose(result, np.array([-1.0, -1.0, 1.0, 1.0])[:n_eigvals])
 
-    # QubitOperator test:
-    qubit_ham = openfermion.QubitOperator("Z0 Z1")
-    ham_matrix = openfermion.get_sparse_operator(qubit_ham).toarray()
-    assert np.allclose(dummy.eigenvalues(qubit_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0])))[:2])
 
-    # SymbolicHamiltonian test:
-    sym_ham = SymbolicHamiltonian(Z(0) * Z(1))
-    assert np.allclose(dummy.eigenvalues(sym_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0]))))
-
+def test_eigenvalues_error():
+    dummy = Molecule()
     # Unknown Hamiltonian type
     with pytest.raises(TypeError):
         dummy.eigenvalues(0.0)
