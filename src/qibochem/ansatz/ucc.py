@@ -105,7 +105,9 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
             ((pauli_ops, coeff),) = raw_pauli_string.terms.items()  # Unpack the single-item dictionary
             pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
             # Build the circuit and add it on
-            _circuit = expi_pauli(n_qubits, pauli_string, 1.0j * coeff * theta / trotter_steps)
+            _circuit = expi_pauli(
+                n_qubits, pauli_string, -1.0j * coeff * theta / trotter_steps
+            )  # Divide imag. coeff by 1.0j
             circuit += _circuit
     return circuit
 
