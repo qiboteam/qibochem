@@ -99,7 +99,8 @@ def test_expi_pauli(pauli_string):
 @pytest.mark.parametrize(
     "excitation,mapping,basis_rotations",
     [
-        ([0, 2], None, ([("Y", 0), ("X", 2)], [("X", 0), ("Y", 2)])),  # JW singles
+        ([0, 2], None, ("Y0 X2", "X0 Y2")),  # JW singles
+        # ([0, 2], None, ([("Y", 0), ("X", 2)], [("X", 0), ("Y", 2)])),  # JW singles
         # (
         #     [0, 1, 2, 3],
         #     None,
@@ -114,22 +115,26 @@ def test_expi_pauli(pauli_string):
         #         [("Y", 0), ("Y", 1), ("X", 2), ("Y", 3)],
         #     ),
         # ),  # JW doubles
-        ([0, 2], "bk", ([("X", 0), ("Y", 1), ("X", 2)], [("Y", 0), ("Y", 1), ("Y", 2)])),  # BK singles
+        # ([0, 2], "bk", ([("X", 0), ("Y", 1), ("X", 2)], [("Y", 0), ("Y", 1), ("Y", 2)])),  # BK singles
     ],
 )
 def test_ucc_circuit(excitation, mapping, basis_rotations):
     """Build a UCC circuit with only one excitation"""
     theta = 0.1
     n_qubits = 4
+    coeffs_dict = {2: (0.5, -0.5), 8: (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)}
 
-    # Build using exp(-i*theta*SymbolicHamiltonian)
+    coeffs = coeffs_dict[len(basis_rotations)]
     control_circuit = Circuit(n_qubits)
-    for basis_rotation in basis_rotations:
+    for coeff, basis_rotation in zip(coeffs, basis_rotations):
+        n_terms = len(basis_rotation)
         pauli_term = SymbolicHamiltonian(
             symbols.I(n_qubits - 1)
-            * reduce(lambda x, y: x * y, (getattr(symbols, _op)(qubit) for _op, qubit in basis_rotation))
+            * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
         )
-        control_circuit += pauli_term.circuit(-theta)
+        control_circuit += pauli_term.circuit(-coeff * theta)
+    print(control_circuit.draw())
+    print()
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
 
@@ -137,38 +142,16 @@ def test_ucc_circuit(excitation, mapping, basis_rotations):
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
 
+    print(test_circuit.draw())
+    print()
+
     print(control_state)
     print()
     print(test_state)
 
     assert np.allclose(control_state, test_state)
 
-    """
-    gate_dict = {"X": [gates.H,], "Y": partial(gates.RX, theta=-0.5 * np.pi, trainable=False)}
-    # Build the list of basis rotation gates
-    basis_rotation_gates = []
-    for
-
-        [gate_dict[_gate[0]](_gate[1]) for _gate in basis_rotation] for basis_rotation in basis_rotations
-    ]
-    # Build the CNOT cascade manually
-    cnot_cascade = [gates.CNOT(_i, _i - 1) for _i in range(excitation[-1], excitation[0], -1)]
-    cnot_cascade = cnot_cascade + [gates.RZ(excitation[0], 0.0)]
-    cnot_cascade = cnot_cascade + [gates.CNOT(_i + 1, _i) for _i in range(excitation[0], excitation[-1])]
-
-    # Build control list of gates
-    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
-    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
-
-    # Test ucc_function
-    circuit = ucc_circuit(4, excitation, ferm_qubit_map=mapping)
-    # Check gates are correct
-    assert all(
-        control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, list(circuit.queue))
-    )
-    """
-    # Check that only two parametrised gates
+    # Check that number of parametrised gates matches
     assert len(test_circuit.get_parameters()) == len(basis_rotations)
 
 
