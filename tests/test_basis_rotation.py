@@ -5,18 +5,20 @@ Test for basis rotation ansatz
 import numpy as np
 import pytest
 from qibo import Circuit, gates
-#from qibo.optimizers import optimize
 
 from qibochem.ansatz import basis_rotation
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
+
+#from qibo.optimizers import optimize
+
 
 
 def test_unitary():
     """
     Test for basis_rotation.unitary()
     """
-    N = 6 
+    N = 6
     occ = range(0, 2)
     vir = range(2, 6)
 
@@ -40,7 +42,7 @@ def test_unitary():
  [ 0.,          0.19339968,  0.,          0.98033112,  0.,         -0.03933776],
  [ 0.29502494,  0.,         -0.01487542,  0.,          0.95537375,  0.        ],
  [ 0.,          0.38679937,  0.,         -0.03933776,  0.,          0.92132448]])
-    
+
     identity = np.eye(6)
 
     assert np.allclose(U1@U1.T, identity)
@@ -71,7 +73,7 @@ def test_givens_qr_decompose():
 def test_basis_rotation_layout():
 
     N = 10
-    ref_A = 
+    ref_A =
     np.array(
         [[ 0, -1,  0, -1,  0, -1,  0, -1,  0, -1],
         [ 1,  0,  6,  0, 15,  0, 28,  0, 45,  0],
@@ -86,5 +88,3 @@ def test_basis_rotation_layout():
 
     A = basis_rotation.basis_rotation_layout(N)
     assert np.allclose(A, ref_A)
-
-

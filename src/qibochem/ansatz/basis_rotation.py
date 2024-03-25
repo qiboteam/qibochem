@@ -3,20 +3,22 @@ Circuit representing an unitary rotation of the molecular (spin-)orbital basis s
 """
 
 import numpy as np
-#from openfermion.linalg.givens_rotations import givens_decomposition
+
+# from openfermion.linalg.givens_rotations import givens_decomposition
 from qibo import gates, models
 from scipy.linalg import expm
-from qibochem.driver import hamiltonian
+
 from qibochem.ansatz import ucc
+from qibochem.driver import hamiltonian
 
 # Helper functions
 
 
 def unitary(occ_orbitals, virt_orbitals, parameters=None):
-    """
+    r"""
     Returns the unitary rotation matrix U = exp(\kappa) mixing the occupied and virtual orbitals.
     Args:
-        
+
         occ_orbitals: Iterable of occupied orbitals
         virt_orbitals: Iterable of virtual orbitals
         parameters: List/array of rotation parameters. dim = len(occ_orbitals)*len(virt_orbitals)
@@ -26,22 +28,22 @@ def unitary(occ_orbitals, virt_orbitals, parameters=None):
     """
 
     # conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
-    ov_pairs = ucc.generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True) 
+    ov_pairs = ucc.generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True)
     # print('ov_pairs presort', ov_pairs)
     ov_pairs = ucc.sort_excitations(ov_pairs)
-    #print('ov_pairs sorted ', ov_pairs)
+    # print('ov_pairs sorted ', ov_pairs)
     n_theta = len(ov_pairs)
     if parameters is None:
-        print('basis rotation: parameters not specified')
-        print('basis rotation: using default occ-virt rotation parameter value = 0.0')
+        print("basis rotation: parameters not specified")
+        print("basis rotation: using default occ-virt rotation parameter value = 0.0")
         parameters = np.zeros(n_theta)
     elif isinstance(parameters, float):
-        print('basis rotation: using uniform value of', parameters, 'for each parameter value')
+        print("basis rotation: using uniform value of", parameters, "for each parameter value")
         parameters = np.full(n_theta, parameters)
     else:
         if len(parameters) != n_theta:
-            raise IndexError('parameter array specified has bad size or type')
-        print('basis rotation: loading parameters from input')
+            raise IndexError("parameter array specified has bad size or type")
+        print("basis rotation: loading parameters from input")
 
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
     kappa = np.zeros((n_orbitals, n_orbitals))
@@ -268,13 +270,10 @@ def basis_rotation_gates(A, z_array, parameters):
     for j in range(N):
         for i in range(N):
             if A[i][j] == 0:
-                #print("CRY", i, i + 1, A[i+1][j]-1, z_array[A[i + 1][j] - 1])
+                # print("CRY", i, i + 1, A[i+1][j]-1, z_array[A[i + 1][j] - 1])
                 gate_list.append(gates.CNOT(i + 1, i))
                 gate_list.append(gates.CRY(i, i + 1, z_array[A[i + 1][j] - 1]))
                 ordered_angles.append(z_array[A[i + 1][j] - 1])
                 gate_list.append(gates.CNOT(i + 1, i))
 
     return gate_list, ordered_angles
-
-
-

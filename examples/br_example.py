@@ -64,7 +64,8 @@ def basis_rotation_circuit(mol, parameters=0.0):
         circuit.add(gates.X(_i))
     circuit.add(gate_list)
 
-    return circuit, gate_angles  
+    return circuit, gate_angles
+
 
 br_circuit, qubit_parameters = basis_rotation_circuit(mol, parameters=0.1)
 vqe = models.VQE(br_circuit, hamiltonian)
@@ -75,5 +76,3 @@ print(f"VQE energy: {vqe_result[0]:.8f} (Basis rotation ansatz)")
 print()
 print("Optimized qubit parameters:\n", vqe_result[1])
 print("Optimizer message:\n", vqe_result[2])
-
-
