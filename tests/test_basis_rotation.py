@@ -118,7 +118,7 @@ def test_basis_rotation_layout():
 
 def test_basis_rotation_gates():
 
-    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.9), ("H", (0.0, 0.0, 1.8))], 1, 1)
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.9)), ("H", (0.0, 0.0, 1.8))], 1, 1)
     mol.run_pyscf(max_scf_cycles=100)
     ham = mol.hamiltonian("sym", mol.oei, mol.tei, 0.0, "jw")
 
