@@ -28,7 +28,6 @@ def test_unitary():
     U2, theta2 = basis_rotation.unitary(occ, vir, parameters=0.1)
     U3, theta3 = basis_rotation.unitary(occ, vir, parameters=preset_params)
 
-
     ref_U2 = np.array(
         [
             [0.99001666, 0.0, 0.099667, 0.0, 0.099667, 0.0],
@@ -62,7 +61,6 @@ def test_unitary():
 
     with pytest.raises(IndexError):
         Ux, thetax = basis_rotation.unitary(occ, vir, parameters=toomany_params)
-    
 
 
 def test_givens_qr_decompose():
