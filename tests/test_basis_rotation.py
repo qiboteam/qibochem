@@ -73,13 +73,7 @@ def test_givens_qr_decompose():
 def test_basis_rotation_layout():
 
     N = 10
-<<<<<<< HEAD
-    ref_A =
-    np.array(
-=======
-    ref_A = np.array(
->>>>>>> 2192f93 (fix: typo in test_basis_rotation.py)
-        [[ 0, -1,  0, -1,  0, -1,  0, -1,  0, -1],
+    ref_A = np.array([[ 0, -1,  0, -1,  0, -1,  0, -1,  0, -1],
         [ 1,  0,  6,  0, 15,  0, 28,  0, 45,  0],
         [ 0,  5,  0, 14,  0, 27,  0, 44,  0, 29],
         [ 4,  0, 13,  0, 26,  0, 43,  0, 30,  0],
