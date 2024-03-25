@@ -22,10 +22,12 @@ def test_unitary():
     vir = range(2, 6)
 
     preset_params = [-0.1, -0.2, -0.3, -0.4]
+    toomany_params = [0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12]
 
     U1, theta1 = basis_rotation.unitary(occ, vir)
     U2, theta2 = basis_rotation.unitary(occ, vir, parameters=0.1)
     U3, theta3 = basis_rotation.unitary(occ, vir, parameters=preset_params)
+
 
     ref_U2 = np.array(
         [
@@ -57,6 +59,10 @@ def test_unitary():
     assert np.allclose(U1, identity)
     assert np.allclose(U2, ref_U2)
     assert np.allclose(U3, ref_U3)
+
+    with pytest.raises(IndexError):
+        Ux, thetax = basis_rotation.unitary(occ, vir, parameters=toomany_params)
+    
 
 
 def test_givens_qr_decompose():
