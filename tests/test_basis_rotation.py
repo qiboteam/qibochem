@@ -138,5 +138,3 @@ def test_basis_rotation_gates():
 
     vqe = models.VQE(circuit, ham)
     assert np.isclose(vqe[0], mol.e_hf)
-    
-

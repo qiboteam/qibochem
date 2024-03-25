@@ -137,7 +137,7 @@ def givens_qr_decompose(U):
             U, row, col = move_step(U, row, col, 0, 1)
             z, U = col_op(U, row, col)
             z_array.append(z)
-        #else:
+        # else:
         #    break
         while col > 0:
             U, row, col = move_step(U, row, col, -1, -1)
@@ -234,7 +234,7 @@ def basis_rotation_layout(N):
                 # print('jump left')
                 A, row, col, updown = jump_left(A, row, col, updown)
                 A, row, col = assign_element(A, row, col, k)
-        #else:
+        # else:
         #    raise ValueError("Bad direction")
 
         # print(row, col)
