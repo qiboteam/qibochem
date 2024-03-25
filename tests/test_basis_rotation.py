@@ -114,3 +114,29 @@ def test_basis_rotation_layout():
 
     A = basis_rotation.basis_rotation_layout(N)
     assert np.allclose(A, ref_A)
+
+
+def test_basis_rotation_gates():
+
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.9), ("H", (0.0, 0.0, 1.8)), 1, 1])
+    mol.run_pyscf(max_scf_cycles=100)
+    ham = mol.hamiltonian("sym", mol.oei, mol.tei, 0.0, "jw")
+
+    nqubits = mol.nso
+    occ = range(0, mol.nelec)
+    vir = range(mol.nelec, mol.nso)
+
+    U, theta = basis_rotation.unitary(occ, vir, parameters=0.1)
+    gate_angles, final_U = basis_rotation.givens_qr_decompose(U)
+    gate_layout = basis_rotation.basi_rotation_layout(nqubits)
+    gate_list, qubit_parameters = basis_rotation.basis_rotation_gates(gate_layout, gate_angles, theta)
+
+    circuit = Circuit(nqubits)
+    for _i in range(mol.nelec):
+        circuit.add(gates.X(_i))
+    circuit.add(gate_list)
+
+    vqe = models.VQE(circuit, ham)
+    assert np.isclose(vqe[0], mol.e_hf)
+    
+
