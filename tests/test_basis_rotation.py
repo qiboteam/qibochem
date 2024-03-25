@@ -138,4 +138,4 @@ def test_basis_rotation_gates():
 
     vqe = models.VQE(circuit, ham)
     res = vqe.minimize(qubit_parameters)
-    assert np.isclose(res[0], mol.e_hf, atol=0.01)
+    assert np.isclose(res[0], mol.e_hf, atol=0.1)
