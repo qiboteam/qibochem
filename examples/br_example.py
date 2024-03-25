@@ -4,10 +4,11 @@ Example of the basis rotation circuit with H3+ molecule. Starts with the guess w
 """
 
 import numpy as np
+from qibo import Circuit, gates, models
 from qibo.optimizers import optimize
 from scipy.optimize import minimize
 
-from qibochem.ansatz.basis_rotation import br_circuit
+from qibochem.ansatz import basis_rotation
 from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
@@ -18,7 +19,6 @@ try:
     mol.run_pyscf()
 except ModuleNotFoundError:
     mol.run_psi4()
-
 
 # Diagonalize H_core to use as the guess wave function
 
@@ -47,35 +47,33 @@ print(
 )
 
 
-def electronic_energy(parameters):
-    """
-    Loss function (Electronic energy) for the basis rotation ansatz
-    """
-    circuit = hf_circuit(mol.nso, mol.nelec)
-    circuit += br_circuit(mol.nso, parameters, mol.nelec)
+def basis_rotation_circuit(mol, parameters=0.0):
 
-    return expectation(circuit, hamiltonian)
+    nqubits = mol.nso
+    occ = range(0, mol.nelec)
+    vir = range(mol.nelec, mol.nso)
 
+    U, theta = basis_rotation.unitary(occ, vir, parameters=parameters)
 
-# Build  a basis rotation_circuit
-params = np.random.rand(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
+    gate_angles, final_U = basis_rotation.givens_qr_decompose(U)
+    gate_layout = basis_rotation.basis_rotation_layout(nqubits)
+    gate_list, ordered_angles = basis_rotation.basis_rotation_gates(gate_layout, gate_angles, theta)
 
-best, params, extra = optimize(electronic_energy, params)
+    circuit = Circuit(nqubits)
+    for _i in range(mol.nelec):
+        circuit.add(gates.X(_i))
+    circuit.add(gate_list)
 
-print("\nResults using Qibo optimize:")
+    return circuit, gate_angles  
+
+br_circuit, qubit_parameters = basis_rotation_circuit(mol, parameters=0.1)
+vqe = models.VQE(br_circuit, hamiltonian)
+vqe_result = vqe.minimize(qubit_parameters)
+
 print(f" HF energy: {mol.e_hf:.8f}")
-print(f"VQE energy: {best:.8f} (Basis rotation ansatz)")
-# print()
-# print("Optimized parameters:", params)
+print(f"VQE energy: {vqe_result[0]:.8f} (Basis rotation ansatz)")
+print()
+print("Optimized qubit parameters:\n", vqe_result[1])
+print("Optimizer message:\n", vqe_result[2])
 
 
-params = np.random.rand(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
-
-result = minimize(electronic_energy, params)
-best, params = result.fun, result.x
-
-print("\nResults using scipy.optimize:")
-print(f" HF energy: {mol.e_hf:.8f}")
-print(f"VQE energy: {best:.8f} (Basis rotation ansatz)")
-# print()
-# print("Optimized parameters:", params)

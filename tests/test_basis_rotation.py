@@ -5,97 +5,86 @@ Test for basis rotation ansatz
 import numpy as np
 import pytest
 from qibo import Circuit, gates
-from qibo.optimizers import optimize
+#from qibo.optimizers import optimize
 
 from qibochem.ansatz import basis_rotation
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
 
-def test_givens_rotation_gate():
-    n_qubits = 2
-    orb1 = 0
-    orb2 = 1
-    theta = -0.1
-    circuit = basis_rotation.givens_rotation_gate(n_qubits, orb1, orb2, theta)
-    ref_u = np.array(
-        [
-            [
-                -1.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
-            [0.0, 0.99500417, 0.09983342, 0.0],
-            [0.0, -0.09983342, 0.99500417, 0.0],
-            [0.0, 0.0, 0.0, -1.0],
-        ]
-    )
+def test_unitary():
+    """
+    Test for basis_rotation.unitary()
+    """
+    N = 6 
+    occ = range(0, 2)
+    vir = range(2, 6)
 
-    assert np.allclose(circuit.unitary(), ref_u)
+    preset_params = [-0.1, -0.2, -0.3, -0.4]
 
+    U1, theta1 = basis_rotation.unitary(occ, vir)
+    U2, theta2 = basis_rotation.unitary(occ, vir, parameters=0.1)
+    U3, theta3 = basis_rotation.unitary(occ, vir, parameters=preset_params)
 
-def test_givens_rotation_parameters():
-    u = np.array(
-        [[0.99001666, 0.099667, 0.099667], [-0.099667, 0.99500833, -0.00499167], [-0.099667, -0.00499167, 0.99500833]]
-    )
-    n_occ = 1
-    n_qubits = 3
-    params = basis_rotation.givens_rotation_parameters(n_qubits, u, n_occ)
-    ref_params = [((0, 1, -1.4709635780470989, 0.0),), ((1, 2, 1.4704623293305714, 0.0),)]
+    ref_U2 = np.array(
+        [[ 0.99001666,  0.,          0.099667,    0.,          0.099667,    0.        ],
+ [ 0.,          0.99001666,  0.,          0.099667,    0.,          0.099667  ],
+ [-0.099667,    0.,          0.99500833,  0.,         -0.00499167,  0.        ],
+ [ 0.,         -0.099667,    0.,          0.99500833,  0.,         -0.00499167],
+ [-0.099667,    0.,         -0.00499167,  0.,          0.99500833,  0.        ],
+ [ 0.,         -0.099667,    0.,         -0.00499167,  0.,          0.99500833]])
 
-    assert np.allclose(params, ref_params)
+    ref_U3 = np.array([[ 0.95041528,  0.,         -0.09834165,  0.,         -0.29502494,  0.        ],
+ [ 0.,          0.9016556,   0.,         -0.19339968,  0.,         -0.38679937],
+ [ 0.09834165,  0.,          0.99504153,  0.,         -0.01487542,  0.        ],
+ [ 0.,          0.19339968,  0.,          0.98033112,  0.,         -0.03933776],
+ [ 0.29502494,  0.,         -0.01487542,  0.,          0.95537375,  0.        ],
+ [ 0.,          0.38679937,  0.,         -0.03933776,  0.,          0.92132448]])
+    
+    identity = np.eye(6)
 
-
-def test_swap_matrices():
-    """Test for swap_matrices"""
-    permutations = [[(0, 1), (2, 3)]]
-    n_qubits = 4
-    smat = basis_rotation.swap_matrices(permutations, n_qubits)
-    ref_smat = np.array([[0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 0.0]])
-
-    assert np.allclose(smat, ref_smat)
+    assert np.allclose(U1@U1.T, identity)
+    assert np.allclose(U2@U2.T, identity)
+    assert np.allclose(U3@U3.T, identity)
+    assert np.allclose(U1, identity)
+    assert np.allclose(U2, ref_U2)
+    assert np.allclose(U3, ref_U3)
 
 
-def test_unitary_rot_matrix():
-    """Test for unitary rotation matrix"""
-    occ = [0]
-    vir = [1, 2]
-    parameters = np.zeros(len(occ) * len(vir))
-    parameters += 0.1
-    u = basis_rotation.unitary_rot_matrix(parameters, occ, vir, orbital_pairs=None, conserve_spin=False)
-    ref_u = np.array(
-        [[0.99001666, 0.099667, 0.099667], [-0.099667, 0.99500833, -0.00499167], [-0.099667, -0.00499167, 0.99500833]]
-    )
+def test_givens_qr_decompose():
+    """
+    Test for basis_rotation.givens_qr_decompose()
+    """
+    N = 6
+    occ = range(0,2)
+    vir = range(2,6)
 
-    assert np.allclose(u, ref_u)
+    U2, theta2 = basis_rotation.unitary(occ, vir, parameters=0.1)
+    z_angles, final_U2 = basis_rotation.givens_qr_decompose(U2)
+
+    ref_z = np.array([-3.141592653589793, -1.5707963267948966, -2.356194490192345, 0.0, -1.5707963267948966, -1.5207546393123066, -1.5707963267948966, -1.5707963267948954, -3.000171297352484, -2.356194490192345, 0.0, -1.5707963267948966, -1.5707963267948954, -0.09995829685982476, -1.5207546393123068])
+
+    assert np.allclose(z_angles, ref_z)
+    assert np.allclose(np.eye(6), final_U2)
 
 
-def test_br_ansatz():
-    """Test of basis rotation ansatz against hardcoded HF energies"""
-    h2_ref_energy = -1.117349035
+def test_basis_rotation_layout():
 
-    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    mol.run_pyscf(max_scf_cycles=1)
-    # Use an un-converged wave function to build the Hamiltonian
-    mol_sym_ham = mol.hamiltonian()
+    N = 10
+    ref_A = 
+    np.array(
+        [[ 0, -1,  0, -1,  0, -1,  0, -1,  0, -1],
+        [ 1,  0,  6,  0, 15,  0, 28,  0, 45,  0],
+        [ 0,  5,  0, 14,  0, 27,  0, 44,  0, 29],
+        [ 4,  0, 13,  0, 26,  0, 43,  0, 30,  0],
+        [ 0, 12,  0, 25,  0, 42,  0, 31,  0, 16],
+        [11,  0, 24,  0, 41,  0, 32,  0, 17,  0],
+        [ 0, 23,  0, 40,  0, 33,  0, 18,  0,  7],
+        [22,  0, 39,  0, 34,  0, 19,  0,  8,  0],
+        [ 0, 38,  0, 35,  0, 20,  0,  9,  0,  2],
+        [37, -1, 36, -1, 21, -1, 10, -1,  3, -1]])
 
-    # Define quantum circuit
-    circuit = Circuit(mol.nso)
-    circuit.add(gates.X(_i) for _i in range(mol.nelec))
+    A = basis_rotation.basis_rotation_layout(N)
+    assert np.allclose(A, ref_A)
 
-    # Add basis rotation ansatz
-    # Initialize all at zero
-    parameters = np.zeros(mol.nelec * (mol.nso - mol.nelec))  # n_occ * n_virt
-    circuit += basis_rotation.br_circuit(mol.nso, parameters, mol.nelec)
 
-    def electronic_energy(parameters):
-        """
-        Loss function (Electronic energy) for the basis rotation ansatz
-        """
-        circuit.set_parameters(parameters)
-        return expectation(circuit, mol_sym_ham)
-
-    hf_energy, parameters, _extra = optimize(electronic_energy, parameters)
-
-    assert hf_energy == pytest.approx(h2_ref_energy)
