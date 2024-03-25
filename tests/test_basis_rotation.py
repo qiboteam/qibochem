@@ -4,7 +4,7 @@ Test for basis rotation ansatz
 
 import numpy as np
 import pytest
-from qibo import Circuit, gates
+from qibo import Circuit, gates, models
 
 from qibochem.ansatz import basis_rotation
 from qibochem.driver.molecule import Molecule
