@@ -97,34 +97,34 @@ def test_expi_pauli(pauli_string):
 
 
 @pytest.mark.parametrize(
-    "excitation,mapping,basis_rotations",
+    "excitation,mapping,basis_rotations,coeffs",
     [
-        ([0, 2], None, ("Y0 X2", "X0 Y2")),  # JW singles
-        # ([0, 2], None, ([("Y", 0), ("X", 2)], [("X", 0), ("Y", 2)])),  # JW singles
-        # (
-        #     [0, 1, 2, 3],
-        #     None,
-        #     (
-        #         [("X", 0), ("X", 1), ("Y", 2), ("X", 3)],
-        #         [("Y", 0), ("Y", 1), ("Y", 2), ("X", 3)],
-        #         [("Y", 0), ("X", 1), ("X", 2), ("X", 3)],
-        #         [("X", 0), ("Y", 1), ("X", 2), ("X", 3)],
-        #         [("Y", 0), ("X", 1), ("Y", 2), ("Y", 3)],
-        #         [("X", 0), ("Y", 1), ("Y", 2), ("Y", 3)],
-        #         [("X", 0), ("X", 1), ("X", 2), ("Y", 3)],
-        #         [("Y", 0), ("Y", 1), ("X", 2), ("Y", 3)],
-        #     ),
-        # ),  # JW doubles
-        # ([0, 2], "bk", ([("X", 0), ("Y", 1), ("X", 2)], [("Y", 0), ("Y", 1), ("Y", 2)])),  # BK singles
+        ([0, 2], None, ("Y0 X2", "X0 Y2"), (0.5, -0.5)),  # JW singles
+        (
+            [0, 1, 2, 3],
+            None,
+            (
+                "X0 X1 Y2 X3",
+                "Y0 Y1 Y2 X3",
+                "Y0 X1 X2 X3",
+                "X0 Y1 X2 X3",
+                "Y0 X1 Y2 Y3",
+                "X0 Y1 Y2 Y3",
+                "X0 X1 X2 Y3",
+                "Y0 Y1 X2 Y3",
+            ),
+            (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25),
+        ),  # JW doubles
+        ([0, 2], "bk", ("X0 Y1 X2", "Y0 Y1 Y2"), (0.5, 0.5)),  # BK singles
     ],
 )
-def test_ucc_circuit(excitation, mapping, basis_rotations):
+def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
     """Build a UCC circuit with only one excitation"""
     theta = 0.1
     n_qubits = 4
-    coeffs_dict = {2: (0.5, -0.5), 8: (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)}
 
-    coeffs = coeffs_dict[len(basis_rotations)]
+    # Build the control array using SymbolicHamiltonian.circuit
+    # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
     control_circuit = Circuit(n_qubits)
     for coeff, basis_rotation in zip(coeffs, basis_rotations):
         n_terms = len(basis_rotation)
@@ -133,22 +133,12 @@ def test_ucc_circuit(excitation, mapping, basis_rotations):
             * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
         )
         control_circuit += pauli_term.circuit(-coeff * theta)
-    print(control_circuit.draw())
-    print()
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
-
+    # Test the ucc_circuit function
     test_circuit = ucc_circuit(n_qubits, excitation, theta=theta, ferm_qubit_map=mapping)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
-
-    print(test_circuit.draw())
-    print()
-
-    print(control_state)
-    print()
-    print(test_state)
-
     assert np.allclose(control_state, test_state)
 
     # Check that number of parametrised gates matches

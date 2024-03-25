@@ -29,11 +29,6 @@ def expi_pauli(n_qubits, pauli_string, theta):
     rz_parameter = -2.0 * theta
 
     # Generate the list of basis change gates using the pauli_ops list
-    # basis_changes = [
-    #     gates.H(_qubit) if _gate == "X" else gates.RX(_qubit, -0.5 * np.pi, trainable=False)
-    #     for _qubit, _gate in pauli_ops
-    #     if _gate not in ("I", "Z")
-    # ]
     basis_changes = []
     for qubit, pauli_op in pauli_ops:
         if pauli_op == "Y":
@@ -52,12 +47,7 @@ def expi_pauli(n_qubits, pauli_string, theta):
     # 4. Add CNOTs to all pairs of qubits in pauli_ops
     circuit.add(gates.CNOT(pauli_ops[_i + 1][0], pauli_ops[_i][0]) for _i in range(n_pauli_ops - 1))
     # 3. Change back to the Z basis
-    # .dagger() doesn't keep trainable=False, so need to use a for loop
     circuit.add(_gate.dagger() for _gate in reversed(basis_changes))
-    # for _gate in reversed(basis_changes):
-    #     gate = _gate.dagger()
-    #     gate.trainable = False
-    #     circuit.add(gate)
     return circuit
 
 
