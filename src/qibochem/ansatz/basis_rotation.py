@@ -16,12 +16,15 @@ from qibochem.driver import hamiltonian
 
 def unitary(occ_orbitals, virt_orbitals, parameters=None):
     r"""
-    Returns the unitary rotation matrix U = exp(\kappa) mixing the occupied and virtual orbitals.
+    Returns the unitary rotation matrix :math: `U = \exp(\kappa)` mixing the occupied and virtual orbitals.
+    Orbitals are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as [0a, 0b, 1a, 1b]
+    Dimension for the array of rotation parameters is len(occ_orbitals_a)*len(virt_orbitals_a) + len(occ_orbitals_b)*len(virt_orbitals_b)
+    The current implementation of this function only accommodates systems with all electrons paired, number of alpha and beta spin electrons are equal 
     Args:
-
         occ_orbitals: Iterable of occupied orbitals
         virt_orbitals: Iterable of virtual orbitals
-        parameters: List/array of rotation parameters. dim = len(occ_orbitals)*len(virt_orbitals)
+        parameters: List/array of rotation parameters
+            dimension = len(occ_orbitals)*len(virt_orbitals)
     Returns:
         exp(k): Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric
                 kappa matrix
@@ -57,7 +60,7 @@ def unitary(occ_orbitals, virt_orbitals, parameters=None):
 
 # clements qr routines
 def givens_qr_decompose(U):
-    """
+    r"""
     Clements scheme QR decompose a unitary matrix U using Givens rotations
     see arxiv:1603.08788
     Args:
@@ -148,7 +151,7 @@ def givens_qr_decompose(U):
 
 
 def basis_rotation_layout(N):
-    """
+    r"""
     generates the layout of the basis rotation circuit for Clements scheme QR decomposition
     Args:
         N: number of qubits/modes
@@ -244,7 +247,7 @@ def basis_rotation_layout(N):
 
 
 def basis_rotation_gates(A, z_array, parameters):
-    """
+    r"""
     places the basis rotation gates on circuit in the order of Clements scheme QR decomposition
     Args:
         A:
