@@ -19,7 +19,7 @@ def unitary(occ_orbitals, virt_orbitals, parameters=None):
     Returns the unitary rotation matrix :math: `U = \exp(\kappa)` mixing the occupied and virtual orbitals.
     Orbitals are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as [0a, 0b, 1a, 1b]
     Dimension for the array of rotation parameters is len(occ_orbitals_a)*len(virt_orbitals_a) + len(occ_orbitals_b)*len(virt_orbitals_b)
-    The current implementation of this function only accommodates systems with all electrons paired, number of alpha and beta spin electrons are equal 
+    The current implementation of this function only accommodates systems with all electrons paired, number of alpha and beta spin electrons are equal
     Args:
         occ_orbitals: Iterable of occupied orbitals
         virt_orbitals: Iterable of virtual orbitals

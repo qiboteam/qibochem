@@ -90,7 +90,7 @@ The following example demonstrates how the energy of the H2 molecule is affected
 
 ..
     Placeholder for basis rotation ansatz documentation
-    
+
 
 .. _UCC Ansatz:
 
