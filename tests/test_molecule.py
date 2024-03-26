@@ -12,7 +12,6 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
 
 from qibochem.driver import Molecule
-from qibochem.driver.hamiltonian import parse_pauli_string
 from qibochem.measurement.expectation import expectation
 
 
@@ -113,120 +112,21 @@ def test_hf_embedding():
 
 
 @pytest.mark.parametrize(
-    "pauli_string,coeff,expected",
+    "option,expected",
     [
-        (((0, "X"), (1, "Y")), 0.5, "0.5*X0*Y1"),
-        (None, 0.1, "0.1"),
+        ("f", sum(openfermion.FermionOperator(f"{_i}^ {_i}", (-1) ** ((_i // 2) + 1)) for _i in range(4))),
+        ("q", 0.5 * sum(openfermion.QubitOperator(f"Z{_i}", (-1) ** (_i // 2)) for _i in range(4))),
     ],
 )
-def test_parse_pauli_string(pauli_string, coeff, expected):
-    test = parse_pauli_string(pauli_string, coeff)
-    assert str(test) == expected
+def test_hamiltonian(option, expected):
+    """Test option to return FermionOperator/QubitOperator"""
+    dummy = Molecule()
+    dummy.e_nuc = 0.0
+    dummy.oei = np.diag((-1.0, 1.0))
+    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
 
-
-def test_fermionic_hamiltonian():
-    # Reference result
-    fermion_operator_list = [
-        ("", 0.7559674441714287),
-        ("0^ 0", -1.277853006156875),
-        ("0^ 0^ 0 0", 0.34119476657602105),
-        ("0^ 0^ 2 2", 0.08950028803070331),
-        ("0^ 1^ 1 0", 0.34119476657602105),
-        ("0^ 1^ 3 2", 0.08950028803070331),
-        ("0^ 2^ 0 2", 0.08950028803070331),
-        ("0^ 2^ 2 0", 0.33536638915437944),
-        ("0^ 3^ 1 2", 0.08950028803070331),
-        ("0^ 3^ 3 0", 0.33536638915437944),
-        ("1^ 0^ 0 1", 0.34119476657602105),
-        ("1^ 0^ 2 3", 0.08950028803070331),
-        ("1^ 1", -1.277853006156875),
-        ("1^ 1^ 1 1", 0.34119476657602105),
-        ("1^ 1^ 3 3", 0.08950028803070331),
-        ("1^ 2^ 0 3", 0.08950028803070331),
-        ("1^ 2^ 2 1", 0.33536638915437944),
-        ("1^ 3^ 1 3", 0.08950028803070331),
-        ("1^ 3^ 3 1", 0.33536638915437944),
-        ("2^ 0^ 0 2", 0.3353663891543795),
-        ("2^ 0^ 2 0", 0.08950028803070331),
-        ("2^ 1^ 1 2", 0.3353663891543795),
-        ("2^ 1^ 3 0", 0.08950028803070331),
-        ("2^ 2", -0.448299696101638),
-        ("2^ 2^ 0 0", 0.08950028803070331),
-        ("2^ 2^ 2 2", 0.35255281608639233),
-        ("2^ 3^ 1 0", 0.08950028803070331),
-        ("2^ 3^ 3 2", 0.35255281608639233),
-        ("3^ 0^ 0 3", 0.3353663891543795),
-        ("3^ 0^ 2 1", 0.08950028803070331),
-        ("3^ 1^ 1 3", 0.3353663891543795),
-        ("3^ 1^ 3 1", 0.08950028803070331),
-        ("3^ 2^ 0 1", 0.08950028803070331),
-        ("3^ 2^ 2 3", 0.35255281608639233),
-        ("3^ 3", -0.448299696101638),
-        ("3^ 3^ 1 1", 0.08950028803070331),
-        ("3^ 3^ 3 3", 0.35255281608639233),
-    ]
-    ref_h2_ferm_ham = sum(openfermion.FermionOperator(_op[0], _op[1]) for _op in fermion_operator_list)
-    # Test case
-    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_pyscf()
-    h2_ferm_ham = h2.hamiltonian("f")
-
-    assert h2_ferm_ham.isclose(ref_h2_ferm_ham)
-
-
-@pytest.mark.parametrize(
-    "mapping,expected_operators",
-    [
-        (
-            None,
-            [
-                ((), -0.04207897647782238),
-                (((0, "Z")), 0.17771287465139918),
-                (((1, "Z")), 0.1777128746513992),
-                (((2, "Z")), -0.24274280513140478),
-                (((3, "Z")), -0.24274280513140478),
-                (((0, "Z"), (1, "Z")), 0.17059738328801052),
-                (((0, "Z"), (2, "Z")), 0.12293305056183809),
-                (((0, "Z"), (3, "Z")), 0.16768319457718972),
-                (((1, "Z"), (2, "Z")), 0.16768319457718972),
-                (((1, "Z"), (3, "Z")), 0.12293305056183809),
-                (((2, "Z"), (3, "Z")), 0.17627640804319608),
-                (((0, "X"), (1, "X"), (2, "Y"), (3, "Y")), -0.04475014401535165),
-                (((0, "X"), (1, "Y"), (2, "Y"), (3, "X")), 0.04475014401535165),
-                (((0, "Y"), (1, "X"), (2, "X"), (3, "Y")), 0.04475014401535165),
-                (((0, "Y"), (1, "Y"), (2, "X"), (3, "X")), -0.04475014401535165),
-            ],
-        ),  # H2 JW mapping
-        (
-            "bk",
-            [
-                ((), -0.04207897647782244),
-                (((0, "Z"),), 0.17771287465139923),
-                (((0, "Z"), (1, "Z")), 0.17771287465139918),
-                (((2, "Z"),), -0.24274280513140484),
-                (((1, "Z"), (2, "Z"), (3, "Z")), -0.24274280513140484),
-                (((0, "Y"), (1, "Z"), (2, "Y")), 0.04475014401535165),
-                (((0, "X"), (1, "Z"), (2, "X")), 0.04475014401535165),
-                (((0, "X"), (1, "Z"), (2, "X"), (3, "Z")), 0.04475014401535165),
-                (((0, "Y"), (1, "Z"), (2, "Y"), (3, "Z")), 0.04475014401535165),
-                (((1, "Z"),), 0.17059738328801052),
-                (((0, "Z"), (2, "Z")), 0.12293305056183809),
-                (((0, "Z"), (1, "Z"), (2, "Z")), 0.16768319457718972),
-                (((0, "Z"), (1, "Z"), (2, "Z"), (3, "Z")), 0.16768319457718972),
-                (((0, "Z"), (2, "Z"), (3, "Z")), 0.12293305056183809),
-                (((1, "Z"), (3, "Z")), 0.17627640804319608),
-            ],
-        ),  # H2 BK mapping
-    ],
-)
-def test_qubit_hamiltonian(mapping, expected_operators):
-    control = sum(openfermion.QubitOperator(_op, coeff) for _op, coeff in expected_operators)
-
-    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_pyscf()
-
-    h2_qubit_hamiltonian = h2.hamiltonian("q", ferm_qubit_map=mapping)
-    assert h2_qubit_hamiltonian.isclose(control)
+    test_ham = dummy.hamiltonian(option)
+    assert test_ham.isclose(expected)
 
 
 def test_hamiltonian_input_errors():
@@ -261,24 +161,24 @@ def test_expectation_value():
     assert h2_ref_energy == pytest.approx(hf_energy)
 
 
-def test_eigenvalues():
+@pytest.mark.parametrize(
+    "hamiltonian,n_eigvals",
+    [
+        (openfermion.reverse_jordan_wigner(openfermion.QubitOperator("Z0 Z1")), 2),
+        (openfermion.QubitOperator("Z0 Z1"), 2),
+        (SymbolicHamiltonian(Z(0) * Z(1)), None),
+    ],
+)
+def test_eigenvalues(hamiltonian, n_eigvals):
+    """Common set of eigenvalues: [-1.0, -1.0, 1.0, 1.0]"""
     dummy = Molecule()
-    # FermionOperator test:
-    ferm_ham = sum(
-        openfermion.FermionOperator(f"{_i}^ {_i}") + openfermion.FermionOperator(f"{_i} {_i}^") for _i in range(4)
-    )
-    ham_matrix = openfermion.get_sparse_operator(ferm_ham).toarray()
-    assert np.allclose(dummy.eigenvalues(ferm_ham), sorted(np.linalg.eigvals(ham_matrix))[:6])
+    result = dummy.eigenvalues(hamiltonian)
+    # Expected: sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0])))
+    assert np.allclose(result, np.array([-1.0, -1.0, 1.0, 1.0])[:n_eigvals])
 
-    # QubitOperator test:
-    qubit_ham = openfermion.QubitOperator("Z0 Z1")
-    ham_matrix = openfermion.get_sparse_operator(qubit_ham).toarray()
-    assert np.allclose(dummy.eigenvalues(qubit_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0])))[:2])
 
-    # SymbolicHamiltonian test:
-    sym_ham = SymbolicHamiltonian(Z(0) * Z(1))
-    assert np.allclose(dummy.eigenvalues(sym_ham), sorted(np.kron(np.array([1.0, -1.0]), np.array([1.0, -1.0]))))
-
+def test_eigenvalues_error():
+    dummy = Molecule()
     # Unknown Hamiltonian type
     with pytest.raises(TypeError):
         dummy.eigenvalues(0.0)

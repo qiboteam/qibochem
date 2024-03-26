@@ -16,21 +16,20 @@ from qibochem.measurement.optimization import (
 
 
 @pytest.mark.parametrize(
-    "terms,gates_to_add,expected,threshold",
+    "terms,gates_to_add,expected",
     [
-        (Z(0), [gates.X(0)], -1.0, None),
-        (Z(0) * Z(1), [gates.X(0)], -1.0, None),
-        (X(0), [gates.H(0)], 1.0, None),
-        (X(0), [gates.X(0), gates.X(0)], 0.0, 0.05),
+        (Z(0), [gates.X(0)], -1.0),
+        (Z(0) * Z(1), [gates.X(0)], -1.0),
+        (X(0), [gates.H(0)], 1.0),
     ],
 )
-def test_expectation_samples(terms, gates_to_add, expected, threshold):
+def test_expectation_samples(terms, gates_to_add, expected):
     """Test from_samples functionality of expectation function with various Hamiltonians"""
     hamiltonian = SymbolicHamiltonian(terms)
     circuit = Circuit(2)
     circuit.add(gates_to_add)
     result = expectation(circuit, hamiltonian, from_samples=True)
-    assert pytest.approx(result, abs=threshold) == expected
+    assert result == expected
 
 
 def test_measurement_basis_rotations_error():

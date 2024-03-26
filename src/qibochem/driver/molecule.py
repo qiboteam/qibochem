@@ -6,13 +6,12 @@ from pathlib import Path
 
 import numpy as np
 import openfermion
-import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
     fermionic_hamiltonian,
     qubit_hamiltonian,
-    symbolic_hamiltonian,
+    qubit_to_symbolic_hamiltonian,
 )
 
 
@@ -123,7 +122,7 @@ class Molecule:
         Args:
             max_scf_cycles: Maximum number of SCF cycles in PySCF
         """
-        import pyscf
+        import pyscf  # pylint: disable=C0415
 
         # Set up and run PySCF calculation
         geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1]) for _atom in self.geometry)
@@ -179,7 +178,7 @@ class Molecule:
     #         output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
     #             and uses ``psi4_output.dat`` otherwise
     #     """
-    #     import psi4  # pylint: disable=import-error
+    #     import psi4  # pylint: disable=C0415
 
     #     # PSI4 input string
     #     chgmul_string = f"{self.charge} {self.multiplicity} \n"
@@ -413,7 +412,7 @@ class Molecule:
             return ham
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
-            return symbolic_hamiltonian(ham)
+            return qubit_to_symbolic_hamiltonian(ham)
         raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
@@ -427,7 +426,7 @@ class Molecule:
                 ``SymbolicHamiltonian`` (not recommended)
         """
         if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
-            from scipy.sparse import linalg
+            from scipy.sparse import linalg  # pylint: disable=C0415
 
             hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
             # k argument in eigsh will depend on the size of the Hamiltonian
