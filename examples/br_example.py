@@ -7,9 +7,8 @@ import numpy as np
 from qibo.optimizers import optimize
 from scipy.optimize import minimize
 
-from qibochem.ansatz.basis_rotation import br_circuit
-from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.driver.molecule import Molecule
+from qibochem.ansatz import br_circuit, hf_circuit
+from qibochem.driver import Molecule
 from qibochem.measurement.expectation import expectation
 
 # Define molecule and populate

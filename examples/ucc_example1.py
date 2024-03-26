@@ -6,8 +6,7 @@ import numpy as np
 from qibo.optimizers import optimize
 from scipy.optimize import minimize
 
-from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.ucc import ucc_circuit
+from qibochem.ansatz import hf_circuit, ucc_circuit
 from qibochem.driver.molecule import Molecule
 from qibochem.measurement.expectation import expectation
 
@@ -21,7 +20,7 @@ except ModuleNotFoundError:
 
 # Apply embedding and boson encoding
 mol.hf_embedding(active=[1, 2, 5])
-hamiltonian = mol.hamiltonian(oei=mol.embed_oei, tei=mol.embed_tei, constant=mol.inactive_energy)
+hamiltonian = mol.hamiltonian()
 
 # Set parameters for the rest of the experiment
 n_qubits = mol.n_active_orbs
@@ -56,11 +55,8 @@ n_excitations = len(excitations)
 n_unique_excitations = 5
 
 # UCCSD: Circuit
-all_coeffs = []
 for _ex in excitations:
-    coeffs = []
-    circuit += ucc_circuit(n_qubits, _ex, coeffs=coeffs)
-    all_coeffs.append(coeffs)
+    circuit += ucc_circuit(n_qubits, _ex)
 
 # Draw the circuit if interested
 print(circuit.draw())
@@ -71,19 +67,28 @@ def electronic_energy(parameters):
     r"""
     Loss function for the UCCSD ansatz
     """
-    all_parameters = []
+    coeff_dict = {1: (-1.0, 1.0), 2: (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)}
 
-    # UCC parameters
-    # Expand the parameters to match the total UCC ansatz manually
-    _ucc = parameters[:n_unique_excitations]
+    # Unique UCC parameters
     # Manually group the related excitations together
-    ucc_parameters = [_ucc[0], _ucc[1], _ucc[2], _ucc[2], _ucc[3], _ucc[3], _ucc[4], _ucc[4]]
-    # Need to iterate through each excitation this time
-    for _coeffs, _parameter in zip(all_coeffs, ucc_parameters):
+    ucc_parameters = [
+        parameters[0],
+        parameters[1],
+        parameters[2],
+        parameters[2],
+        parameters[3],
+        parameters[3],
+        parameters[4],
+        parameters[4],
+    ]
+    all_parameters = []
+    # Iterate through each excitation, with the list of coefficients dependent on whether S/D excitation
+    for _ex, _parameter in zip(excitations, ucc_parameters):
+        coeffs = coeff_dict[len(_ex) // 2]
         # Convert a single value to a array with dimension=n_param_gates
-        ucc_parameter = np.repeat(_parameter, len(_coeffs))
+        ucc_parameter = np.repeat(_parameter, len(coeffs))
         # Multiply by coeffs
-        ucc_parameter *= _coeffs
+        ucc_parameter *= coeffs
         all_parameters.append(ucc_parameter)
 
     # Flatten all_parameters into a single list to set the circuit parameters
@@ -101,7 +106,7 @@ params = np.random.rand(n_unique_excitations)
 
 best, params, extra = optimize(electronic_energy, params)
 
-print("\nResults using Qibo optimize:")
+print("\nResults using Qibo optimize: (With HF embedding)")
 print(f"FCI energy: {fci_energy:.8f}")
 print(f" HF energy: {mol.e_hf:.8f} (Classical)")
 print(f"VQE energy: {best:.8f} (UCCSD ansatz)")
@@ -115,7 +120,7 @@ params = np.random.rand(n_unique_excitations)
 result = minimize(electronic_energy, params)
 best, params = result.fun, result.x
 
-print("\nResults using scipy.optimize:")
+print("\nResults using scipy.optimize: (With HF embedding)")
 print(f"FCI energy: {fci_energy:.8f}")
 print(f" HF energy: {mol.e_hf:.8f} (Classical)")
 print(f"VQE energy: {best:.8f} (UCCSD ansatz)")
@@ -123,7 +128,7 @@ print(f"VQE energy: {best:.8f} (UCCSD ansatz)")
 # print("Optimized parameters:", params)
 
 
-full_ham = mol.hamiltonian("f")
+full_ham = mol.hamiltonian("f", oei=mol.oei, tei=mol.tei, constant=0.0)
 mol_fci_energy = mol.eigenvalues(full_ham)[0]
 
 print(f"\nFCI energy: {mol_fci_energy:.8f} (Full Hamiltonian)")
