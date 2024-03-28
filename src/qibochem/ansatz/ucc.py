@@ -10,13 +10,13 @@ from qibochem.ansatz.hf_reference import hf_circuit
 
 
 def expi_pauli(n_qubits, theta, pauli_string):
-    """
+    r"""
     Build circuit representing exp(i*theta*pauli_string)
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
         theta: parameter
-        pauli_string: OpenFermion QubitOperator object, e.g. X_0 Y_1 Z_2 X_4
+        pauli_string: OpenFermion QubitOperator object, e.g. :math: `X_0 Y_1 Z_2 X_4`
 
     Returns:
         circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
@@ -119,9 +119,9 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 
 
 def mp2_amplitude(excitation, orbital_energies, tei):
-    """
+    r"""
     Calculate the MP2 guess amplitude for a single UCC circuit: 0.0 for a single excitation.
-        for a double excitation (In SO basis): t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)
+        for a double excitation (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
 
     Args:
         excitation: Iterable of spin-orbitals representing a excitation. Must have either 2 or 4 elements exactly,
