@@ -15,7 +15,7 @@ def expi_pauli(n_qubits, pauli_string, theta):
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
-        pauli_string: String in the format: "X0 Z1 Y3"
+        pauli_string: String in the format: ``"X0 Z1 Y3"``
         theta: Real number
 
     Returns:
@@ -112,9 +112,9 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
 
 
 def mp2_amplitude(excitation, orbital_energies, tei):
-    """
+    r"""
     Calculate the MP2 guess amplitude for a single UCC circuit: 0.0 for a single excitation.
-        for a double excitation (In SO basis): t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)
+        for a double excitation (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
 
     Args:
         excitation: Iterable of spin-orbitals representing a excitation. Must have either 2 or 4 elements exactly,
