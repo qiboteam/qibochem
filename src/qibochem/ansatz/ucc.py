@@ -15,14 +15,14 @@ def expi_pauli(n_qubits, pauli_string, theta):
 
     Args:
         n_qubits: No. of qubits in the quantum circuit
-        pauli_string: String in the format: ``"X0 Z1 Y3"``
+        pauli_string: String in the format: ``"X0 Z1 Y3 X11"``
         theta: Real number
 
     Returns:
         circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
     """
     # Split pauli_string into the old p_letters format
-    pauli_ops = sorted(((int(_op[1]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
+    pauli_ops = sorted(((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
     n_pauli_ops = len(pauli_ops)
 
     # Convert theta into a real number for applying with a RZ gate

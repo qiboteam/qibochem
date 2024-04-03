@@ -12,10 +12,7 @@ from qibochem.measurement.expectation import expectation
 
 # Define molecule and populate
 mol = Molecule(xyz_file="lih.xyz")
-try:
-    mol.run_pyscf()
-except ModuleNotFoundError:
-    mol.run_psi4()
+mol.run_pyscf()
 
 
 # Apply embedding and boson encoding

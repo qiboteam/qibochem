@@ -4,9 +4,7 @@ Example of the basis rotation circuit with H3+ molecule. Starts with the guess w
 """
 
 import numpy as np
-from qibo import Circuit, gates, models
-from qibo.optimizers import optimize
-from scipy.optimize import minimize
+from qibo.models import VQE
 
 from qibochem.ansatz import basis_rotation, hf_circuit
 from qibochem.driver import Molecule
@@ -14,10 +12,7 @@ from qibochem.measurement.expectation import expectation
 
 # Define molecule and populate
 mol = Molecule(xyz_file="h3p.xyz")
-try:
-    mol.run_pyscf()
-except ModuleNotFoundError:
-    mol.run_psi4()
+mol.run_pyscf()
 
 # Diagonalize H_core to use as the guess wave function
 
@@ -58,16 +53,14 @@ def basis_rotation_circuit(mol, parameters=0.0):
     gate_layout = basis_rotation.basis_rotation_layout(nqubits)
     gate_list, ordered_angles = basis_rotation.basis_rotation_gates(gate_layout, gate_angles, theta)
 
-    circuit = Circuit(nqubits)
-    for _i in range(mol.nelec):
-        circuit.add(gates.X(_i))
+    circuit = hf_circuit(nqubits, mol.nelec)
     circuit.add(gate_list)
 
     return circuit, gate_angles
 
 
 br_circuit, qubit_parameters = basis_rotation_circuit(mol, parameters=0.1)
-vqe = models.VQE(br_circuit, hamiltonian)
+vqe = VQE(br_circuit, hamiltonian)
 vqe_result = vqe.minimize(qubit_parameters)
 
 print(f" HF energy: {mol.e_hf:.8f}")
