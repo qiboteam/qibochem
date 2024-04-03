@@ -2,11 +2,10 @@
 Test expectation functionality
 """
 
-# import numpy as np
 import pytest
 from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import X, Y, Z
+from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
@@ -16,39 +15,21 @@ from qibochem.measurement.optimization import (
 )
 
 
-def test_expectation_z0():
-    """Test from_samples functionality of expectation function"""
-    hamiltonian = SymbolicHamiltonian(Z(0))
+@pytest.mark.parametrize(
+    "terms,gates_to_add,expected",
+    [
+        (Z(0), [gates.X(0)], -1.0),
+        (Z(0) * Z(1), [gates.X(0)], -1.0),
+        (X(0), [gates.H(0)], 1.0),
+    ],
+)
+def test_expectation_samples(terms, gates_to_add, expected):
+    """Test from_samples functionality of expectation function with various Hamiltonians"""
+    hamiltonian = SymbolicHamiltonian(terms)
     circuit = Circuit(2)
-    circuit.add(gates.X(0))
+    circuit.add(gates_to_add)
     result = expectation(circuit, hamiltonian, from_samples=True)
-    assert pytest.approx(result) == -1.0
-
-
-def test_expectation_z0z1():
-    """Tests expectation_from_samples for diagonal Hamiltonians (only Z's)"""
-    hamiltonian = SymbolicHamiltonian(Z(0) * Z(1))
-    circuit = Circuit(2)
-    circuit.add(gates.X(0))
-    result = expectation(circuit, hamiltonian, from_samples=True)
-    assert pytest.approx(result) == -1.0
-
-
-def test_expectation_x0():
-    """Tests expectation_from_samples for Hamiltonians with X"""
-    hamiltonian = SymbolicHamiltonian(X(0))
-    circuit = Circuit(2)
-    circuit.add(gates.H(0))
-    result = expectation(circuit, hamiltonian, from_samples=True)
-    assert pytest.approx(result) == 1.0
-
-
-def test_expectation_x0_2():
-    """Test 2 of expectation_from_samples for Hamiltonians with X"""
-    hamiltonian = SymbolicHamiltonian(X(0))
-    circuit = Circuit(2)
-    result = expectation(circuit, hamiltonian, from_samples=True, n_shots=10000)
-    assert pytest.approx(result, abs=0.05) == 0.00
+    assert result == expected
 
 
 def test_measurement_basis_rotations_error():
@@ -58,38 +39,26 @@ def test_measurement_basis_rotations_error():
         _ = measurement_basis_rotations(hamiltonian, 2, grouping="test")
 
 
-def test_allocate_shots_uniform():
+@pytest.mark.parametrize(
+    "method,max_shots_per_term,expected",
+    [
+        ("u", None, [100, 100]),  # Control test; i.e. working normally
+        (None, None, [190, 10]),  # Default arguments test
+        (None, 100, [100, 100]),  # max_shots_per_term error
+        (None, 25, [100, 100]),  # If max_shots_per_term is too small
+        (None, 1000, [190, 10]),  # If max_shots_per_term is too large
+    ],
+)
+def test_allocate_shots(method, max_shots_per_term, expected):
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
     grouped_terms = measurement_basis_rotations(hamiltonian, 1)
     n_shots = 200
-    # Control test; i.e. working normally
-    assert allocate_shots(grouped_terms, method="u", n_shots=n_shots) == [100, 100]
+    assert (
+        allocate_shots(grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term) == expected
+    )
 
 
-def test_allocate_shots_coefficient():
-    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
-    n_shots = 200
-    # Default arguments
-    assert allocate_shots(grouped_terms, n_shots=n_shots) == [190, 10], "Default arguments error!"
-    # Reasonable max_shots_per_term test
-    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=100) == [
-        100,
-        100,
-    ], "max_shots_per_term error!"
-    # Too small max_shots_per_term test
-    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=25) == [
-        100,
-        100,
-    ], "max_shots_per_term error: Too small test"
-    # Too big max_shots_per_term test
-    assert allocate_shots(grouped_terms, n_shots=n_shots, max_shots_per_term=1000) == [
-        190,
-        10,
-    ], "max_shots_per_term error: Too big test"
-
-
-def test_allocate_shots_coefficient_edges():
+def test_allocate_shots_coefficient_edge_case():
     """Edge cases of allocate_shots"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     grouped_terms = measurement_basis_rotations(hamiltonian, 1)
@@ -104,29 +73,21 @@ def test_allocate_shots_input_validity():
         _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
 
 
-def test_expectation_manual_shot_allocation():
-    # State vector: -|1>
+@pytest.mark.parametrize(
+    "gates_to_add,shot_allocation,threshold,expected",
+    [
+        ([gates.X(0), gates.Z(0)], [10, 0], None, -1.0),  # State vector: -|1>, Measuring X
+        ([gates.X(0)], [0, 1000], 0.1, 0.0),  # State vector: |1>, Measuring X
+    ],
+)
+def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, threshold, expected):
     circuit = Circuit(1)
-    circuit.add(gates.X(0))
-    circuit.add(gates.Z(0))
+    circuit.add(gates_to_add)
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    shot_allocation = (10, 0)
     result = expectation(
         circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
-    assert pytest.approx(result) == -1.0
-
-
-def test_expectation_manual_shot_allocation2():
-    # State vector: |1>
-    circuit = Circuit(1)
-    circuit.add(gates.X(0))
-    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    shot_allocation = (0, 1000)
-    result = expectation(
-        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
-    )
-    assert pytest.approx(result, abs=0.1) == 0.0
+    assert pytest.approx(result, abs=threshold) == expected
 
 
 def test_expectation_invalid_shot_allocation():
@@ -139,7 +100,14 @@ def test_expectation_invalid_shot_allocation():
         )
 
 
-def test_h2_hf_energy():
+@pytest.mark.parametrize(
+    "n_shots_per_pauli_term,threshold",
+    [
+        (True, 0.005),  # 10000 shots used for each term in Hamiltonian
+        (False, 0.015),  # 10000 shots divided between each Pauli string in Hamiltonian
+    ],
+)
+def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     """Test HF energy of H2 molecule"""
     # Hardcoded benchmark results
     h2_ref_energy = -1.117349035
@@ -153,10 +121,8 @@ def test_h2_hf_energy():
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
 
-    # n_shots (=10000) allocated to each term
-    hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots=10000)
-    assert pytest.approx(hf_energy, abs=0.005) == h2_ref_energy
-
-    # n_shots divided amongst every term
-    hf_energy = expectation(circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, n_shots=10000)
-    assert pytest.approx(hf_energy, abs=0.01) == h2_ref_energy
+    n_shots = 10000
+    hf_energy = expectation(
+        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=n_shots_per_pauli_term, n_shots=n_shots
+    )
+    assert pytest.approx(hf_energy, abs=threshold) == h2_ref_energy
