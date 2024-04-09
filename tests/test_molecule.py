@@ -12,7 +12,7 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(

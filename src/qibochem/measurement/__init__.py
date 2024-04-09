@@ -1,1 +1,1 @@
-from qibochem.measurement.expectation import expectation
+from qibochem.measurement.result import expectation

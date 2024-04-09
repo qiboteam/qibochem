@@ -17,13 +17,13 @@ def check_terms_commutativity(term1, term2, qubitwise=False):
     """
     # Get a list of common qubits for each term
     common_qubits = sorted(
-        {_term[1] for _term in term1 if _term[0] != "I"} & {_term[1] for _term in term2 if _term[0] != "I"}
+        {_term[1:] for _term in term1 if _term[0] != "I"} & {_term[1:] for _term in term2 if _term[0] != "I"}
     )
     if not common_qubits:
         return True
     # Get the single Pauli operators for the common qubits for both Pauli terms
-    term1_ops = [_op for _op in term1 if _op[1] in common_qubits]
-    term2_ops = [_op for _op in term2 if _op[1] in common_qubits]
+    term1_ops = [_op for _op in term1 if _op[1:] in common_qubits]
+    term2_ops = [_op for _op in term2 if _op[1:] in common_qubits]
     if qubitwise:
         # Qubitwise: Compare the Pauli terms at the common qubits. Any difference => False
         return all(_op1 == _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
@@ -61,7 +61,7 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     if z_only_terms:
         result.append(([gates.M(_i) for _i in range(n_qubits)], z_only_terms))
     else:
-        result.append(([], []))
+        result.append(([], []))  # No terms with only Z's
     # Then add the X/Y terms in
     if xy_terms:
         if grouping is None:

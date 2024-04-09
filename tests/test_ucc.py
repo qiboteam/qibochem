@@ -9,7 +9,7 @@ import pytest
 from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
-from qibochem.ansatz.hf_reference import hf_circuit
+from qibochem.ansatz import hf_circuit
 from qibochem.ansatz.ucc import (
     expi_pauli,
     generate_excitations,
