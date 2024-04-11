@@ -66,13 +66,13 @@ def group_commuting_terms(terms_list, qubitwise):
         if _i2 > _i1 and not check_terms_commutativity(term1, term2, qubitwise)
     )
     # Solve using Greedy Colouring on NetworkX
-    term_groups = nx.coloring.greedy_color(G)
-    group_ids = set(term_groups.values())
+    sorted_groups = nx.coloring.greedy_color(G)
+    group_ids = set(sorted_groups.values())
     # Sort results so that test results will be replicable
-    sorted_groups = sorted(
-        sorted(group for group, group_id in term_groups.items() if group_id == _id) for _id in group_ids
+    term_groups = sorted(
+        sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
     )
-    return sorted_groups
+    return term_groups
 
 
 def qwc_measurement_gates(grouped_terms):
@@ -95,7 +95,24 @@ def qwc_measurement_gates(grouped_terms):
 
 
 def qwc_measurements(terms_list):
-    pass
+    """
+    Sort out a list of Hamiltonian terms into separate groups of mutually qubitwise commuting terms, and returns the
+    grouped terms along with their associated measurement gates
+
+    Args:
+        terms_list: Iterable of SymbolicTerms
+
+    Returns:
+        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
+            term1, term2, ... are SymbolicTerms.
+    """
+    ham_terms = {" ".join(factor.name for factor in term.factors): term for term in terms_list}
+    term_groups = group_commuting_terms(ham_terms.keys(), qubitwise=True)
+    result = []
+    for term_group in term_groups:
+        symbolic_terms = [ham_terms[term] for term in term_group]
+        result.append((qwc_measurement_gates(symbolic_terms), symbolic_terms))
+    return result
 
 
 def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
@@ -106,14 +123,14 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
         n_qubits: Number of qubits in the quantum circuit
-        grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the expectation
-            values of a group of terms simultaneously. Default value of ``None`` will not group any terms together, which is
-            the only option currently implemented.
+        grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the
+            expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
+            together, which is the only option currently implemented.
 
     Returns:
         list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
-        term1, term2, ... are SymbolicTerms. The first tuple always corresponds to all the Z terms present, which will be two
-        empty lists - ``([], [])`` - if there are no Z terms present.
+            term1, term2, ... are SymbolicTerms. The first tuple always corresponds to all the Z terms present, which
+            will be two empty lists - ``([], [])`` - if there are no Z terms present.
     """
     result = []
     # Split up the Z and X/Y terms
@@ -155,11 +172,12 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     Args:
         grouped_terms (list): Output of measurement_basis_rotations(hamiltonian, n_qubits, grouping=None
         n_shots (int): Total number of shots to be allocated
-        method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is distributed
-            based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots`` is distributed evenly
-            amongst each term. Default value: ``"c"``.
-        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual group of terms. If not given,
-            will be defined as a fraction (largest coefficient over the sum of all coefficients in the Hamiltonian) of ``n_shots``.
+        method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is
+            distributed based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots``
+            is distributed evenly amongst each term. Default value: ``"c"``.
+        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual group of terms. If not
+            given, will be defined as a fraction (largest coefficient over the sum of all coefficients in the
+            Hamiltonian) of ``n_shots``.
 
     Returns:
         list: A list containing the number of shots to be used for each group of Pauli terms respectively.
