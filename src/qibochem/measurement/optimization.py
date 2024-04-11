@@ -75,6 +75,29 @@ def group_commuting_terms(terms_list, qubitwise):
     return sorted_groups
 
 
+def qwc_measurement_gates(grouped_terms):
+    """
+    Get the list of (basis rotation) measurement gates to be added to the circuit. The measurements from the resultant
+    circuit can then be used to obtain the expectation values of ALL the terms in grouped_terms directly.
+
+    Args:
+        grouped_terms (list): List of SymbolicTerms that mutually commutes (qubitwise)
+
+    Returns:
+        list: Measurement gates to be appended to the Qibo circuit
+    """
+    m_gates = {}
+    for term in grouped_terms:
+        for factor in term.factors:
+            if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I":
+                m_gates[factor.target_qubit] = gates.M(factor.target_qubit, basis=type(factor.gate))
+    return list(m_gates.values())
+
+
+def qwc_measurements(terms_list):
+    pass
+
+
 def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     """
     Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
@@ -82,7 +105,7 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
 
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
-        n_qubits: Number of qubits in the quantum circuit.
+        n_qubits: Number of qubits in the quantum circuit
         grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the expectation
             values of a group of terms simultaneously. Default value of ``None`` will not group any terms together, which is
             the only option currently implemented.
@@ -118,6 +141,8 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
                 )
                 for term in xy_terms
             ]
+        elif grouping == "qwc":
+            result += qwc_measurements(xy_terms)
         else:
             raise NotImplementedError("Not ready yet!")
     return result
