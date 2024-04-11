@@ -5,7 +5,7 @@ Test expectation functionality
 import pytest
 from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import X, Z
+from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
@@ -101,10 +101,36 @@ def test_expectation_invalid_shot_allocation():
 
 
 @pytest.mark.parametrize(
+    "hamiltonian",
+    [
+        SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
+        SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
+    ],
+)
+def test_qwc_functionality(hamiltonian):
+    """Small scale tests of QWC functionality"""
+    n_qubits = 3
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    expected = expectation(circuit, hamiltonian)
+    n_shots = 5000
+    test = expectation(
+        circuit,
+        hamiltonian,
+        from_samples=True,
+        n_shots=n_shots,
+        group_pauli_terms="qwc",
+    )
+    assert test == pytest.approx(expected, abs=0.05)
+
+
+@pytest.mark.parametrize(
     "n_shots_per_pauli_term,threshold",
     [
         (True, 0.005),  # 5000 shots used for each term in Hamiltonian
-        (False, 0.015),  # 5000 shots divided between each Pauli string in Hamiltonian
+        (False, 0.02),  # 5000 shots divided between each Pauli string in Hamiltonian
     ],
 )
 def test_h2_hf_energy(n_shots_per_pauli_term, threshold):

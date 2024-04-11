@@ -4,16 +4,10 @@ Test functionality to reduce the measurement cost of running VQE
 
 import pytest
 
-# from qibochem.driver import Molecule
-# from qibochem.measurement import expectation
 from qibochem.measurement.optimization import (
     check_terms_commutativity,
     group_commuting_terms,
 )
-
-# from qibo import Circuit, gates
-# from qibo.hamiltonians import SymbolicHamiltonian
-# from qibo.symbols import X, Z
 
 
 @pytest.mark.parametrize(

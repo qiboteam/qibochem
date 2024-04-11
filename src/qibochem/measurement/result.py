@@ -31,7 +31,9 @@ def pauli_term_measurement_expectation(pauli_term, frequencies):
     pauli_z = [Z(int(factor.target_qubit)) for factor in pauli_term.factors if factor.name[0] != "I"]
     z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
     # Can now apply expectation_from_samples directly
-    return z_only_ham.expectation_from_samples(frequencies)
+    return z_only_ham.expectation_from_samples(
+        frequencies, qubit_map=[factor.target_qubit for factor in pauli_term.factors]
+    )
 
 
 def expectation(
