@@ -49,32 +49,29 @@ def group_commuting_terms(terms_list, qubitwise):
     commute), which this function follows.
 
     Args:
-        terms_list: List of strings that contain X/Y. The strings should follow the output from
-            ``[factor.name for factor in term.factors]``, where term is a Qibo SymbolicTerm. E.g. ["X0", "Z1"]
+        terms_list: List of strings. The strings should follow the output from
+            ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo SymbolicTerm. E.g. "X0 Z1".
         qubitwise: Determines if the check is for general commutativity, or the stricter qubitwise commutativity
 
     Returns:
         list: Containing groups (lists) of Pauli strings that all commute mutually
     """
-    # Need to convert the lists in _terms_list to strings so that they can be used as graph nodes
-    terms_str = ["".join(term) for term in terms_list]
-    # print(terms_str)
-
     G = nx.Graph()
     # Complement graph: Add all the terms as nodes first, then add edges between nodes if they DO NOT commute
-    G.add_nodes_from(terms_str)
+    G.add_nodes_from(terms_list)
     G.add_edges_from(
         (term1, term2)
-        for _i1, term1 in enumerate(terms_str)
-        for _i2, term2 in enumerate(terms_str)
+        for _i1, term1 in enumerate(terms_list)
+        for _i2, term2 in enumerate(terms_list)
         if _i2 > _i1 and not check_terms_commutativity(term1, term2, qubitwise)
     )
-
     # Solve using Greedy Colouring on NetworkX
     term_groups = nx.coloring.greedy_color(G)
     group_ids = set(term_groups.values())
-    sorted_groups = [[group.split() for group, group_id in term_groups.items() if group_id == _id] for _id in group_ids]
-    print(sorted_groups)
+    # Sort results so that test results will be replicable
+    sorted_groups = sorted(
+        sorted(group for group, group_id in term_groups.items() if group_id == _id) for _id in group_ids
+    )
     return sorted_groups
 
 

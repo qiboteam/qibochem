@@ -33,17 +33,15 @@ def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
     assert gc_result == gc_expected
 
 
-# @pytest.mark.parametrize(
-#     "term_list,qwc_expected,gc_expected",
-#     [
-#         ([["X0"], ["Z0"], ["Z1"], ["Z0", "Z1"]], {[["Z0"], ["Z1"], ["Z0", "Z1"]], ["X0"]}, {[["Z0"], ["Z1"], ["Z0", "Z1"]], ["X0"]}),
-#         # (["X0"], ["Z1"], True, True),
-#         # (["X0", "X1"], ["Y0", "Y1"], False, True),
-#         # (["X0", "Y1"], ["Y0", "Y1"], False, False),
-#     ],
-# )
-# def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
-#     qwc_result = group_commuting_terms(term_list, qubitwise=True)
-#     assert set(qwc_result) == qwc_expected
-#     gc_result = group_commuting_terms(term_list, qubitwise=False)
-#     assert set(gc_result) == gc_expected
+@pytest.mark.parametrize(
+    "term_list,qwc_expected,gc_expected",
+    [
+        (["X0 Z1", "X0", "Z0", "Z0 Z1"], [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]], [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]]),
+        (["X0 Y1 Z2", "X1 X2", "Z1 Y2"], [["X0 Y1 Z2"], ["X1 X2"], ["Z1 Y2"]], [["X0 Y1 Z2", "X1 X2", "Z1 Y2"]]),
+    ],
+)
+def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
+    qwc_result = group_commuting_terms(term_list, qubitwise=True)
+    assert qwc_result == qwc_expected
+    gc_result = group_commuting_terms(term_list, qubitwise=False)
+    assert gc_result == gc_expected
