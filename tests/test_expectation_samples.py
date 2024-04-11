@@ -103,8 +103,8 @@ def test_expectation_invalid_shot_allocation():
 @pytest.mark.parametrize(
     "n_shots_per_pauli_term,threshold",
     [
-        (True, 0.005),  # 10000 shots used for each term in Hamiltonian
-        (False, 0.015),  # 10000 shots divided between each Pauli string in Hamiltonian
+        (True, 0.005),  # 5000 shots used for each term in Hamiltonian
+        (False, 0.015),  # 5000 shots divided between each Pauli string in Hamiltonian
     ],
 )
 def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
@@ -121,8 +121,13 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
 
-    n_shots = 10000
+    n_shots = 5000
     hf_energy = expectation(
-        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=n_shots_per_pauli_term, n_shots=n_shots
+        circuit,
+        hamiltonian,
+        from_samples=True,
+        n_shots_per_pauli_term=n_shots_per_pauli_term,
+        n_shots=n_shots,
+        group_pauli_terms="qwc",
     )
     assert pytest.approx(hf_energy, abs=threshold) == h2_ref_energy
