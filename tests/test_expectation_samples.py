@@ -8,7 +8,7 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
+from qibochem.measurement import expectation, expectation_from_samples
 from qibochem.measurement.optimization import (
     allocate_shots,
     measurement_basis_rotations,
@@ -23,12 +23,12 @@ from qibochem.measurement.optimization import (
         (X(0), [gates.H(0)], 1.0),
     ],
 )
-def test_expectation_samples(terms, gates_to_add, expected):
-    """Test from_samples functionality of expectation function with various Hamiltonians"""
+def test_expectation_from_samples(terms, gates_to_add, expected):
+    """Test expectation_from_samples function with various Hamiltonians"""
     hamiltonian = SymbolicHamiltonian(terms)
     circuit = Circuit(2)
     circuit.add(gates_to_add)
-    result = expectation(circuit, hamiltonian, from_samples=True)
+    result = expectation_from_samples(circuit, hamiltonian)
     assert result == expected
 
 
@@ -84,8 +84,8 @@ def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, thres
     circuit = Circuit(1)
     circuit.add(gates_to_add)
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    result = expectation(
-        circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+    result = expectation_from_samples(
+        circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
     assert pytest.approx(result, abs=threshold) == expected
 
@@ -95,8 +95,8 @@ def test_expectation_invalid_shot_allocation():
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     shot_allocation = (1,)
     with pytest.raises(AssertionError):
-        _ = expectation(
-            circuit, hamiltonian, from_samples=True, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+        _ = expectation_from_samples(
+            circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
         )
 
 
@@ -116,10 +116,9 @@ def test_qwc_functionality(hamiltonian):
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
     n_shots = 5000
-    test = expectation(
+    test = expectation_from_samples(
         circuit,
         hamiltonian,
-        from_samples=True,
         n_shots=n_shots,
         group_pauli_terms="qwc",
     )
@@ -148,10 +147,9 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     hamiltonian = h2.hamiltonian()
 
     n_shots = 5000
-    hf_energy = expectation(
+    hf_energy = expectation_from_samples(
         circuit,
         hamiltonian,
-        from_samples=True,
         n_shots_per_pauli_term=n_shots_per_pauli_term,
         n_shots=n_shots,
         group_pauli_terms="qwc",
