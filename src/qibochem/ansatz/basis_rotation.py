@@ -3,7 +3,6 @@ Circuit representing an unitary rotation of the molecular (spin-)orbital basis s
 """
 
 import numpy as np
-
 from qibo import gates, models
 from scipy.linalg import expm
 
