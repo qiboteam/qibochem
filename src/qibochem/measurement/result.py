@@ -57,8 +57,7 @@ def expectation_from_samples(
     shot_allocation=None,
 ) -> float:
     """
-    Calculate expectation value of some Hamiltonian using either the state vector or sample measurements from running a
-    quantum circuit
+    Calculate expectation value of some Hamiltonian using sample measurements from running a Qibo quantum circuit
 
     Args:
         circuit (qibo.models.Circuit): Quantum circuit ansatz
@@ -106,7 +105,8 @@ def expectation_from_samples(
                     total += sum(pauli_term_measurement_expectation(term, frequencies) for term in terms)
                 else:
                     z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in terms))
-                    total += z_ham.expectation_from_samples(frequencies)
+                    qubit_map = sorted({factor.target_qubit for term in terms for factor in term.factors})
+                    total += z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
     # Add the constant term if present. Note: Energies (in chemistry) are all real values
     total += hamiltonian.constant.real
     return total

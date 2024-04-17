@@ -7,7 +7,7 @@ import numpy as np
 from qibo import gates
 
 
-def check_terms_commutativity(term1, term2, qubitwise):
+def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
     """
     Check if terms 1 and 2 are mutually commuting. The 'qubitwise' flag determines if the check is for general
     commutativity (False), or the stricter qubitwise commutativity.
@@ -108,10 +108,10 @@ def qwc_measurements(terms_list):
     """
     ham_terms = {" ".join(factor.name for factor in term.factors): term for term in terms_list}
     term_groups = group_commuting_terms(ham_terms.keys(), qubitwise=True)
-    result = []
-    for term_group in term_groups:
-        symbolic_terms = [ham_terms[term] for term in term_group]
-        result.append((qwc_measurement_gates(symbolic_terms), symbolic_terms))
+    result = [
+        (qwc_measurement_gates(symbolic_terms := [ham_terms[term] for term in term_group]), symbolic_terms)
+        for term_group in term_groups
+    ]
     return result
 
 
@@ -140,24 +140,12 @@ def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
     xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
     # Add the Z terms into result first, followed by the terms with X/Y's
     if z_only_terms:
-        result.append(([gates.M(_i) for _i in range(n_qubits)], z_only_terms))
+        result.append((qwc_measurement_gates(z_only_terms), z_only_terms))
     else:
         result.append(([], []))
     if xy_terms:
         if grouping is None:
-            result += [
-                (
-                    [
-                        gates.M(int(factor.target_qubit), basis=type(factor.gate))
-                        for factor in term.factors
-                        if factor.name[0] != "I"
-                    ],
-                    [
-                        term,
-                    ],
-                )
-                for term in xy_terms
-            ]
+            result += [(qwc_measurement_gates([term]), [term]) for term in xy_terms]
         elif grouping == "qwc":
             result += qwc_measurements(xy_terms)
         else:
