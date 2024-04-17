@@ -273,10 +273,10 @@ def basis_rotation_gates(A, z_array, parameters):
     for j in range(N):
         for i in range(N):
             if A[i][j] == 0:
-                # print("CRY", i, i + 1, A[i+1][j]-1, z_array[A[i + 1][j] - 1])
-                gate_list.append(gates.CNOT(i + 1, i))
-                gate_list.append(gates.CRY(i, i + 1, z_array[A[i + 1][j] - 1]))
+                #gate_list.append(gates.CNOT(i + 1, i))
+                #gate_list.append(gates.CRY(i, i + 1, z_array[A[i + 1][j] - 1]))
+                gate_list.append(gates.GIVENS(i+1, i, z_array[A[i+1][j] - 1]))
                 ordered_angles.append(z_array[A[i + 1][j] - 1])
-                gate_list.append(gates.CNOT(i + 1, i))
+                #gate_list.append(gates.CNOT(i + 1, i))
 
     return gate_list, ordered_angles
