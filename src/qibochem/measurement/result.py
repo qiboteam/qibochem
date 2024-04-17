@@ -11,6 +11,18 @@ from qibochem.measurement.optimization import (
 )
 
 
+def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
+    """
+    Expectation value using state vector simulations
+    TODO: Docstring
+
+    """
+    # Expectation value from state vector simulation
+    result = circuit(nshots=1)
+    state_ket = result.state()
+    return hamiltonian.expectation(state_ket)
+
+
 def symbolic_term_to_symbol(symbolic_term):
     """Convert a single Pauli word in the form of a Qibo SymbolicTerm to a Qibo Symbol"""
     return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
@@ -36,10 +48,9 @@ def pauli_term_measurement_expectation(pauli_term, frequencies):
     )
 
 
-def expectation(
+def expectation_from_samples(
     circuit: qibo.models.Circuit,
     hamiltonian: SymbolicHamiltonian,
-    from_samples: bool = False,
     n_shots: int = 1000,
     group_pauli_terms=None,
     n_shots_per_pauli_term: bool = True,
@@ -52,8 +63,6 @@ def expectation(
     Args:
         circuit (qibo.models.Circuit): Quantum circuit ansatz
         hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
-        from_samples (bool): Whether the expectation value calculation uses samples or the simulated
-            state vector. Default: ``False``; Results are from a state vector simulation
         n_shots (int): Number of times the circuit is run if ``from_samples=True``. Default: ``1000``
         group_pauli_terms: Whether or not to group Pauli X/Y terms in the Hamiltonian together to reduce the measurement cost.
             Default: ``None``; each of the Hamiltonian terms containing X/Y are in their own individual groups.
@@ -67,12 +76,6 @@ def expectation(
     Returns:
         float: Hamiltonian expectation value
     """
-    if not from_samples:
-        # Expectation value from state vector simulation
-        result = circuit(nshots=1)
-        state_ket = result.state()
-        return hamiltonian.expectation(state_ket)
-
     # From sample measurements:
     # (Eventually) measurement_basis_rotations will be used to group up some terms so that one
     # set of measurements can be used for multiple X/Y terms
