@@ -88,7 +88,7 @@ The following example demonstrates how the energy of the H2 molecule is affected
 Unitary Coupled Cluster Ansatz
 ------------------------------
 
-The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f3]_ of quantum chemistry.
+The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f4]_ of quantum chemistry.
 The UCC wave function is a parameterized unitary transformation of a reference wave function :math:`\psi_{\mathrm{ref}}`, of which a common choice is the Hartree-Fock wave function.
 
 .. math::
