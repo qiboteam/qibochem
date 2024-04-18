@@ -13,6 +13,21 @@ from qibochem.measurement.optimization import (
     allocate_shots,
     measurement_basis_rotations,
 )
+from qibochem.measurement.result import pauli_term_measurement_expectation
+
+
+@pytest.mark.parametrize(
+    "term,frequencies,qubit_map,expected",
+    [
+        (X(0), {"10": 5}, [0, 1], -1.0),
+        (X(2), {"010": 5}, [0, 2, 5], -1.0),
+        (Y(4), {"110": 5}, [0, 2, 4], 1.0),
+    ],
+)
+def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expected):
+    symbolic_term = SymbolicHamiltonian(term).terms[0]
+    result = pauli_term_measurement_expectation(symbolic_term, frequencies, qubit_map)
+    assert result == expected, "{term}"
 
 
 @pytest.mark.parametrize(
@@ -24,7 +39,6 @@ from qibochem.measurement.optimization import (
     ],
 )
 def test_expectation_from_samples(terms, gates_to_add, expected):
-    """Test expectation_from_samples function with various Hamiltonians"""
     hamiltonian = SymbolicHamiltonian(terms)
     circuit = Circuit(2)
     circuit.add(gates_to_add)
@@ -36,7 +50,7 @@ def test_measurement_basis_rotations_error():
     """If unknown measurement grouping scheme used"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(NotImplementedError):
-        _ = measurement_basis_rotations(hamiltonian, 2, grouping="test")
+        _ = measurement_basis_rotations(hamiltonian, grouping="test")
 
 
 @pytest.mark.parametrize(
@@ -51,7 +65,7 @@ def test_measurement_basis_rotations_error():
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    grouped_terms = measurement_basis_rotations(hamiltonian)
     n_shots = 200
     assert (
         allocate_shots(grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term) == expected
@@ -61,14 +75,14 @@ def test_allocate_shots(method, max_shots_per_term, expected):
 def test_allocate_shots_coefficient_edge_case():
     """Edge cases of allocate_shots"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    grouped_terms = measurement_basis_rotations(hamiltonian)
     n_shots = 1
     assert allocate_shots(grouped_terms, n_shots=n_shots) in ([0, 1], [1, 0])
 
 
 def test_allocate_shots_input_validity():
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian, 1)
+    grouped_terms = measurement_basis_rotations(hamiltonian)
     with pytest.raises(NameError):
         _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
 
@@ -103,6 +117,7 @@ def test_expectation_invalid_shot_allocation():
 @pytest.mark.parametrize(
     "hamiltonian",
     [
+        SymbolicHamiltonian(X(0) + Y(2)),
         SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
         SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
     ],
@@ -122,7 +137,9 @@ def test_qwc_functionality(hamiltonian):
         n_shots=n_shots,
         group_pauli_terms="qwc",
     )
-    assert test == pytest.approx(expected, abs=0.05)
+    assert test == pytest.approx(
+        expected, abs=0.05
+    ), f"Failure: {[[factor.name for factor in term.factors] for term in hamiltonian.terms]}"
 
 
 @pytest.mark.parametrize(

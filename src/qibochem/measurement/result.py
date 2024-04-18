@@ -1,6 +1,5 @@
 from functools import reduce
 
-import numpy as np
 import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import Z
@@ -96,11 +95,12 @@ def expectation_from_samples(
             result = _circuit(nshots=n_shots if n_shots_per_pauli_term else shot_allocation[_i])
 
             frequencies = result.frequencies(binary=True)
+            qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
                 # First term is all Z terms, can use expectation_from_samples directly.
                 # Otherwise, need to use the general pauli_term_measurement_expectation function
                 if _i > 0:
-                    total += sum(pauli_term_measurement_expectation(term, frequencies) for term in terms)
+                    total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
                 else:
                     z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in terms))
                     qubit_map = sorted({factor.target_qubit for term in terms for factor in term.factors})
