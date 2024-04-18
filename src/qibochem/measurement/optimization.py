@@ -84,14 +84,14 @@ def qwc_measurement_gates(grouped_terms):
         grouped_terms (list): List of SymbolicTerms that mutually commutes (qubitwise)
 
     Returns:
-        list: Measurement gates to be appended to the Qibo circuit
+        list, list: (Qubits with measurement gates, Measurement gates to be appended to the Qibo circuit)
     """
     m_gates = {}
     for term in grouped_terms:
         for factor in term.factors:
             if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I":
                 m_gates[factor.target_qubit] = gates.M(factor.target_qubit, basis=type(factor.gate))
-    return list(m_gates.values())
+    return list(m_gates.keys()), list(m_gates.values())
 
 
 def qwc_measurements(terms_list):
@@ -115,14 +115,13 @@ def qwc_measurements(terms_list):
     return result
 
 
-def measurement_basis_rotations(hamiltonian, n_qubits, grouping=None):
+def measurement_basis_rotations(hamiltonian, grouping=None):
     """
     Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
     respective (group of) terms in the Hamiltonian
 
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
-        n_qubits: Number of qubits in the quantum circuit
         grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the
             expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
             together, which is the only option currently implemented.
@@ -158,7 +157,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     Allocate shots to each group of terms in the Hamiltonian for calculating the expectation value of the Hamiltonian.
 
     Args:
-        grouped_terms (list): Output of measurement_basis_rotations(hamiltonian, n_qubits, grouping=None
+        grouped_terms (list): Output of measurement_basis_rotations
         n_shots (int): Total number of shots to be allocated
         method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is
             distributed based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots``

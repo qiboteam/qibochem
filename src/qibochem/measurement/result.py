@@ -28,7 +28,7 @@ def symbolic_term_to_symbol(symbolic_term):
     return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
 
 
-def pauli_term_measurement_expectation(pauli_term, frequencies):
+def pauli_term_measurement_expectation(pauli_term, frequencies, qubit_map):
     """
     Calculate the expectation value of a single general Pauli string for some measurement frequencies
 
@@ -43,9 +43,7 @@ def pauli_term_measurement_expectation(pauli_term, frequencies):
     pauli_z = [Z(int(factor.target_qubit)) for factor in pauli_term.factors if factor.name[0] != "I"]
     z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
     # Can now apply expectation_from_samples directly
-    return z_only_ham.expectation_from_samples(
-        frequencies, qubit_map=[factor.target_qubit for factor in pauli_term.factors]
-    )
+    return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
 
 
 def expectation_from_samples(
@@ -78,7 +76,7 @@ def expectation_from_samples(
     # From sample measurements:
     # (Eventually) measurement_basis_rotations will be used to group up some terms so that one
     # set of measurements can be used for multiple X/Y terms
-    grouped_terms = measurement_basis_rotations(hamiltonian, circuit.nqubits, grouping=group_pauli_terms)
+    grouped_terms = measurement_basis_rotations(hamiltonian, grouping=group_pauli_terms)
 
     # Check shot_allocation argument if not using n_shots_per_pauli_term
     if not n_shots_per_pauli_term:
