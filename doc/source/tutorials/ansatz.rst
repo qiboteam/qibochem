@@ -138,7 +138,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     q3: ... ─────o─RX─RX─o────────────o─RX─
 
 
-.. 
+..
    _Basis rotation ansatz
 
 Basis rotation ansatz
@@ -150,11 +150,11 @@ The starting points for contemporary quantum chemistry methods are often those b
 
     \begin{align*}
     E[\psi] &= \langle \psi | \hat{H}_{\mathrm{elec}} |\psi \rangle \\
-            &= \sum_i^{N_f} \langle \phi_i |\hat{h}|\phi_i \rangle + \frac{1}{2} \sum_{i,j}^{N_f} 
-            \langle \phi_i\phi_j||\phi_i\phi_j \rangle 
+            &= \sum_i^{N_f} \langle \phi_i |\hat{h}|\phi_i \rangle + \frac{1}{2} \sum_{i,j}^{N_f}
+            \langle \phi_i\phi_j||\phi_i\phi_j \rangle
     \end{align*}
 
-The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimization of the energy functional with respect to parameters :math:`\kappa` that parameterize the unitary rotations of the orbital basis. Qibochem's implementation uses the QR decomposition of the unitary matrix as employed by Clements et al., [#f7]_ which results in a rectangular gate layout of `Givens rotation gates <https://qibo.science/qibo/stable/api-reference/qibo.html#givens-gate>`_ that yield linear CNOT gate depth when decomposed. 
+The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimization of the energy functional with respect to parameters :math:`\kappa` that parameterize the unitary rotations of the orbital basis. Qibochem's implementation uses the QR decomposition of the unitary matrix as employed by Clements et al., [#f7]_ which results in a rectangular gate layout of `Givens rotation gates <https://qibo.science/qibo/stable/api-reference/qibo.html#givens-gate>`_ that yield linear CNOT gate depth when decomposed.
 
 
 .. code-block:: python
@@ -180,11 +180,11 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
             circuit.add(gates.X(_i))
         circuit.add(gate_list)
 
-        return circuit, gate_angles  
+        return circuit, gate_angles
 
-    h3p = Molecule([('H', (0.0000,  0.0000, 0.0000)), 
+    h3p = Molecule([('H', (0.0000,  0.0000, 0.0000)),
                     ('H', (0.0000,  0.0000, 0.8000)),
-                    ('H', (0.0000,  0.0000, 1.6000))], 
+                    ('H', (0.0000,  0.0000, 1.6000))],
                     charge=1, multiplicity=1)
     h3p.run_pyscf(max_scf_cycles=1)
 
@@ -194,13 +194,13 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
     hf_circuit, qubit_parameters = basis_rotation_circuit(h3p, parameters=0.1)
 
     print(hf_circuit.draw())
-    
+
     vqe = models.VQE(hf_circuit, h3p_sym_ham)
     res = vqe.minimize(qubit_parameters)
 
     print('energy of initial guess: ', e_init)
     print('energy after vqe       : ', res[0])
-    
+
 .. code-block:: output
 
     q0: ─X─G─────────G─────────G─────────
@@ -233,4 +233,3 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
 .. [#f6] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
 
 .. [#f7] Clements W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.
-
