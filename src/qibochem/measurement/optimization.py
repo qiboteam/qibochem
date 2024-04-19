@@ -121,10 +121,11 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     respective (group of) terms in the Hamiltonian
 
     Args:
-        hamiltonian (SymbolicHamiltonian): Hamiltonian (that only contains X/Y terms?)
+        hamiltonian (SymbolicHamiltonian): Hamiltonian of interest
         grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the
             expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
-            together, which is the only option currently implemented.
+            together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement gates
+            associated with each group of X/Y terms
 
     Returns:
         list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
@@ -177,7 +178,6 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             [sum(abs(term.coefficient.real) for term in terms) for (_, terms) in grouped_terms]
         )
         max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
-        # max_shots_per_term = min(max_shots_per_term, 250)  #  Is there an optimal value - Explore further?
     max_shots_per_term = min(n_shots, max_shots_per_term)  # Don't let max_shots_per_term > n_shots if manually defined
 
     n_terms = len(grouped_terms)
