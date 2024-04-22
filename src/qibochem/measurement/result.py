@@ -1,3 +1,8 @@
+"""
+Functions for obtaining the expectation value for some given circuit and Hamiltonian, either from a state
+vector simulation, or from sample measurements
+"""
+
 from functools import reduce
 
 import qibo
