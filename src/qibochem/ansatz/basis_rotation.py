@@ -3,8 +3,6 @@ Circuit representing an unitary rotation of the molecular (spin-)orbital basis s
 """
 
 import numpy as np
-
-# from openfermion.linalg.givens_rotations import givens_decomposition
 from qibo import gates, models
 from scipy.linalg import expm
 
@@ -249,6 +247,7 @@ def basis_rotation_layout(N):
 def basis_rotation_gates(A, z_array, parameters):
     r"""
     places the basis rotation gates on circuit in the order of Clements scheme QR decomposition
+
     Args:
         A:
             NxN matrix, with -1 being null, 0 is the control and integers
@@ -265,6 +264,7 @@ def basis_rotation_gates(A, z_array, parameters):
             list of gates which implement the basis rotation using Clements scheme QR decomposition
         ordered_angles:
             list of angles ordered by sequence of singles excitation gates added to circuit
+
     """
     N = len(A[0])
     gate_list = []
