@@ -26,4 +26,4 @@ Unitary Coupled Cluster
 Basis rotation
 --------------
 
-.. autofunction:: qibochem.ansatz.basis_rotation.br_circuit
+.. autofunction:: qibochem.ansatz.basis_rotation.basis_rotation_gates
