@@ -1,8 +1,45 @@
-Measurement
-===========
+Expectation from samples
+------------------------
 
 The previous examples were all carried out using state vector simulations of the quantum circuit.
 However, in actual quantum hardware, the expectation value of the molecular Hamiltonian for a parameterized quantum circuit have to be estimated by using repeated executions of the circuit, or shots in short.
+
+.. code-block
+   H2/STO-3G, JW Hamiltonian
+
+For example, in the H2/STO-3G system, there are 14 terms that comprise the molecular Hamiltonian,
+which means that the expectation value for each of the individual Pauli terms have to be obtained using circuit measurements, before summing them up to obtain the overall expectation value of the molecular Hamiltonian.
+
+This process of obtaining the electronic energy (Hamiltonian expectation value) is still reasonable for a small system.
+Unfortunately, the number of terms in a molecular Hamiltonian scales on the order of O(N^4), where N is the number of qubits.
+
+.. code-block
+    N2/STO-3G, JW Hamiltonian
+
+Even for a relatively small molecule with the minimal STO-3G basis set, there are already (?!?) terms to measure.
+Going further, if the electronic energy is obtained towards the goal of running a VQE, it has to be repeated for each step of the VQE.
+Clearly, the measurement cost of running VQE has the potential to become astronomically large, and is a significant practical challenge today.
+
+
+Reducing the measurement cost
+----------------------------
+
+In the examples above, the Hamiltonian expectation values were obtained using a separate set of circuit measurements for each individual term in the molecular Hamiltonian.
+
+However, we know from quantum mechanics that if two observables (the indvidual Pauli terms in the Hamiltonian) commute, they can be measured simultaneously.
+
+.. Some math?
+
+
+The question is how to use this in practice?
+
+
+
+
+OLD TEXT, TO BE EDITED
+----------------------
+
+
 Qibochem provides this functionality using the :code:`AbstractHamiltonian.expectation_from_samples` method implemented in Qibo.
 
 The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
