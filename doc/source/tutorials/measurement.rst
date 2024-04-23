@@ -1,5 +1,5 @@
 Expectation from samples
-------------------------
+========================
 
 The previous examples were all carried out using state vector simulations of the quantum circuit.
 However, in actual quantum hardware, the expectation value of the molecular Hamiltonian for a parameterized quantum circuit have to be estimated by using repeated executions of the circuit, or shots in short.
@@ -22,23 +22,71 @@ Clearly, the measurement cost of running VQE has the potential to become astrono
 
 
 Reducing the measurement cost
-----------------------------
+-----------------------------
 
 In the examples above, the Hamiltonian expectation values were obtained using a separate set of circuit measurements for each individual term in the molecular Hamiltonian.
 
 However, we know from quantum mechanics that if two observables (the indvidual Pauli terms in the Hamiltonian) commute, they can be measured simultaneously.
+More precisely, if two observables commute, they have a common eigenbasis.
 
 .. Some math?
 
+In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously!
+What remains is then how to apply the above towards the reduction of the measurement cost in practice.
 
-The question is how to use this in practice?
+
+Grouping Hamiltonian terms
+--------------------------
+
+First, there is the question of how to sort the Hamiltonian terms into separate groups of mutually commuting terms; i.e. each term in a group commutes with every other term in the same group.
+As a smaller number of groups would require a smaller number of measurements, it is clear that it is desirable to have as few groups as possible. (ZC note: Phrasing)
+
+.. Picture of graphs with commuting terms
 
 
+In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with.
+
+The problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups)
+
+
+PennyLane: "Unfortunately, that’s where our good fortune ends—the minimum clique cover problem is known to be NP-hard, meaning there is no known (classical) solution to finding the optimum/minimum clique cover in polynomial time.
+Thankfully, there is a silver lining: we know of polynomial-time algorithms for finding approximate solutions to the minimum clique cover problem"
+, and these algorithms are available in the NetworkX library:
+
+.. Example for H for some system
+
+Qubit-wise commuting terms
+--------------------------
+
+After obtaining groups of mutually commuting observables, it remains to find the shared eigenbasis for all terms in the group, and to prepare a set of measurements carried out in this basis.
+Unfortunately, this is not trivial: Need to diagonalize matrix here there, combine each eigenvector, blah blah.
+
+However, if the stricter condition of qubit-wise commutativty is enforced, it becomes simple to obtain the shared eigenbasis.
+
+
+
+Putting everything together
+---------------------------
+
+ZC note: Can put the text from the current example here. Show how much Hamiltonian cost reduced for electronic energy evaluation, then extend to each step in VQE.
+
+.. Code with individual functions
+
+For convenience, the above has been combined into the ``expectation_from_samples`` function (add link)
+
+.. Code calling expectation_from_sample directly
+
+
+Final notes
+-----------
+
+(New): Lastly, it may be possible that using a single set of measurements may be undesirable due to errors and uncertainty in the measurement results being propagated across a number of terms.
+If a single set of measurements are used for an individual Pauli term, any issues with this set of measurements would not extend to the expectation value of the other Hamiltonian terms.
+There are some suggestions towards mitigating this issue. (ref)
 
 
 OLD TEXT, TO BE EDITED
 ----------------------
-
 
 Qibochem provides this functionality using the :code:`AbstractHamiltonian.expectation_from_samples` method implemented in Qibo.
 
