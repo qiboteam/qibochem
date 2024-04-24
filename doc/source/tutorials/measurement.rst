@@ -2,51 +2,94 @@ Expectation from samples
 ========================
 
 The previous examples were all carried out using state vector simulations of the quantum circuit.
-However, in actual quantum hardware, the expectation value of the molecular Hamiltonian for a parameterized quantum circuit have to be estimated by using repeated executions of the circuit, or shots in short.
+However, in actual quantum hardware, the expectation value of the molecular Hamiltonian for a parameterized quantum circuit has to be estimated using repeated executions of the circuit, or shots in short.
 
-.. code-block
-   H2/STO-3G, JW Hamiltonian
+.. code-block:: python
 
-For example, in the H2/STO-3G system, there are 14 terms that comprise the molecular Hamiltonian,
-which means that the expectation value for each of the individual Pauli terms have to be obtained using circuit measurements, before summing them up to obtain the overall expectation value of the molecular Hamiltonian.
+    from qibochem.driver import Molecule
+    from qibochem.ansatz import hf_circuit
+    from qibochem.measurement import expectation, expectation_from_samples
+
+    # Build the H2 molecule and get the molecular Hamiltonian
+    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
+    h2.run_pyscf()
+    hamiltonian = h2.hamiltonian()
+    print(f"Number of terms in the Hamiltonian: {len(hamiltonian.terms)}")
+
+    # Construct a basic Hartree-Fock circuit
+    circuit = hf_circuit(h2.nso, h2.nelec)
+
+    # Expectation value using a state vector simulation:
+    exact_result = expectation(circuit, hamiltonian)
+    # Expectation value using (simulated) shots
+    shots_result = expectation_from_samples(circuit, hamiltonian, n_shots=1000)
+    print(f"\nExact result: {exact_result:.8f}")
+    # There will be a small difference between the exact result and the results with shots
+    print(f"Shots result: {shots_result:.8f}")
+
+
+.. code-block:: output
+
+    Number of terms in the Hamiltonian: 14
+
+    Exact result: -1.11734903
+    Shots result: -1.11260552
+
+
+In the case of the H\ :sub:`2`/STO-3G (4 qubit) example above, there are 14 terms that comprise the molecular Hamiltonian.
+In practice, the expectation value for each of the individual Pauli terms have to be obtained using circuit measurements, before summing them up to obtain the overall expectation value of the molecular Hamiltonian.
 
 This process of obtaining the electronic energy (Hamiltonian expectation value) is still reasonable for a small system.
-Unfortunately, the number of terms in a molecular Hamiltonian scales on the order of O(N^4), where N is the number of qubits.
+However, the number of Pauli terms in a molecular Hamiltonian scales on the order of :math:`O(N^4)`, where N is the number of qubits.
 
-.. code-block
-    N2/STO-3G, JW Hamiltonian
+.. code-block:: python
 
-Even for a relatively small molecule with the minimal STO-3G basis set, there are already (?!?) terms to measure.
-Going further, if the electronic energy is obtained towards the goal of running a VQE, it has to be repeated for each step of the VQE.
+    from qibochem.driver import Molecule
+
+    # Build the N2 molecule and get the molecular Hamiltonian
+    n2 = Molecule([("N", (0.0, 0.0, 0.0)), ("N", (0.0, 0.0, 1.1))])
+    n2.run_pyscf()
+    hamiltonian = n2.hamiltonian()
+    print(f"Number of terms in the Hamiltonian: {len(hamiltonian.terms)}")
+
+
+.. code-block:: output
+
+    Number of terms in the Hamiltonian: 2950
+
+
+Even for the relatively small N\ :sub:`2` molecule with the minimal STO-3G basis set, there are already 2950 (!) terms to measure.
+Going further, if the electronic energy is evaluated as part of the process of running a VQE, it has to be repeated for each step of the VQE.
 Clearly, the measurement cost of running VQE has the potential to become astronomically large, and is a significant practical challenge today.
 
 
 Reducing the measurement cost
 -----------------------------
 
-In the examples above, the Hamiltonian expectation values were obtained using a separate set of circuit measurements for each individual term in the molecular Hamiltonian.
-
+So far, we have assumed that the Hamiltonian expectation values have to be obtained using an independent set of circuit measurements for each term in the molecular Hamiltonian.
 However, we know from quantum mechanics that if two observables (the indvidual Pauli terms in the Hamiltonian) commute, they can be measured simultaneously.
-More precisely, if two observables commute, they have a common eigenbasis.
+More precisely, if two observables commute, they have a common eigenbasis, i.e.
 
-.. Some math?
+.. math::
 
-In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously!
-What remains is then how to apply the above towards the reduction of the measurement cost in practice.
+    [A, B] = 0 \implies \exists \underset{~}{x} \text{ such that } A \underset{~}{x} = a \underset{~}{x}  \text{ and } B \underset{~}{x} = b \underset{~}{x}
+
+In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously.
+What remains is then how to apply the above fact towards the reduction of the measurement cost in practice.
 
 
 Grouping Hamiltonian terms
 --------------------------
 
 First, there is the question of how to sort the Hamiltonian terms into separate groups of mutually commuting terms; i.e. each term in a group commutes with every other term in the same group.
-As a smaller number of groups would require a smaller number of measurements, it is clear that it is desirable to have as few groups as possible. (ZC note: Phrasing)
+Less groups would mean that a smaller number of measurements are required, which is our eventual goal:
 
 .. Picture of graphs with commuting terms
 
 
-In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with.
+In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with so and so.
+This problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
 
-The problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups)
 
 
 PennyLane: "Unfortunately, that’s where our good fortune ends—the minimum clique cover problem is known to be NP-hard, meaning there is no known (classical) solution to finding the optimum/minimum clique cover in polynomial time.
