@@ -120,7 +120,70 @@ For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of mea
 
 .. code:: python
 
+    from qibo import Circuit, gates
     from qibo.hamiltonians import SymbolicHamiltonian
+    from qibo.symbols import I, X, Y, Z
+
+    from qibochem.measurement import expectation
+    from qibochem.measurement.result import pauli_term_measurement_expectation
+
+    # Define the two Pauli terms
+    term1 = SymbolicHamiltonian(X(0)*I(1)*Z(2))
+    term2 = SymbolicHamiltonian(I(0)*Y(1)*Z(2))
+
+    # Define a random circuit
+    n_qubits = 3
+    arbitrary_float = 0.1
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.RZ(_i, arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i+1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RX(_i, 2*arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.RZ(_i, 2*arbitrary_float) for _i in range(n_qubits))
+
+    # Get the exact result using a state vector simulation
+    _circuit = circuit.copy()
+    exact_term1 = expectation(_circuit, term1)
+    exact_term2 = expectation(_circuit, term2)
+
+    # We want to rotate our measurement basis to the 'XYZ' basis:
+    circuit.add(gates.M(0, basis=type(X(0).gate)))
+    circuit.add(gates.M(1, basis=type(Y(1).gate))) # RX(0.5*pi)
+    circuit.add(gates.M(2, basis=type(Z(2).gate))) # Computational basis remains unchanged
+    print(circuit.draw())
+
+    # Now run the circuit to get the circuit measurements
+    result = circuit(nshots=10000)
+    frequencies = result.frequencies(binary=True)
+    # pauli_term_measurement_expectation is a Qibochem function for calculating the expectation value of Hamiltonians with non-Z terms
+    shots_term1 = pauli_term_measurement_expectation(term1.terms[0], frequencies, qubit_map=range(n_qubits))
+    shots_term2 = pauli_term_measurement_expectation(term2.terms[0], frequencies, qubit_map=range(n_qubits))
+
+    # Compare the output:
+    print("\nXIZ:")
+    print(f"Exact result: {exact_term1:.5f}")
+    print(f"  From shots: {shots_term1:.5f}")
+
+    print("\nIYZ:")
+    print(f"Exact result: {exact_term2:.5f}")
+    print(f"  From shots: {shots_term2:.5f}")
+
+
+.. code-block:: output
+
+    q0: ─RX─RZ─o───RX─RZ─H─M─
+    q1: ─RX─RZ─X─o─RX─RZ─U─M─
+    q2: ─RX─RZ───X─RX─RZ─M───
+
+    XIZ:
+    Exact result: 0.02847
+      From shots: 0.03320
+
+    IYZ:
+    Exact result: -0.19465
+      From shots: -0.19360
+
+Again, there is a slight difference between the exact expectation value and the one obtained from shots because of the randomness involved in the circuit measurements.
 
 
 Putting everything together
