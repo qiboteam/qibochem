@@ -90,22 +90,37 @@ Less groups would mean that a smaller number of measurements are required, which
 In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with so and so.
 This problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
 
+Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library:
 
+.. Example using networkx to find minClique for H for some system
 
-PennyLane: "Unfortunately, that’s where our good fortune ends—the minimum clique cover problem is known to be NP-hard, meaning there is no known (classical) solution to finding the optimum/minimum clique cover in polynomial time.
-Thankfully, there is a silver lining: we know of polynomial-time algorithms for finding approximate solutions to the minimum clique cover problem"
-, and these algorithms are available in the NetworkX library:
-
-.. Example for H for some system
 
 Qubit-wise commuting terms
 --------------------------
 
-After obtaining groups of mutually commuting observables, it remains to find the shared eigenbasis for all terms in the group, and to prepare a set of measurements carried out in this basis.
-Unfortunately, this is not trivial: Need to diagonalize matrix here there, combine each eigenvector, blah blah.
+After obtaining groups of mutually commuting observables, it remains to find the shared eigenbasis for all terms in the group, and to prepare a set of measurements carried out in this common eigenbasis.
+To do this, the standard measurement basis (the Z-basis) has to be transformed using a unitary matrix, which has columns corresponding to the simultaneous eigenvectors of the commuting Pauli terms.
+Unfortunately, this approach has its own problems: mainly, the eigenvectors for a general system with N qubits is of dimension :math:`2^N`, which means that the unitary matrix would scale exponentially, rendering it classically intractable.
 
-However, if the stricter condition of qubit-wise commutativty is enforced, it becomes simple to obtain the shared eigenbasis.
+However, if the stricter condition of *qubit-wise commutativty* is enforced, the problem becomes much simpler.
+First, recall that a general Pauli term can be expressed as a tensor product of Pauli operators, each acting on an individual qubit.
 
+.. math::
+
+    h_i = \bigotimes_{i}^{N} P_i
+
+where :math:`P_i` is a Pauli operator (:math:`I, X, Y, Z`), and :math:`i` is the qubit index.
+Then, two Pauli terms commute qubit-wise if their respective single-qubit Pauli operators acting on qubit :math:`i` commute with each other, for all qubits :math:`i`.
+For example, the terms :math:`XIZ` and :math:`IYZ` are qubit-wise commuting because :math:`[X, I] = 0`, :math:`[I, Y] = 0`, and :math:`[I, Z] = 0`.
+
+The advantage of the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operation.
+More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit.
+
+For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of measurements in the `XYZ` basis, to obtain the expectation values of both terms simulaneously:
+
+.. code:: python
+
+    from qibo.hamiltonians import SymbolicHamiltonian
 
 
 Putting everything together
