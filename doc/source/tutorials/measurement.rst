@@ -44,6 +44,7 @@ However, the number of Pauli terms in a molecular Hamiltonian scales on the orde
 
 .. code-block:: python
 
+    # Warning: This code block might take a few minutes to run
     from qibochem.driver import Molecule
 
     # Build the N2 molecule and get the molecular Hamiltonian
@@ -58,7 +59,7 @@ However, the number of Pauli terms in a molecular Hamiltonian scales on the orde
     Number of terms in the Hamiltonian: 2950
 
 
-Even for the relatively small N\ :sub:`2` molecule with the minimal STO-3G basis set, there are already 2950 (!) terms to measure.
+Even for the relatively small N\ :sub:`2` molecule with the minimal STO-3G basis set, there are already 2950 (!!!) terms to measure.
 Going further, if the electronic energy is evaluated as part of the process of running a VQE, it has to be repeated for each step of the VQE.
 Clearly, the measurement cost of running VQE has the potential to become astronomically large, and is a significant practical challenge today.
 
@@ -147,8 +148,8 @@ For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of mea
     exact_term2 = expectation(_circuit, term2)
 
     # We want to rotate our measurement basis to the 'XYZ' basis:
-    circuit.add(gates.M(0, basis=type(X(0).gate)))
-    circuit.add(gates.M(1, basis=type(Y(1).gate))) # RX(0.5*pi)
+    circuit.add(gates.M(0, basis=type(X(0).gate))) # H gate
+    circuit.add(gates.M(1, basis=type(Y(1).gate))) # RX(0.5*pi) gate
     circuit.add(gates.M(2, basis=type(Z(2).gate))) # Computational basis remains unchanged
     print(circuit.draw())
 
@@ -183,26 +184,123 @@ For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of mea
     Exact result: -0.19465
       From shots: -0.19360
 
-Again, there is a slight difference between the exact expectation value and the one obtained from shots because of the randomness involved in the circuit measurements.
+Again, there is a slight difference between the actual expectation value and the one obtained from shots because of the element of randomness involved in simulating the circuit measurements.
 
 
 Putting everything together
 ---------------------------
 
-ZC note: Can put the text from the current example here. Show how much Hamiltonian cost reduced for electronic energy evaluation, then extend to each step in VQE.
+We demonstate how the whole process of grouping qubit-wise commuting Pauli terms to reduce the measurement cost can be carried out here.
+This example is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in the minimal STO-3G basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
+as was done in [#f1]_.
 
-.. Code with individual functions
+First, the molecular Hamiltonian is of the form:
 
-For convenience, the above has been combined into the ``expectation_from_samples`` function (add link)
+.. math::
 
-.. Code calling expectation_from_sample directly
+    H = g_0 I + g_1 Z_0 + g_2 Z_0 + g_3 Z_0 Z_1 + g_4 Y_0 Y_1 + g_5 X_0 X_1
+
+where the :math:`g_i` coefficients are some real numbers.
+The :math:`I` term is a constant, and can be ignored. The graph representing which Pauli terms are qubit-wise commuting is given below:
+
+.. Figure: Graph for BK H
+
+We then have to solve the problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
+
+.. code-block:: python
+
+    import networkx as nx
+
+    from qibochem.measurement.optimization import check_terms_commutativity
+
+    # Define the Pauli terms as strings
+    pauli_terms = ["Z0", "Z1", "Z0 Z1", "X0 X1", "Y0 Y1"]
+
+    G = nx.Graph()
+    G.add_nodes_from(pauli_terms)
+
+    # Solving for the minimum clique cover is equivalent to the graph colouring problem for the complement graph
+    G.add_edges_from(
+        (term1, term2)
+        for _i1, term1 in enumerate(pauli_terms)
+        for _i2, term2 in enumerate(pauli_terms)
+        if _i2 > _i1 and not check_terms_commutativity(term1, term2, qubitwise=True)
+    )
+
+    sorted_groups = nx.coloring.greedy_color(G)
+    group_ids = set(sorted_groups.values())
+    term_groups = [
+        [group for group, group_id in sorted_groups.items() if group_id == _id]
+        for _id in group_ids
+    ]
+    print(f"Grouped terms: {term_groups}")
+
+.. code-block:: output
+
+    Grouped terms: [['X0 X1'], ['Y0 Y1'], ['Z0', 'Z1', 'Z0 Z1']]
+
+
+Now that we have sorted the Pauli terms into separate groups of qubit-wise commuting terms, it remains to find the shared eigenbasis for each group.
+This is trivial for this example, since the first two groups (``['X0 X1']`` and ``['Y0 Y1']``) are single member groups,
+and there is no need to rotate the measurement basis for the third and largest group (``['Z0', 'Z1', 'Z0 Z1']``), which consists of only Z terms.
+
+Lastly, the entire procedure has been combined into the ``expectation_from_samples`` function in Qibochem (add link).
+The utility of this functionality can be seen when we limit the number of shots used:
+
+
+.. code-block:: python
+
+    from qibo import models, gates
+    from qibo.symbols import X, Y, Z
+    from qibo.hamiltonians import SymbolicHamiltonian
+
+    from qibochem.measurement import expectation, expectation_from_samples
+
+    # Bravyi-Kitaev tranformed Hamiltonian for H2 at 0.7 Angstroms.
+    # Symmetry considerations were used to reduce the system to only 2 qubits
+    bk_ham_form = -0.4584 + 0.3593*Z(0) - 0.4826*Z(1) + 0.5818*Z(0)*Z(1) + 0.0896*X(0)*X(1) + 0.0896*Y(0)*Y(1)
+    bk_ham = SymbolicHamiltonian(bk_ham_form)
+
+    # Define a random circuit
+    n_qubits = 2
+    arbitrary_float = 0.1
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.RZ(_i, arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i+1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RX(_i, 2*arbitrary_float) for _i in range(n_qubits))
+    circuit.add(gates.RZ(_i, 2*arbitrary_float) for _i in range(n_qubits))
+
+    # Get the result using a state vector simulation
+    _circuit = circuit.copy()
+    exact_result = expectation(_circuit, bk_ham)
+
+    n_shots = 100
+    # From shots, grouping the terms together using QWC:
+    _circuit = circuit.copy()
+    qwc_result = expectation_from_samples(_circuit, bk_ham, n_shots=n_shots, group_pauli_terms="qwc")
+    # From shots, without grouping the terms together
+    _circuit = circuit.copy()
+    ungrouped_result = expectation_from_samples(_circuit, bk_ham, n_shots=n_shots, group_pauli_terms=None)
+
+    # Compare the results:
+    print(f"Exact result: {exact_result:.7f}")
+    print(f"Shots result: {qwc_result:.7f} (Using QWC)")
+    print(f"Shots result: {ungrouped_result:.7f} (Without grouping)")
+
+
+.. code-block:: output
+
+    Exact result: -0.0171209
+    Shots result: -0.0155220 (Using QWC)
+    Shots result: -0.0074520 (Without grouping)
 
 
 Final notes
 -----------
 
-(New): Lastly, it may be possible that using a single set of measurements may be undesirable due to errors and uncertainty in the measurement results being propagated across a number of terms.
-If a single set of measurements are used for an individual Pauli term, any issues with this set of measurements would not extend to the expectation value of the other Hamiltonian terms.
+Lastly, it may be possible that using a single set of measurements may be undesirable due to errors and uncertainty in the measurement results being propagated across a number of terms.
+If a single set of measurements are used for each individual Pauli term, any issues with this set of measurements would not extend to the expectation value of the other Hamiltonian terms.
 There are some suggestions towards mitigating this issue. (ref)
 
 
@@ -211,8 +309,6 @@ OLD TEXT, TO BE EDITED
 
 Qibochem provides this functionality using the :code:`AbstractHamiltonian.expectation_from_samples` method implemented in Qibo.
 
-The example below is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in minimal basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
-as was done in [#f1]_:
 
 
 Hamiltonian expectation value
