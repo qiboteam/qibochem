@@ -85,15 +85,13 @@ Grouping Hamiltonian terms
 First, there is the question of how to sort the Hamiltonian terms into separate groups of mutually commuting terms; i.e. each term in a group commutes with every other term in the same group.
 Less groups would mean that a smaller number of measurements are required, which is our eventual goal:
 
-.. Picture of graphs with commuting terms
+.. TODO: Picture of graphs with commuting terms
 
 
 In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with so and so.
 This problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
 
-Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library:
-
-.. Example using networkx to find minClique for H for some system
+Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (see below).
 
 
 Qubit-wise commuting terms
@@ -104,20 +102,20 @@ To do this, the standard measurement basis (the Z-basis) has to be transformed u
 Unfortunately, this approach has its own problems: mainly, the eigenvectors for a general system with N qubits is of dimension :math:`2^N`, which means that the unitary matrix would scale exponentially, rendering it classically intractable.
 
 However, if the stricter condition of *qubit-wise commutativty* is enforced, the problem becomes much simpler.
-First, recall that a general Pauli term can be expressed as a tensor product of Pauli operators, each acting on an individual qubit.
+First, recall that a general Pauli term can be expressed as a tensor product of single qubit Pauli operators:
 
 .. math::
 
     h_i = \bigotimes_{i}^{N} P_i
 
 where :math:`P_i` is a Pauli operator (:math:`I, X, Y, Z`), and :math:`i` is the qubit index.
-Then, two Pauli terms commute qubit-wise if their respective single-qubit Pauli operators acting on qubit :math:`i` commute with each other, for all qubits :math:`i`.
+Then, two Pauli terms commute qubit-wise if their respective Pauli operators that act on qubit :math:`i` commute with each other, for all qubits :math:`i`.
 For example, the terms :math:`XIZ` and :math:`IYZ` are qubit-wise commuting because :math:`[X, I] = 0`, :math:`[I, Y] = 0`, and :math:`[I, Z] = 0`.
 
-The advantage of the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operation.
+The advantage of the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operations.
 More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit.
 
-For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of measurements in the `XYZ` basis, to obtain the expectation values of both terms simulaneously:
+For :math:`XIZ` and :math:`IYZ`, we can thus use only one set of measurements in the `XYZ` basis, to obtain the expectation values of both terms simulaneously:
 
 .. code:: python
 
@@ -184,7 +182,7 @@ For the :math:`XIZ` and :math:`IYZ` example, we can thus use only one set of mea
     Exact result: -0.19465
       From shots: -0.19360
 
-Again, there is a slight difference between the actual expectation value and the one obtained from shots because of the element of randomness involved in simulating the circuit measurements.
+Again, there is a slight difference between the actual expectation value and the one obtained from shots because of the element of randomness involved in the circuit measurements.
 
 
 Putting everything together
@@ -205,7 +203,7 @@ The :math:`I` term is a constant, and can be ignored. The graph representing whi
 
 .. Figure: Graph for BK H
 
-We then have to solve the problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
+We then have to solve the minimum clique cover problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
 
 .. code-block:: python
 
@@ -293,7 +291,7 @@ The utility of this functionality can be seen when we limit the number of shots 
 
     Exact result: -0.0171209
     Shots result: -0.0155220 (Using QWC)
-    Shots result: -0.0074520 (Without grouping)
+    Shots result: -0.0074520 (Without any grouping)
 
 
 .. rubric:: References
