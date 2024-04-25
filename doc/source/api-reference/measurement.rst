@@ -10,6 +10,8 @@ Expectation value of Hamiltonian
 
 .. autofunction:: qibochem.measurement.result.expectation
 
+.. _expectation-samples:
+
 .. autofunction:: qibochem.measurement.result.expectation_from_samples
 
 Measurement cost reduction

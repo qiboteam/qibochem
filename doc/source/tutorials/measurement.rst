@@ -67,14 +67,15 @@ Clearly, the measurement cost of running VQE has the potential to become astrono
 Reducing the measurement cost
 -----------------------------
 
-So far, we have assumed that the Hamiltonian expectation values have to be obtained using an independent set of circuit measurements for each term in the molecular Hamiltonian.
+So far, we have assumed that the expectation value for every term in the molecular Hamiltonian has to be obtained using an independent set of circuit measurements.
 However, we know from quantum mechanics that if two observables (the indvidual Pauli terms in the Hamiltonian) commute, they can be measured simultaneously.
 More precisely, if two observables commute, they have a common eigenbasis, i.e.
 
 .. math::
 
-    [A, B] = 0 \implies \exists \underset{~}{x} \text{ such that } A \underset{~}{x} = a \underset{~}{x}  \text{ and } B \underset{~}{x} = b \underset{~}{x}
+    [A, B] = 0 \implies \exists x \text{ such that } A x = a x  \text{ and } B x = b x
 
+where :math:`a` and :math:`b` are real numbers and :math:`x` is a vector.
 In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously.
 What remains is then how to apply the above fact towards the reduction of the measurement cost in practice.
 
@@ -83,15 +84,28 @@ Grouping Hamiltonian terms
 --------------------------
 
 First, there is the question of how to sort the Hamiltonian terms into separate groups of mutually commuting terms; i.e. each term in a group commutes with every other term in the same group.
-Less groups would mean that a smaller number of measurements are required, which is our eventual goal:
+Less groups would imply that a smaller number of measurements are required, which is our eventual goal.
 
-.. TODO: Picture of graphs with commuting terms
+The 14 terms from the molecular Hamiltonian of H\ :sub:`2` with the Jordan-Wigner mapping are as follows:
 
+.. math::
 
-In the above example, blah blah complete graphs and blah blah, duno what can commute with dunno what and dunno what, but it would be better if so and so was grouped with so and so.
-This problem of finding the smallest possible number of groups is equivalent to the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
+    H = -0.10973 I + 0.16988 (Z_0 + Z_1) - 0.21886 (Z_2 + Z_3) + 0.16821 Z_0 Z_1 + 0.12005 (Z_0 Z_2 + Z_1 Z_3) + 0.16549 (Z_0 Z_3 + Z_1 Z_2) + 0.17395 Z_2 Z_3
+      - 0.04544 (X_0 X_1 Y_2 Y_3 + Y_0 Y_1 X_2 X_3 - X_0 Y_1 Y_2 X_3 - Y_0 X_1 X_2 Y_3)
 
-Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (see below).
+For simplicity, we will only look at a selected subset of the Hamiltonian terms.
+These terms can be represented as a graph:
+
+.. image:: h2_terms.svg
+
+.. TODO: Fix image!
+
+where the nodes of the graph are the Pauli terms, and with edges connecting two nodes only if they commute;
+e.g. the :math:`Z_0` term commutes with the :math:`Z_2 Z_3` term, but not with the :math:`X_0 X_1 Y_2 Y_3` term.
+
+It can be seen that a group of commuting terms forms a complete subgraph; i.e. each of the nodes in the subgraph have an edge (are directly connected) to all other members in the subgraph.
+In other words, our problem of finding the smallest possible number of groups is the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
+Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (example below).
 
 
 Qubit-wise commuting terms
@@ -99,7 +113,7 @@ Qubit-wise commuting terms
 
 After obtaining groups of mutually commuting observables, it remains to find the shared eigenbasis for all terms in the group, and to prepare a set of measurements carried out in this common eigenbasis.
 To do this, the standard measurement basis (the Z-basis) has to be transformed using a unitary matrix, which has columns corresponding to the simultaneous eigenvectors of the commuting Pauli terms.
-Unfortunately, this approach has its own problems: mainly, the eigenvectors for a general system with N qubits is of dimension :math:`2^N`, which means that the unitary matrix would scale exponentially, rendering it classically intractable.
+Unfortunately, this approach has its own problems: mainly, the eigenvectors for a general system with N qubits is of dimension :math:`2^N`, which means that the unitary transformation matrix would scale exponentially, rendering it classically intractable for large systems.
 
 However, if the stricter condition of *qubit-wise commutativty* is enforced, the problem becomes much simpler.
 First, recall that a general Pauli term can be expressed as a tensor product of single qubit Pauli operators:
@@ -110,12 +124,12 @@ First, recall that a general Pauli term can be expressed as a tensor product of 
 
 where :math:`P_i` is a Pauli operator (:math:`I, X, Y, Z`), and :math:`i` is the qubit index.
 Then, two Pauli terms commute qubit-wise if their respective Pauli operators that act on qubit :math:`i` commute with each other, for all qubits :math:`i`.
-For example, the terms :math:`XIZ` and :math:`IYZ` are qubit-wise commuting because :math:`[X, I] = 0`, :math:`[I, Y] = 0`, and :math:`[I, Z] = 0`.
+For example, the terms :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2` are qubit-wise commuting because :math:`[X_0, I_0] = 0`, :math:`[I_1, Y_1] = 0`, and :math:`[I_2, Z_2] = 0`.
 
-The advantage of the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operations.
-More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit.
+The advantage of using the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operations.
+More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit, for any Pauli term in the group.
 
-For :math:`XIZ` and :math:`IYZ`, we can thus use only one set of measurements in the `XYZ` basis, to obtain the expectation values of both terms simulaneously:
+For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of measurements in the :math:`X_0 Y_1 Z_2` basis, to obtain the expectation values of both terms simulaneously:
 
 .. code:: python
 
@@ -201,7 +215,9 @@ First, the molecular Hamiltonian is of the form:
 where the :math:`g_i` coefficients are some real numbers.
 The :math:`I` term is a constant, and can be ignored. The graph representing which Pauli terms are qubit-wise commuting is given below:
 
-.. Figure: Graph for BK H
+.. image:: bk_ham_graph.svg
+
+.. TODO: Figure: Graph for BK H
 
 We then have to solve the minimum clique cover problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
 
@@ -239,11 +255,11 @@ We then have to solve the minimum clique cover problem of finding the smallest p
 
 
 Now that we have sorted the Pauli terms into separate groups of qubit-wise commuting terms, it remains to find the shared eigenbasis for each group.
-This is trivial for this example, since the first two groups (``['X0 X1']`` and ``['Y0 Y1']``) are single member groups,
+This is trivial, since the first two groups (``['X0 X1']`` and ``['Y0 Y1']``) are single member groups,
 and there is no need to rotate the measurement basis for the third and largest group (``['Z0', 'Z1', 'Z0 Z1']``), which consists of only Z terms.
 
-Lastly, the entire procedure has been combined into the ``expectation_from_samples`` function in Qibochem (add link).
-The utility of this functionality can be seen when we limit the number of shots used:
+Lastly, the entire procedure has been combined into the :ref:`expectation_from_samples <expectation-samples>` function in Qibochem.
+An example of its usage is given below:
 
 
 .. code-block:: python
@@ -292,6 +308,9 @@ The utility of this functionality can be seen when we limit the number of shots 
     Exact result: -0.0171209
     Shots result: -0.0155220 (Using QWC)
     Shots result: -0.0074520 (Without any grouping)
+
+
+As shown in the above example, the utility of using qubit-wise commutativity to reduce the measurement cost of evaluating the electronic energy can be seen when the number of shots available are limited.
 
 
 .. rubric:: References
