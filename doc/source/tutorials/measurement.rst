@@ -79,6 +79,7 @@ where :math:`a` and :math:`b` are real numbers and :math:`x` is a vector.
 In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously.
 What remains is then how to apply the above fact towards the reduction of the measurement cost in practice.
 
+One simple approach is to group qubit-wise commuting terms together, and use a single set of measurements for each group of Pauli terms. [#f1]_
 
 Grouping Hamiltonian terms
 --------------------------
@@ -98,14 +99,15 @@ These terms can be represented as a graph:
 
 .. image:: h2_terms.svg
 
-.. TODO: Fix image!
 
 where the nodes of the graph are the Pauli terms, and with edges connecting two nodes only if they commute;
 e.g. the :math:`Z_0` term commutes with the :math:`Z_2 Z_3` term, but not with the :math:`X_0 X_1 Y_2 Y_3` term.
 
 It can be seen that a group of commuting terms forms a complete subgraph; i.e. each of the nodes in the subgraph have an edge (are directly connected) to all other members in the subgraph.
 In other words, our problem of finding the smallest possible number of groups is the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
-Although this is a NP-hard problem, there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (example below).
+In the figure above, we can see two possible solutions to this problem:
+``[["Z0", "Z1", "Z2", "Z3", "Z0 Z1", "Z2 Z3"], ["X0 Y1 Y2 X3", "Y0 X1 X2 Y3", "X0 X1 Y2 Y3", "Y0 Y1 X2 X3"]]``, or ``[["Z0", "Z1", "Z2", "Z3"], ["Z0 Z1", "Z2 Z3", "X0 Y1 Y2 X3", "Y0 X1 X2 Y3", "X0 X1 Y2 Y3", "Y0 Y1 X2 X3"]]``.
+This is a NP-hard problem in general. there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (example below).
 
 
 Qubit-wise commuting terms
@@ -204,7 +206,7 @@ Putting everything together
 
 We demonstate how the whole process of grouping qubit-wise commuting Pauli terms to reduce the measurement cost can be carried out here.
 This example is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in the minimal STO-3G basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
-as was done in [#f1]_.
+as was done in [#f2]_.
 
 First, the molecular Hamiltonian is of the form:
 
@@ -214,10 +216,6 @@ First, the molecular Hamiltonian is of the form:
 
 where the :math:`g_i` coefficients are some real numbers.
 The :math:`I` term is a constant, and can be ignored. The graph representing which Pauli terms are qubit-wise commuting is given below:
-
-.. image:: bk_ham_graph.svg
-
-.. TODO: Figure: Graph for BK H
 
 We then have to solve the minimum clique cover problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
 
@@ -252,6 +250,8 @@ We then have to solve the minimum clique cover problem of finding the smallest p
 .. code-block:: output
 
     Grouped terms: [['X0 X1'], ['Y0 Y1'], ['Z0', 'Z1', 'Z0 Z1']]
+
+.. image:: bk_ham_graph.svg
 
 
 Now that we have sorted the Pauli terms into separate groups of qubit-wise commuting terms, it remains to find the shared eigenbasis for each group.
@@ -315,4 +315,6 @@ As shown in the above example, the utility of using qubit-wise commutativity to 
 
 .. rubric:: References
 
-.. [#f1] P. J. J. O'Malley et al. 'Scalable Quantum Simulation of Molecular Energies' Phys. Rev. X (2016) 6, 031007.
+.. [#f1] V. Verteletskyi et al. "Measurement Optimization in the Variational Quantum Eigensolver Using a Minimum Clique Cover", J. Chem. Phys. (2020) 152, 124114
+
+.. [#f2] P. J. J. O'Malley et al. "Scalable Quantum Simulation of Molecular Energies", Phys. Rev. X (2016) 6, 031007
