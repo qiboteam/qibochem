@@ -199,7 +199,7 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
     Exact result: -0.19465
       From shots: -0.19360
 
-Again, there is a slight difference between the actual expectation value and the one obtained from shots because of the element of randomness involved in the circuit measurements.
+Again, there is a slight difference between the actual expectation value and the one obtained from shots because of the element of statistical noise in the circuit measurements.
 
 
 Putting everything together
@@ -268,7 +268,7 @@ An example of its usage is given below:
 
 .. code-block:: python
 
-    from qibo import models, gates
+    from qibo import Circuit, gates
     from qibo.symbols import X, Y, Z
     from qibo.hamiltonians import SymbolicHamiltonian
 
@@ -297,21 +297,23 @@ An example of its usage is given below:
     # From shots, grouping the terms together using QWC:
     _circuit = circuit.copy()
     qwc_result = expectation_from_samples(_circuit, bk_ham, n_shots=n_shots, group_pauli_terms="qwc")
+    qwc_shots_required = n_shots * 3 # 3 groups of terms
     # From shots, without grouping the terms together
     _circuit = circuit.copy()
     ungrouped_result = expectation_from_samples(_circuit, bk_ham, n_shots=n_shots, group_pauli_terms=None)
+    ungrouped_shots_required = n_shots * len(bk_ham.terms) # 5 individual Pauli terms
 
     # Compare the results:
     print(f"Exact result: {exact_result:.7f}")
-    print(f"Shots result: {qwc_result:.7f} (Using QWC)")
-    print(f"Shots result: {ungrouped_result:.7f} (Without grouping)")
+    print(f"Shots result: {qwc_result:.7f} (Using QWC, {qwc_shots_required} shots used)")
+    print(f"Shots result: {ungrouped_result:.7f} (Without grouping, {ungrouped_shots_required} shots used)")
 
 
 .. code-block:: output
 
     Exact result: -0.0171209
-    Shots result: -0.0155220 (Using QWC)
-    Shots result: -0.0074520 (Without any grouping)
+    Shots result: -0.0205140 (Using QWC, 300 shots used)
+    Shots result: -0.0069460 (Without grouping, 500 shots used)
 
 
 As shown in the above example, the utility of using qubit-wise commutativity to reduce the measurement cost of evaluating the electronic energy can be seen when the number of shots available are limited.
