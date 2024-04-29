@@ -105,9 +105,10 @@ e.g. the :math:`Z_0` term commutes with the :math:`Z_2 Z_3` term, but not with t
 
 It can be seen that a group of commuting terms forms a complete subgraph; i.e. each of the nodes in the subgraph have an edge (are directly connected) to all other members in the subgraph.
 In other words, our problem of finding the smallest possible number of groups is the minimum clique cover problem, i.e. finding the smallest number of cliques (groups) of complete graphs.
-In the figure above, we can see two possible solutions to this problem:
+
+For the figure above, we can see two possible solutions to this problem:
 ``[["Z0", "Z1", "Z2", "Z3", "Z0 Z1", "Z2 Z3"], ["X0 Y1 Y2 X3", "Y0 X1 X2 Y3", "X0 X1 Y2 Y3", "Y0 Y1 X2 X3"]]``, or ``[["Z0", "Z1", "Z2", "Z3"], ["Z0 Z1", "Z2 Z3", "X0 Y1 Y2 X3", "Y0 X1 X2 Y3", "X0 X1 Y2 Y3", "Y0 Y1 X2 X3"]]``.
-This is a NP-hard problem in general. there are polynomial-time algorithms for solving this, and these algorithms are available in the NetworkX library (example below).
+Although this is a NP-hard problem in general, there are polynomial-time algorithms that yield approximate solutions, and these algorithms are available in the NetworkX library (see example below).
 
 
 Qubit-wise commuting terms
@@ -129,7 +130,7 @@ Then, two Pauli terms commute qubit-wise if their respective Pauli operators tha
 For example, the terms :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2` are qubit-wise commuting because :math:`[X_0, I_0] = 0`, :math:`[I_1, Y_1] = 0`, and :math:`[I_2, Z_2] = 0`.
 
 The advantage of using the stricter qubitwise commutativity condition is that the common eigenbasis of the commuting terms can be immediately expressed as a tensor product of single qubit Pauli operations.
-More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit, for any Pauli term in the group.
+More specifically, the measurement basis for any qubit is simply the non-:math:`I` observable of interest for that qubit, and this holds for all the Pauli terms in the group.
 
 For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of measurements in the :math:`X_0 Y_1 Z_2` basis, to obtain the expectation values of both terms simulaneously:
 
@@ -217,7 +218,11 @@ First, the molecular Hamiltonian is of the form:
 where the :math:`g_i` coefficients are some real numbers.
 The :math:`I` term is a constant, and can be ignored. The graph representing which Pauli terms are qubit-wise commuting is given below:
 
+.. image:: bk_ham_graph.svg
+
 We then have to solve the minimum clique cover problem of finding the smallest possible number of complete subgraphs (groups of Pauli terms).
+As the solution in this particular example is trivial, the sample code below is mainly for demonstrative purposes:
+
 
 .. code-block:: python
 
@@ -251,12 +256,11 @@ We then have to solve the minimum clique cover problem of finding the smallest p
 
     Grouped terms: [['X0 X1'], ['Y0 Y1'], ['Z0', 'Z1', 'Z0 Z1']]
 
-.. image:: bk_ham_graph.svg
-
 
 Now that we have sorted the Pauli terms into separate groups of qubit-wise commuting terms, it remains to find the shared eigenbasis for each group.
 This is trivial, since the first two groups (``['X0 X1']`` and ``['Y0 Y1']``) are single member groups,
 and there is no need to rotate the measurement basis for the third and largest group (``['Z0', 'Z1', 'Z0 Z1']``), which consists of only Z terms.
+We thus require a total of three sets of measurements to obtain the expectation values for the initial five Pauli terms.
 
 Lastly, the entire procedure has been combined into the :ref:`expectation_from_samples <expectation-samples>` function in Qibochem.
 An example of its usage is given below:
