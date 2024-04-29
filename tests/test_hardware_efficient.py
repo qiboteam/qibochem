@@ -5,7 +5,7 @@ from qibo.optimizers import optimize
 
 from qibochem.ansatz import he_circuit
 from qibochem.driver import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.measurement import expectation
 
 
 def test_he_circuit():

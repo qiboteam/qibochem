@@ -232,4 +232,4 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
 
 .. [#f6] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
 
-.. [#f7] Clements W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.
+.. [#f7] Clements, W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.

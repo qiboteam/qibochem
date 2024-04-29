@@ -4,9 +4,9 @@ Test HF reference circuit ansatz
 
 import pytest
 
-from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.driver.molecule import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.ansatz import hf_circuit
+from qibochem.driver import Molecule
+from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(
