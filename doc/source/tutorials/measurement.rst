@@ -75,6 +75,7 @@ More precisely, if two observables commute, they have a common eigenbasis, i.e.
 
     [A, B] = 0 \implies \exists x \text{ such that } A x = a x  \text{ and } B x = b x
 
+
 where :math:`a` and :math:`b` are real numbers and :math:`x` is a vector.
 In other words, a single set of measurements, carried out in the common eigenbasis, can be used to obtain the expectation values of two (or more) commuting observables simultaneously.
 What remains is then how to apply the above fact towards the reduction of the measurement cost in practice.
@@ -91,8 +92,12 @@ The 14 terms from the molecular Hamiltonian of H\ :sub:`2` with the Jordan-Wigne
 
 .. math::
 
-    H = -0.10973 I + 0.16988 (Z_0 + Z_1) - 0.21886 (Z_2 + Z_3) + 0.16821 Z_0 Z_1 + 0.12005 (Z_0 Z_2 + Z_1 Z_3) + 0.16549 (Z_0 Z_3 + Z_1 Z_2) + 0.17395 Z_2 Z_3
-      - 0.04544 (X_0 X_1 Y_2 Y_3 + Y_0 Y_1 X_2 X_3 - X_0 Y_1 Y_2 X_3 - Y_0 X_1 X_2 Y_3)
+    \begin{align*ed*}
+    H = & -0.10973 I + 0.16988 (Z_0 + Z_1) - 0.21886 (Z_2 + Z_3) + 0.16821 Z_0 Z_1 \\
+      & + 0.12005 (Z_0 Z_2 + Z_1 Z_3) + 0.16549 (Z_0 Z_3 + Z_1 Z_2) + 0.17395 Z_2 Z_3 \\
+      & - 0.04544 (X_0 X_1 Y_2 Y_3 + Y_0 Y_1 X_2 X_3 - X_0 Y_1 Y_2 X_3 - Y_0 X_1 X_2 Y_3)
+    \end{align*ed*}
+
 
 For simplicity, we will only look at a selected subset of the Hamiltonian terms.
 These terms can be represented as a graph:
@@ -124,6 +129,7 @@ First, recall that a general Pauli term can be expressed as a tensor product of 
 .. math::
 
     h_i = \bigotimes_{i}^{N} P_i
+
 
 where :math:`P_i` is a Pauli operator (:math:`I, X, Y, Z`), and :math:`i` is the qubit index.
 Then, two Pauli terms commute qubit-wise if their respective Pauli operators that act on qubit :math:`i` commute with each other, for all qubits :math:`i`.
@@ -206,14 +212,16 @@ Putting everything together
 ---------------------------
 
 We demonstate how the whole process of grouping qubit-wise commuting Pauli terms to reduce the measurement cost can be carried out here.
-This example is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in the minimal STO-3G basis of Hartree-Fock orbitals, at 0.70 Angstroms separation between H nuclei,
-as was done in [#f2]_.
+
+This example is taken from the Bravyi-Kitaev transformed Hamiltonian for molecular H\ :sub:`2` in the minimal STO-3G basis of Hartree-Fock orbitals, at 0.70 Angstrom distance between H nuclei. [#f2]_
+
 
 First, the molecular Hamiltonian is of the form:
 
 .. math::
 
     H = g_0 I + g_1 Z_0 + g_2 Z_0 + g_3 Z_0 Z_1 + g_4 Y_0 Y_1 + g_5 X_0 X_1
+
 
 where the :math:`g_i` coefficients are some real numbers.
 The :math:`I` term is a constant, and can be ignored. The graph representing which Pauli terms are qubit-wise commuting is given below:
@@ -263,6 +271,7 @@ and there is no need to rotate the measurement basis for the third and largest g
 We thus require a total of three sets of measurements to obtain the expectation values for the initial five Pauli terms.
 
 Lastly, the entire procedure has been combined into the :ref:`expectation_from_samples <expectation-samples>` function in Qibochem.
+
 An example of its usage is given below:
 
 
@@ -319,8 +328,9 @@ An example of its usage is given below:
 As shown in the above example, the utility of using qubit-wise commutativity to reduce the measurement cost of evaluating the electronic energy can be seen when the number of shots available are limited.
 
 
+
 .. rubric:: References
 
-.. [#f1] V. Verteletskyi et al. "Measurement Optimization in the Variational Quantum Eigensolver Using a Minimum Clique Cover", J. Chem. Phys. (2020) 152, 124114
+.. [#f1] Verteletskyi, V. et al. "Measurement Optimization in the Variational Quantum Eigensolver Using a Minimum Clique Cover", J. Chem. Phys. (2020) 152, 124114
 
-.. [#f2] P. J. J. O'Malley et al. "Scalable Quantum Simulation of Molecular Energies", Phys. Rev. X (2016) 6, 031007
+.. [#f2] O'Malley, P. J. J. et al. "Scalable Quantum Simulation of Molecular Energies", Phys. Rev. X (2016) 6, 031007
