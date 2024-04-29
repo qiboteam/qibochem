@@ -92,11 +92,11 @@ The 14 terms from the molecular Hamiltonian of H\ :sub:`2` with the Jordan-Wigne
 
 .. math::
 
-    \begin{align*ed*}
+    \begin{align*}
     H = & -0.10973 I + 0.16988 (Z_0 + Z_1) - 0.21886 (Z_2 + Z_3) + 0.16821 Z_0 Z_1 \\
       & + 0.12005 (Z_0 Z_2 + Z_1 Z_3) + 0.16549 (Z_0 Z_3 + Z_1 Z_2) + 0.17395 Z_2 Z_3 \\
       & - 0.04544 (X_0 X_1 Y_2 Y_3 + Y_0 Y_1 X_2 X_3 - X_0 Y_1 Y_2 X_3 - Y_0 X_1 X_2 Y_3)
-    \end{align*ed*}
+    \end{align*}
 
 
 For simplicity, we will only look at a selected subset of the Hamiltonian terms.
