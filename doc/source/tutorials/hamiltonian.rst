@@ -74,6 +74,7 @@ Lastly, to carry out quantum simulations of the molecular electronic structure u
     -0.107280411608667 - 0.0454153248117008*X0*X1*Y2*Y3 + 0.0454153248117008*X0*Y1*Y2*X3 + 0.0454153248117008*Y0*X1*X2*Y3 - 0.0454153248117008*Y0*Y1*X2*X3 + 0.170182611817142*Z0 + 0.16830546187935*Z0*Z1 + 0.120163790529127*Z0*Z2 + 0.165579115340828*Z0*Z3 + 0.170182611817142*Z1 + 0.165579115340828*Z1*Z2 + 0.120163790529127*Z1*Z3 - 0.219750654392482*Z2 + 0.174043557614182*Z2*Z3 - 0.219750654392482*Z3
 
 By default, the molecular Hamiltonian is returned as a ``SymbolicHamiltonian``, `i.e.` if no arguments are given in :code:`mol.hamiltonian()`.
+In addition, if HF embedding has been applied, the embedded values of the one-/two- electron integrals will be used to construct the molecular Hamiltonian as well.
 
 Otherwise, using the ``"f"``/``"ferm"`` and ``"q"``/``"qubit"`` arguments will return the molecular Hamiltonian as an OpenFermion ``FermionOperator`` and ``QubitOperator`` respectively.
 Additional information about the data structure of these two classes can be found `here <https://quantumai.google/openfermion/tutorials/intro_to_openfermion>`_.

@@ -59,7 +59,7 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
         ferm_qubit_map: Fermion to qubit map. Must be either Jordan-Wigner (``jw``) or Brayvi-Kitaev (``bk``). Default value is ``jw``.
 
     Returns:
-        Qibo ``Circuit`` initialized in a HF reference state
+        Qibo ``Circuit``: Circuit initialized in a HF reference state
     """
     # Which fermion-to-qubit map to use
     if ferm_qubit_map is None:

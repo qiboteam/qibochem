@@ -4,6 +4,9 @@
 What is Qibochem?
 =================
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.10473173.svg
+  :target: https://doi.org/10.5281/zenodo.10473173
+
 Qibochem is a plugin to Qibo for quantum chemistry simulations.
 
 Key features of Qibochem:
@@ -24,7 +27,7 @@ Welcome to the comprehensive documentation for ``Qibochem``! This guide will hel
 you navigate through the various sections and make the most of the resources
 available.
 
-1. **Installation and Setup**: Begin by referring to the
+1. **Getting started**: Begin by referring to the
    :doc:`/getting-started/index` guide to set up the ``Qibochem`` library in your environment.
 
 2. **Tutorials**: Explore the :doc:`/tutorials/index` section for a range of
@@ -55,6 +58,12 @@ Contents
     developer-guides/index
 
 .. toctree::
+    :maxdepth: 2
+    :caption: Appendix
+
+    appendix/citing-qibochem
+
+.. toctree::
     :maxdepth: 1
     :caption: Documentation links
 
@@ -62,7 +71,7 @@ Contents
     Qibolab docs <https://qibo.science/qibolab/stable/>
     Qibocal docs <https://qibo.science/qibocal/stable/>
     Qibosoq docs <https://qibo.science/qibosoq/stable/>
-
+    Qibochem docs <https://qibo.science/qibochem/stable/>
 
 Indices and tables
 ==================

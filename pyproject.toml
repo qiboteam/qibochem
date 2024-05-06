@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "qibochem"
-version = "0.0.1"
+version = "0.0.3"
 description = "Quantum chemistry module for quantum computing with Qibo"
 authors = ["The Qibo team"]
 license = "Apache License 2.0"
 readme = "README.md"
 repository = "https://github.com/qiboteam/qibochem/"
-documentation = "https://qibo.science/qibochem/latest/"
+documentation = "https://qibo.science/qibochem/stable"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",

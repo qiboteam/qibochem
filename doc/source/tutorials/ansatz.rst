@@ -16,17 +16,12 @@ For the H\ :sub:`2` case discussed in previous sections, a possible hardware eff
 
 .. code-block:: python
 
-    from qibo import Circuit
+    from qibochem.ansatz import he_circuit
 
-    from qibochem.ansatz import hardware_efficient
-
-    nlayers = 1
     nqubits = 4
-    nfermions = 2
+    nlayers = 1
 
-    circuit = Circuit(4)
-    hardware_efficient_ansatz = hardware_efficient.hea(nlayers, nqubits)
-    circuit.add(hardware_efficient_ansatz)
+    circuit = he_circuit(nqubits, nlayers)
     print(circuit.draw())
 
 .. code-block:: output
@@ -43,11 +38,10 @@ The following example demonstrates how the energy of the H2 molecule is affected
 .. code-block:: python
 
     import numpy as np
-    from qibo import Circuit
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
     from qibochem.measurement.expectation import expectation
-    from qibochem.ansatz import hardware_efficient
+    from qibochem.ansatz import he_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
@@ -57,10 +51,7 @@ The following example demonstrates how the energy of the H2 molecule is affected
     nlayers = 1
     nqubits = mol.nso
     ntheta = 2 * nqubits * nlayers
-    hea_ansatz = hardware_efficient.hea(nlayers, nqubits)
-
-    circuit = Circuit(nqubits)
-    circuit.add(hea_ansatz)
+    circuit = he_circuit(nqubits, nlayers)
 
     print("Energy expectation values for thetas: ")
     print("-----------------------------")
@@ -89,10 +80,12 @@ The following example demonstrates how the energy of the H2 molecule is affected
     -----------------------------
 
 
+.. _UCC Ansatz:
+
 Unitary Coupled Cluster Ansatz
 ------------------------------
 
-The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f3]_ of quantum chemistry.
+The Unitary Coupled Cluster (UCC) ansatz [#f1]_ [#f2]_ [#f3]_ is a variant of the popular gold standard Coupled Cluster ansatz [#f4]_ of quantum chemistry.
 The UCC wave function is a parameterized unitary transformation of a reference wave function :math:`\psi_{\mathrm{ref}}`, of which a common choice is the Hartree-Fock wave function.
 
 .. math::
@@ -111,8 +104,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 .. code-block:: python
 
     from qibochem.driver.molecule import Molecule
-    from qibochem.ansatz.hf_reference import hf_circuit
-    from qibochem.ansatz.ucc import ucc_circuit
+    from qibochem.ansatz import hf_circuit, ucc_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
@@ -120,7 +112,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 
     # Set parameters for the rest of the experiment
     n_qubits = mol.nso
-    n_electrons = mol.nalpha + mol.nbeta
+    n_electrons = mol.nelec
 
     # Build UCCD circuit
     circuit = hf_circuit(n_qubits, n_electrons) # Start with HF circuit
@@ -146,14 +138,98 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     q3: ... ─────o─RX─RX─o────────────o─RX─
 
 
+..
+   _Basis rotation ansatz
+
+Basis rotation ansatz
+---------------------
+
+The starting points for contemporary quantum chemistry methods are often those based on the mean field approximation within a (finite) molecular orbital basis, i.e. the Hartree-Fock method. The electronic energy is calculated as the mean value of the electronic Hamiltonian :math:`\hat{H}_{\mathrm{elec}}` acting on a normalized single Slater determinant function :math:`\psi` [#f6]_
+
+.. math::
+
+    \begin{align*}
+    E[\psi] &= \langle \psi | \hat{H}_{\mathrm{elec}} |\psi \rangle \\
+            &= \sum_i^{N_f} \langle \phi_i |\hat{h}|\phi_i \rangle + \frac{1}{2} \sum_{i,j}^{N_f}
+            \langle \phi_i\phi_j||\phi_i\phi_j \rangle
+    \end{align*}
+
+The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimization of the energy functional with respect to parameters :math:`\kappa` that parameterize the unitary rotations of the orbital basis. Qibochem's implementation uses the QR decomposition of the unitary matrix as employed by Clements et al., [#f7]_ which results in a rectangular gate layout of `Givens rotation gates <https://qibo.science/qibo/stable/api-reference/qibo.html#givens-gate>`_ that yield linear CNOT gate depth when decomposed.
+
+
+.. code-block:: python
+
+    import numpy as np
+    from qibochem.driver.molecule import Molecule
+    from qibochem.ansatz import basis_rotation, ucc
+    from qibo import Circuit, gates, models
+
+    def basis_rotation_circuit(mol, parameters=0.0):
+
+        nqubits = mol.nso
+        occ = range(0, mol.nelec)
+        vir = range(mol.nelec, mol.nso)
+
+        U, kappa = basis_rotation.unitary(occ, vir, parameters=parameters)
+        gate_angles, final_U = basis_rotation.givens_qr_decompose(U)
+        gate_layout = basis_rotation.basis_rotation_layout(nqubits)
+        gate_list, ordered_angles = basis_rotation.basis_rotation_gates(gate_layout, gate_angles, kappa)
+
+        circuit = Circuit(nqubits)
+        for _i in range(mol.nelec):
+            circuit.add(gates.X(_i))
+        circuit.add(gate_list)
+
+        return circuit, gate_angles
+
+    h3p = Molecule([('H', (0.0000,  0.0000, 0.0000)),
+                    ('H', (0.0000,  0.0000, 0.8000)),
+                    ('H', (0.0000,  0.0000, 1.6000))],
+                    charge=1, multiplicity=1)
+    h3p.run_pyscf(max_scf_cycles=1)
+
+    e_init = h3p.e_hf
+    h3p_sym_ham = h3p.hamiltonian("sym", h3p.oei, h3p.tei, 0.0, "jw")
+
+    hf_circuit, qubit_parameters = basis_rotation_circuit(h3p, parameters=0.1)
+
+    print(hf_circuit.draw())
+
+    vqe = models.VQE(hf_circuit, h3p_sym_ham)
+    res = vqe.minimize(qubit_parameters)
+
+    print('energy of initial guess: ', e_init)
+    print('energy after vqe       : ', res[0])
+
+.. code-block:: output
+
+    q0: ─X─G─────────G─────────G─────────
+    q1: ─X─G─────G───G─────G───G─────G───
+    q2: ─────G───G─────G───G─────G───G───
+    q3: ─────G─────G───G─────G───G─────G─
+    q4: ───────G───G─────G───G─────G───G─
+    q5: ───────G─────────G─────────G─────
+    basis rotation: using uniform value of 0.1 for each parameter value
+    energy of initial guess:  -1.1977713400022736
+    energy after vqe       :  -1.2024564133305427
+
+
+
+
+
+
 .. rubric:: References
 
 .. [#f1] Kutzelnigg, W. (1977). 'Pair Correlation Theories', in Schaefer, H.F. (eds) Methods of Electronic Structure Theory. Modern Theoretical Chemistry, vol 3. Springer, Boston, MA.
 
-.. [#f2] Whitfield, J. D. et al., 'Simulation of electronic structure Hamiltonians using quantum computers', Mol. Phys. 109 (2011) 735.
+.. [#f2] Whitfield, J. D. et al., 'Simulation of Electronic Structure Hamiltonians using Quantum Computers', Mol. Phys. 109 (2011) 735.
 
-.. [#f3] Anand. A. et al., 'A quantum computing view on unitary coupled cluster theory', Chem. Soc. Rev. 51 (2022) 1659.
+.. [#f3] Anand. A. et al., 'A Quantum Computing view on Unitary Coupled Cluster Theory', Chem. Soc. Rev. 51 (2022) 1659.
 
 .. [#f4] Crawford, T. D. et al., 'An Introduction to Coupled Cluster Theory for Computational Chemists', in Reviews in Computational Chemistry 14 (2007) 33.
 
 .. [#f5] Barkoutsos, P. K. et al., 'Quantum algorithms for electronic structure calculations: Particle-hole Hamiltonian and optimized wave-function expansions', Phys. Rev. A 98 (2018) 022322.
+
+.. [#f6] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
+
+.. [#f7] Clements, W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.

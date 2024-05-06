@@ -46,9 +46,41 @@ Qibochem offers the functionality to interface with `PySCF <https://pyscf.org/>`
     # Running PySCF
     h2.run_pyscf()
 
-The default level of theory is HF/STO-3G, and upon executing the PySCF driver for a given molecule, several molecular quantities are calculated and stored in the Molecule class.
+The default level of theory is HF/STO-3G, and upon executing the PySCF driver for a given molecule, several molecular quantities are calculated and stored in the ``Molecule`` class.
 These include the:
 
 * converged Hartree-Fock energy
 * optimized molecular orbital (MO) coefficients
 * one- and two-electron integrals
+
+
+Embedding the quantum electronic structure calculation
+------------------------------------------------------
+
+In quantum chemistry, most *ab initio* calculations start with a Hartree-Fock (HF) calculation.
+The obtained HF wave function is then used as a starting point to apply post-HF methods to improve upon the treatment of electron correlation.
+An example of a post-HF method that can be run on a quantum computer is the :ref:`Unitary Coupled Cluster method <UCC Ansatz>`.
+Unfortunately, the current level of quantum hardware are unable to run these methods for molecules that are too large.
+
+One possible approach to reduce the hardware required is to embed the quantum simulation into a classically computed environment.
+(see `Rossmanek et al. <https://doi.org/10.1063/5.0029536/>`_)
+Essentially, the occupancy of the core *1s* orbitals for the heavy atoms in a molecule is effectively constant; the same might hold for higher virtual orbitals.
+As such, these orbitals can be removed from the simulation of the molecule without there being a significant change in the molecular properties of interest.
+The remaining orbitals left in the simulation are then known as the active space of the molecule.
+
+An example of how to apply this using Qibochem for the LiH molecule is given below.
+
+.. code-block:: python
+
+    from qibochem.driver.molecule import Molecule
+
+    # Inline definition of H2
+    h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
+    # Running PySCF
+    h2.run_pyscf()
+    frozen = [0] # The electrons on the 1s orbital of Li in LiH are frozen - removed from the quantum simulation
+    h2.hf_embedding(frozen=frozen)
+
+The code block above will re-calculate the one- and two-electron integrals for the given active space, and store the result back in the ``Molecule`` class.
+
+.. Note: Not sure if this is the best place to describe HF embedding? But where else would be good?
