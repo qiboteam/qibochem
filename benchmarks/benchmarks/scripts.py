@@ -15,7 +15,7 @@ from qibochem.driver import Molecule
 # def circuit_benchmark(nqubits, backend, circuit_name, circuit_options=None,
 def circuit_benchmark(
     n_hydrogens,
-    backend,  # circuit_name, circuit_options=None,
+    backend,
     nreps=1,
     nshots=None,
     transfer=False,
