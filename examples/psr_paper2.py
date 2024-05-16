@@ -19,10 +19,9 @@ from qibo.derivative import parameter_shift
 from qibo.optimizers import optimize
 from scipy.optimize import minimize
 
-from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.ucc import ucc_circuit
-from qibochem.driver.molecule import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.ansatz import hf_circuit, ucc_circuit
+from qibochem.driver import Molecule
+from qibochem.measurement import expectation
 
 # mol = Molecule(xyz_file="h2.xyz")
 h2 = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
@@ -74,6 +73,9 @@ else:
     Xpositions = [2 * i for i in range(math.ceil(h2.n_active_orbs / 2))]
     Xpositions += [2 * j + 1 for j in range(h2.n_active_e - math.ceil(h2.n_active_orbs / 2))]
     Xpositions.sort()
+
+print(Xpositions)
+quit()
 
 
 # setting the circuit up
