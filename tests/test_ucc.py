@@ -1,80 +1,53 @@
-from functools import partial
+"""
+Tests for the UCC ansatz and related functions
+"""
+
+from functools import reduce
 
 import numpy as np
 import pytest
-from qibo import gates
-from scipy.optimize import minimize
+from qibo import Circuit, gates, symbols
+from qibo.hamiltonians import SymbolicHamiltonian
 
-from qibochem.ansatz.hf_reference import hf_circuit
+from qibochem.ansatz import hf_circuit
 from qibochem.ansatz.ucc import (
+    expi_pauli,
     generate_excitations,
     mp2_amplitude,
     sort_excitations,
     ucc_ansatz,
     ucc_circuit,
 )
-from qibochem.driver.molecule import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.driver import Molecule
 
 
-def test_generate_excitations_1():
-    ex1 = generate_excitations(1, [0, 1], [2, 3])
-    ref_ex1 = np.array([[0, 2], [1, 3]])
-
-    assert np.allclose(ex1, ref_ex1)
-
-
-def test_generate_excitations_2():
-    ex2 = generate_excitations(2, [0, 1], [2, 3])
-    ref_ex2 = np.array([[0, 1, 2, 3]])
-
-    assert np.allclose(ex2, ref_ex2)
-
-
-def test_generate_excitations_3():
-    ex3 = generate_excitations(3, [0, 1], [2, 3])
-
-    assert np.allclose(ex3, [[]])
+@pytest.mark.parametrize(
+    "order,excite_from,excite_to,expected",
+    [
+        (1, [0, 1], [2, 3], [[0, 2], [1, 3]]),
+        (2, [2, 3], [4, 5], [[2, 3, 4, 5]]),
+        (3, [0, 1], [2, 3], [[]]),
+    ],
+)
+def test_generate_excitations(order, excite_from, excite_to, expected):
+    """Test generation of all possible excitations between two lists of orbitals"""
+    test = generate_excitations(order, excite_from, excite_to)
+    assert test == expected
 
 
-def test_sort_excitations_1():
-    ex1 = generate_excitations(1, [0, 1], [2, 3, 4, 5])
-    sorted_excitations = sort_excitations(ex1)
-    ref_sorted_ex1 = np.array([[0, 2], [1, 3], [0, 4], [1, 5]])
-
-    assert np.allclose(sorted_excitations, ref_sorted_ex1)
-
-
-def test_sort_excitations_2():
-    ex2 = generate_excitations(2, [0, 1, 2, 3], [4, 5, 6, 7])
-    sorted_excitations = sort_excitations(ex2)
-    ref_sorted_ex2 = np.array(
-        [
-            [0, 1, 4, 5],
-            [0, 1, 6, 7],
-            [2, 3, 4, 5],
-            [2, 3, 6, 7],
-            [0, 1, 4, 7],
-            [0, 1, 5, 6],
-            [2, 3, 4, 7],
-            [2, 3, 5, 6],
-            [0, 3, 4, 5],
-            [1, 2, 4, 5],
-            [0, 3, 6, 7],
-            [1, 2, 6, 7],
-            [0, 2, 4, 6],
-            [1, 3, 5, 7],
-            [0, 3, 4, 7],
-            [0, 3, 5, 6],
-            [1, 2, 4, 7],
-            [1, 2, 5, 6],
-        ]
-    )
-
-    assert np.allclose(sorted_excitations, ref_sorted_ex2)
+@pytest.mark.parametrize(
+    "order,excite_from,excite_to,expected",
+    [
+        (1, [0, 1], [2, 3, 4, 5], [[0, 2], [1, 3], [0, 4], [1, 5]]),
+        (2, [0, 1], [2, 3, 4, 5], [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4]]),
+    ],
+)
+def test_sort_excitations(order, excite_from, excite_to, expected):
+    test = sort_excitations(generate_excitations(order, excite_from, excite_to))
+    assert test == expected
 
 
-def test_sort_excitations_3():
+def test_sort_excitations_triples():
     with pytest.raises(NotImplementedError):
         sort_excitations([[1, 2, 3, 4, 5, 6]])
 
@@ -92,107 +65,90 @@ def test_mp2_amplitude_doubles():
     assert np.isclose(l, ref_l)
 
 
-def test_ucc_jw_singles():
-    """Build a UCC singles (JW) circuit"""
-    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
-    cnot_cascade = [gates.CNOT(2, 1), gates.CNOT(1, 0), gates.RZ(0, 0.0), gates.CNOT(1, 0), gates.CNOT(2, 1)]
-    basis_rotation_gates = ([rx_gate(0), gates.H(2)], [gates.H(0), rx_gate(2)])
+@pytest.mark.parametrize(
+    "pauli_string",
+    [
+        "Z1",
+        "Z0 Z1",
+        "X0 X1",
+        "Y0 Y1",
+    ],
+)
+def test_expi_pauli(pauli_string):
+    n_qubits = 2
+    theta = 0.1
 
-    # Build control list of gates
-    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
-    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
-
-    # Test ucc_function
-    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="jw")
-    # Check gates are correct
-    assert all(
-        control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, list(circuit.queue))
+    # Build using exp(-i*theta*SymbolicHamiltonian)
+    pauli_ops = sorted(((int(_op[1]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
+    control_circuit = Circuit(n_qubits)
+    pauli_term = SymbolicHamiltonian(
+        symbols.I(n_qubits - 1)
+        * reduce(lambda x, y: x * y, (getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops))
     )
-    # Check that only two parametrised gates
-    assert len(circuit.get_parameters()) == 2
+    control_circuit += pauli_term.circuit(-theta)
+    control_result = control_circuit(nshots=1)
+    control_state = control_result.state(True)
+
+    test_circuit = expi_pauli(n_qubits, pauli_string, theta)
+    test_result = test_circuit(nshots=1)
+    test_state = test_result.state(True)
+
+    assert np.allclose(control_state, test_state)
 
 
-def test_ucc_jw_doubles():
-    """Build a UCC doubles (JW) circuit"""
-    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
-    cnot_cascade = [
-        gates.CNOT(3, 2),
-        gates.CNOT(2, 1),
-        gates.CNOT(1, 0),
-        gates.RZ(0, 0.0),
-        gates.CNOT(1, 0),
-        gates.CNOT(2, 1),
-        gates.CNOT(3, 2),
-    ]
-    basis_rotation_gates = (
-        [gates.H(0), gates.H(1), rx_gate(2), gates.H(3)],
-        [rx_gate(0), rx_gate(1), rx_gate(2), gates.H(3)],
-        [rx_gate(0), gates.H(1), gates.H(2), gates.H(3)],
-        [gates.H(0), rx_gate(1), gates.H(2), gates.H(3)],
-        [rx_gate(0), gates.H(1), rx_gate(2), rx_gate(3)],
-        [gates.H(0), rx_gate(1), rx_gate(2), rx_gate(3)],
-        [gates.H(0), gates.H(1), gates.H(2), rx_gate(3)],
-        [rx_gate(0), rx_gate(1), gates.H(2), rx_gate(3)],
-    )
+@pytest.mark.parametrize(
+    "excitation,mapping,basis_rotations,coeffs",
+    [
+        ([0, 2], None, ("Y0 X2", "X0 Y2"), (0.5, -0.5)),  # JW singles
+        (
+            [0, 1, 2, 3],
+            None,
+            (
+                "X0 X1 Y2 X3",
+                "Y0 Y1 Y2 X3",
+                "Y0 X1 X2 X3",
+                "X0 Y1 X2 X3",
+                "Y0 X1 Y2 Y3",
+                "X0 Y1 Y2 Y3",
+                "X0 X1 X2 Y3",
+                "Y0 Y1 X2 Y3",
+            ),
+            (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25),
+        ),  # JW doubles
+        ([0, 2], "bk", ("X0 Y1 X2", "Y0 Y1 Y2"), (0.5, 0.5)),  # BK singles
+    ],
+)
+def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
+    """Build a UCC circuit with only one excitation"""
+    theta = 0.1
+    n_qubits = 4
 
-    # Build control list of gates
-    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
-    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
+    # Build the control array using SymbolicHamiltonian.circuit
+    # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
+    control_circuit = Circuit(n_qubits)
+    for coeff, basis_rotation in zip(coeffs, basis_rotations):
+        n_terms = len(basis_rotation)
+        pauli_term = SymbolicHamiltonian(
+            symbols.I(n_qubits - 1)
+            * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
+        )
+        control_circuit += pauli_term.circuit(-coeff * theta)
+    control_result = control_circuit(nshots=1)
+    control_state = control_result.state(True)
+    # Test the ucc_circuit function
+    test_circuit = ucc_circuit(n_qubits, excitation, theta=theta, ferm_qubit_map=mapping)
+    test_result = test_circuit(nshots=1)
+    test_state = test_result.state(True)
+    assert np.allclose(control_state, test_state)
 
-    # Test ucc_function
-    circuit = ucc_circuit(4, [0, 1, 2, 3], ferm_qubit_map="jw")
-    # Check gates are correct
-    assert all(
-        control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, list(circuit.queue))
-    )
-    # Check that only two parametrised gates
-    assert len(circuit.get_parameters()) == 8
-
-
-def test_ucc_bk_singles():
-    """Build a UCC doubles (BK) circuit"""
-    rx_gate = partial(gates.RX, theta=-0.5 * np.pi, trainable=False)
-    cnot_cascade = [gates.CNOT(2, 1), gates.CNOT(1, 0), gates.RZ(0, 0.0), gates.CNOT(1, 0), gates.CNOT(2, 1)]
-    basis_rotation_gates = ([gates.H(0), rx_gate(1), gates.H(2)], [rx_gate(0), rx_gate(1), rx_gate(2)])
-
-    # Build control list of gates
-    nested_gate_list = [gate_list + cnot_cascade + gate_list for gate_list in basis_rotation_gates]
-    gate_list = [_gate for gate_list in nested_gate_list for _gate in gate_list]
-
-    # Test ucc_function
-    circuit = ucc_circuit(4, [0, 2], ferm_qubit_map="bk")
-    # Check gates are correct
-    assert all(
-        control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(gate_list, list(circuit.queue))
-    )
-    # Check that only two parametrised gates
-    assert len(circuit.get_parameters()) == 2
+    # Check that number of parametrised gates matches
+    assert len(test_circuit.get_parameters()) == len(basis_rotations)
 
 
 def test_ucc_ferm_qubit_map_error():
     """If unknown fermion to qubit map used"""
     with pytest.raises(KeyError):
         ucc_circuit(2, [0, 1], ferm_qubit_map="Unknown")
-
-
-def test_ucc_parameter_coefficients():
-    """Coefficients used to multiply the parameters in the UCC circuit. Note: may change in future!"""
-    # UCC-JW singles
-    control_values = (-1.0, 1.0)
-    coeffs = []
-    circuit = ucc_circuit(2, [0, 1], coeffs=coeffs)
-    # Check that the signs of the coefficients have been saved
-    assert all(control == test for control, test in zip(control_values, coeffs))
-
-    # UCC-JW doubles
-    control_values = (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)
-    coeffs = []
-    circuit = ucc_circuit(4, [0, 1, 2, 3], coeffs=coeffs)
-    # Check that the signs of the coefficients have been saved
-    assert all(control == test for control, test in zip(control_values, coeffs))
 
 
 def test_ucc_ansatz_h2():
