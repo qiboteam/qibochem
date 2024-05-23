@@ -68,16 +68,17 @@ def circuit_benchmark(
     # Construct UCC circuit ansatz using some hydrogen chain
     # 1. Get molecule first
     start_time = time.time()
-    # mol = build_molecule(n_hydrogens)
     # assert n_hydrogens % 2 == 0, f"{n_hydrogens} must be even"
     hh_bond_length = 0.75  # angstroms
     geom = [("H", (0.0, 0.0, _i * hh_bond_length)) for _i in range(n_hydrogens)]
     mol = Molecule(geom)
-    mol.run_pyscf()
-    logs.log(pyscf_time=time.time() - start_time)
+    mol.nso = 2 * n_hydrogens
+    mol.nelec = n_hydrogens
+    # mol.run_pyscf() # No need to run PySCF, just need to define mol.nso and mol.nelec
+    logs.log(build_mol_time=time.time() - start_time)
     # Build the actual UCC ansatz
     start_time = time.time()
-    circuit = ucc_ansatz(mol)
+    circuit = ucc_ansatz(mol, use_mp2_guess=False)
     logs.log(creation_time=time.time() - start_time)
 
     # from benchmarks import circuits
@@ -105,7 +106,7 @@ def circuit_benchmark(
     creation_times, simulation_times, transfer_times = [], [], []
     for _ in range(nreps):
         start_time = time.time()
-        circuit = ucc_ansatz(mol)
+        circuit = ucc_ansatz(mol, use_mp2_guess=False)
 
         # circuit = qibo.models.Circuit(nqubits)
         # circuit.add(gates)
