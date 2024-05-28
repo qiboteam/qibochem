@@ -68,6 +68,7 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
         raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
     # Occupation number of SOs
+    mapped_occ_n = None
     occ_n = np.concatenate((np.ones(n_electrons), np.zeros(n_qubits - n_electrons)))
     if ferm_qubit_map == "jw":
         mapped_occ_n = occ_n
