@@ -2,6 +2,8 @@
 Symmetry-Preserving circuit ansatz from Gard et al. Reference: https://doi.org/10.1038/s41534-019-0240-1
 """
 
+from math import factorial
+
 import numpy as np
 from qibo import Circuit, gates
 
@@ -48,12 +50,10 @@ def x_gate_indices(n_qubits, n_electrons):
     return sorted(indices)
 
 
-def a_gate_indices(n_qubits, n_electrons):
+def a_gate_indices(n_qubits, n_electrons, x_gates):
     """
     Obtain the qubit indices for a single layer of the primitive pattern of 'A' gates in the circuit ansatz
     """
-    # 1. Apply X gates to qubits. Avoid placing gates on neighboring qubits
-    x_gates = x_gate_indices(n_qubits, n_electrons)
     # 2. Apply 'first layer' of gates on all adjacent pairs of qubits on which either X*I or I*X has been applied.
     first_layer = [(_i, _i + 1) for _i in x_gates if _i + 1 < n_qubits and _i + 1 not in x_gates]
     first_layer += [(_i - 1, _i) for _i in x_gates if _i - 1 >= 0 and _i - 1 not in x_gates]
@@ -63,9 +63,11 @@ def a_gate_indices(n_qubits, n_electrons):
     second_layer += [(_i - 1, _i) for _i in range(min(pair[0] for pair in first_layer), 0, -1)]
     # 3b. The first and second layers define a primitive pattern:
     primitive_pattern = first_layer + second_layer
+    # Need to add any missing connections between neighbouring qubits
+    primitive_pattern += [pair for _i in range(n_qubits - 1) if (pair := (_i, _i + 1)) not in primitive_pattern]
     # 4. Repeat the primitive pattern until (n_qubits choose n_electrons) A gates are placed
     n_gates_per_layer = len(primitive_pattern)
-    n_a_gates = n_qubits * (n_qubits - 1) // 2
+    n_a_gates = factorial(n_qubits) // (factorial(n_qubits - n_electrons) * factorial(n_electrons))
     assert (
         n_a_gates % n_gates_per_layer == 0
     ), f"n_a_gates ({n_a_gates}) is not a multiple of n_gates_per_layer ({n_gates_per_layer})!"
@@ -85,9 +87,10 @@ def symm_preserving_circuit(n_qubits, n_electrons):
         Qibo ``Circuit``: Circuit ansatz
     """
     circuit = Circuit(n_qubits)
-    circuit.add(gates.X(_i) for _i in x_gate_indices(n_qubits, n_electrons))
+    x_gates = x_gate_indices(n_qubits, n_electrons)
+    circuit.add(gates.X(_i) for _i in x_gates)
     # Generate the qubit pair indices for adding A gates
-    a_gate_qubits = a_gate_indices(n_qubits, n_electrons)
+    a_gate_qubits = a_gate_indices(n_qubits, n_electrons, x_gates)
     a_gates = [a_gate(qubit1, qubit2) for qubit1, qubit2 in a_gate_qubits]
     # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
     circuit.add(_gates for _a_gate in a_gates for _gates in _a_gate)
