@@ -38,8 +38,15 @@ def a_gate(qubit1, qubit2, theta=None, phi=None):
         phi = 0.0
 
     # R(theta, phi) = R_z (phi + pi) R_y (theta + 0.5*pi)
-    r_and_cnot = [gates.RZ(qubit2, phi + np.pi), gates.RY(qubit2, theta + 0.5 * np.pi), gates.CNOT(qubit2, qubit1)]
-    return r_and_cnot[::-1] + [gates.CNOT(qubit1, qubit2)] + r_and_cnot
+    r_gate = [gates.RY(qubit2, theta + 0.5 * np.pi), gates.RZ(qubit2, phi + np.pi)]
+    r_gate_dagger = [_gate.dagger() for _gate in r_gate][::-1]
+    return (
+        [gates.CNOT(qubit2, qubit1)]
+        + r_gate_dagger
+        + [gates.CNOT(qubit1, qubit2)]
+        + r_gate
+        + [gates.CNOT(qubit2, qubit1)]
+    )
 
 
 def x_gate_indices(n_qubits, n_electrons):
@@ -77,7 +84,7 @@ def a_gate_indices(n_qubits, n_electrons, x_gates):
 # Main function
 def symm_preserving_circuit(n_qubits, n_electrons):
     """
-    Symmetry-preserving circuit ansatz
+    Symmetry-preserving circuit ansatz from Gard et al. Reference: https://doi.org/10.1038/s41534-019-0240-1
 
     Args:
         n_qubits: Number of qubits in the quantum circuit
