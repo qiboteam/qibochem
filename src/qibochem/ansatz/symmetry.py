@@ -61,6 +61,7 @@ def a_gate_indices(n_qubits, n_electrons, x_gates):
     """
     Obtain the qubit indices for a single layer of the primitive pattern of 'A' gates in the circuit ansatz
     """
+    assert len(x_gates) == n_electrons, f"n_electrons ({n_electrons}) != Number of X gates given! ({x_gates})"
     # 2. Apply 'first layer' of gates on all adjacent pairs of qubits on which either X*I or I*X has been applied.
     first_layer = [(_i, _i + 1) for _i in x_gates if _i + 1 < n_qubits and _i + 1 not in x_gates]
     first_layer += [(_i - 1, _i) for _i in x_gates if _i - 1 >= 0 and _i - 1 not in x_gates]
