@@ -7,22 +7,17 @@ from qibo import Circuit, gates
 # Helper functions
 
 
-def double_excitation_gate(excitation, theta=0.0):
+def double_excitation_gate(sorted_orbitals, theta=0.0):
     """
-    Decomposition of a double excitation gate into single qubit rotations and CNOTs
+    Decomposition of a Givens double excitation gate into single qubit rotations and CNOTs
 
     Args:
-        n_qubits (int): Number of qubits in the circuit
-        excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
+        sorted_orbitals (list): Sorted list of orbitals involved in the excitation
         theta (float): Rotation angle. Default: 0.0
 
     Returns:
         (list): List of gates representing the decomposition of the Givens' double excitation gate
     """
-    sorted_orbitals = sorted(excitation)
-    # Check size of orbitals input
-    assert len(sorted_orbitals) % 2 == 0, f"{excitation} must have an even number of items"
-
     if theta is None:
         theta = 0.0
 
@@ -59,22 +54,28 @@ def double_excitation_gate(excitation, theta=0.0):
 
 
 # Main function
-def universal_circuit(n_qubits, excitation, theta=0.0):
+def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
     """
-    Universal circuit ansatz from Arrazola et al. Reference: https://doi.org/10.22331/q-2022-06-20-742
+    Circuit ansatz for one Givens rotation excitation from Arrazola et al. Reference:
+    https://doi.org/10.22331/q-2022-06-20-742
 
     Args:
         n_qubits: Number of qubits in the quantum circuit
-        n_electrons: Number of electrons in the molecular system
+        excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
 
     Returns:
         Qibo ``Circuit``: Circuit ansatz
     """
+    sorted_orbitals = sorted(excitation)
+    # Check size of orbitals input
+    assert len(sorted_orbitals) % 2 == 0, f"{excitation} must have an even number of items"
+
     circuit = Circuit(n_qubits)
     if len(excitation) == 2:
         circuit.add(gates.GIVENS(excitation[0], excitation[1], theta))
     elif len(excitation) == 4:
-        circuit.add(double_excitation_gate(excitation, theta))
+        circuit.add(double_excitation_gate(sorted_orbitals, theta))
     return circuit
 
 
