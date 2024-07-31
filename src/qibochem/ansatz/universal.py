@@ -76,6 +76,8 @@ def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
         circuit.add(gates.GIVENS(excitation[0], excitation[1], theta))
     elif len(excitation) == 4:
         circuit.add(double_excitation_gate(sorted_orbitals, theta))
+    else:
+        raise NotImplementedError("Can only handle single and double excitations!")
     return circuit
 
 
