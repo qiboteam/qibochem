@@ -87,7 +87,6 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
 
 def givens_excitation_ansatz(
     molecule,
-    excitation_level=None,
     excitations=None,
     include_hf=True,
     use_mp2_guess=True,
@@ -99,8 +98,6 @@ def givens_excitation_ansatz(
 
     Args:
         molecule: The ``Molecule`` of interest.
-        excitation_level: Include excitations up to how many electrons, i.e. ``"S"`` or ``"D"``.
-            Ignored if ``excitations`` argument is given. Default: ``"D"``, i.e. double excitations
         excitations: List of excitations (e.g. ``[[0, 1, 2, 3], [0, 1, 4, 5]]``) used to build the
             UCC circuit. Overrides the ``excitation_level`` argument
         include_hf: Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
@@ -116,29 +113,14 @@ def givens_excitation_ansatz(
     n_elec = molecule.nelec if molecule.n_active_e is None else molecule.n_active_e
     n_orbs = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
 
-    # Define the excitation level to be used if no excitations given
+    # If no excitations given, defaults to all possible double and single excitations
     if excitations is None:
-        excitation_levels = ("S", "D", "T", "Q")
-        if excitation_level is None:
-            excitation_level = "D"
-        else:
-            # Check validity of input
-            assert (
-                len(excitation_level) == 1 and excitation_level.upper() in excitation_levels
-            ), "Unknown input for excitation_level"
-            # Note: Probably don't be too ambitious and try to do 'T'/'Q' at the moment...
-            if excitation_level.upper() in ("T", "Q"):
-                raise NotImplementedError("Cannot handle triple and quadruple excitations!")
-        # Get the (largest) order of excitation to use
-        excitation_order = excitation_levels.index(excitation_level.upper()) + 1
-
-        # Generate and sort all the possible excitations
         excitations = []
-        for order in range(excitation_order, 0, -1):  # Reversed to get higher excitations first
+        for order in range(2, 0, -1):  # Reversed to get double excitations first, then singles
             excitations += sort_excitations(generate_excitations(order, range(0, n_elec), range(n_elec, n_orbs)))
     else:
         # Some checks to ensure the given excitations are valid
-        assert all(len(_ex) % 2 == 0 for _ex in excitations), "Excitation with an odd number of elements found!"
+        assert all(len(_ex) in (2, 4) for _ex in excitations), "Only single and double excitations allowed!"
 
     # Build the circuit
     if include_hf:
