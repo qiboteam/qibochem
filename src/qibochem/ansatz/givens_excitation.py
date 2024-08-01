@@ -10,20 +10,17 @@ from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excit
 # Helper functions
 
 
-def double_excitation_gate(sorted_orbitals, theta=0.0):
+def double_excitation_gate(sorted_orbitals, theta):
     """
     Decomposition of a Givens double excitation gate into single qubit rotations and CNOTs
 
     Args:
         sorted_orbitals (list): Sorted list of orbitals involved in the excitation
-        theta (float): Rotation angle. Default: 0.0
+        theta (float): Rotation angle
 
     Returns:
         (list): List of gates representing the decomposition of the Givens' double excitation gate
     """
-    if theta is None:
-        theta = 0.0
-
     result = []
     result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[3]))
     result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[2]))
@@ -57,7 +54,7 @@ def double_excitation_gate(sorted_orbitals, theta=0.0):
 
 
 # Main function
-def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
+def givens_excitation_circuit(n_qubits, excitation, theta=None):
     """
     Circuit ansatz for one Givens rotation excitation from Arrazola et al. Reference:
     https://doi.org/10.22331/q-2022-06-20-742
@@ -66,6 +63,7 @@ def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
         n_qubits: Number of qubits in the quantum circuit
         excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
+        theta (float): Rotation angle. Default: 0.0
 
     Returns:
         Qibo ``Circuit``: Circuit ansatz
@@ -73,6 +71,9 @@ def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
     sorted_orbitals = sorted(excitation)
     # Check size of orbitals input
     assert len(sorted_orbitals) % 2 == 0, f"{excitation} must have an even number of items"
+
+    if theta is None:
+        theta = 0.0
 
     circuit = Circuit(n_qubits)
     if len(excitation) == 2:

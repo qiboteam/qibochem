@@ -47,11 +47,7 @@ def test_double_excitation_gate():
         gates.CNOT(0, 2),
         gates.CNOT(2, 3),
     ]
-    test_list = double_excitation_gate([0, 1, 2, 3])
-
-    for gate in test_list:
-        if gate.parameters:
-            print(gate.name, gate.parameters)
+    test_list = double_excitation_gate([0, 1, 2, 3], 0.0)
 
     # Check gates are correct
     assert all(
@@ -64,7 +60,7 @@ def test_double_excitation_gate():
     "excitation,expected",
     [
         ([0, 2], [gates.GIVENS(0, 2, 0.0)]),
-        ([0, 1, 2, 3], double_excitation_gate([0, 1, 2, 3])),
+        ([0, 1, 2, 3], double_excitation_gate([0, 1, 2, 3], 0.0)),
     ],
 )
 def test_givens_excitation_circuit(excitation, expected):
