@@ -81,6 +81,6 @@ def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
     return circuit
 
 
-def universal_ansatz(n_qubits, excitation, n_electrons):
+def givens_excitation_ansatz(n_qubits, excitation, n_electrons):
     """TODO: Same implementation as UCC?"""
     pass
