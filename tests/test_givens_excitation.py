@@ -47,14 +47,12 @@ def test_double_excitation_gate():
         gates.CNOT(0, 2),
         gates.CNOT(2, 3),
     ]
-
-    # Test circuit
-    test_circuit = givens_excitation_circuit(4, [0, 1, 2, 3])
+    test_list = double_excitation_gate([0, 1, 2, 3])
 
     # Check gates are correct
     assert all(
         control.name == test.name and control.target_qubits == test.target_qubits
-        for control, test in zip(control_gates, list(test_circuit.queue))
+        for control, test in zip(control_gates, test_list)
     )
 
 
