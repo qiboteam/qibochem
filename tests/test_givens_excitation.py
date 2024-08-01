@@ -49,6 +49,10 @@ def test_double_excitation_gate():
     ]
     test_list = double_excitation_gate([0, 1, 2, 3])
 
+    for gate in test_list:
+        if gate.parameters:
+            print(gate.name, gate.parameters)
+
     # Check gates are correct
     assert all(
         control.name == test.name and control.target_qubits == test.target_qubits
@@ -69,3 +73,11 @@ def test_givens_excitation_circuit(excitation, expected):
         control.name == test.name and control.target_qubits == test.target_qubits
         for control, test in zip(expected, list(test_circuit.queue))
     )
+    # Check parameters of parametrized gates are all 0.0
+    assert all(np.isclose(gate.parameters[0], 0.0) for gate in test_circuit.queue if gate.parameters)
+
+
+def test_givens_excitation_errors():
+    """Input excitations are single or double?"""
+    with pytest.raises(NotImplementedError):
+        test_circuit = givens_excitation_circuit(4, list(range(6)))
