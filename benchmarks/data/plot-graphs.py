@@ -1,5 +1,5 @@
 """
-Parse the .dat files from running main.py to get and plot the simulation_times_mean
+Parse the .dat files from running main.py to get and plot the dry_run_times
 """
 
 import json
@@ -79,8 +79,18 @@ def main(plot_result, print_result, directory=None):
         print("|______________________________|\n")
 
     if plot_result:
+        scatter_markers = {
+            "numpy": "x",
+            "qibojit (numba)": "+",
+            "tensorflow": ".",
+            "qibojit (cupy)": "<",
+            "qibojit (cuquantum)": ">",
+        }
+
         for backend, data in all_results.items():
-            plt.scatter(data["x"], data["y"], label=backend)
+            if data["x"] and data["y"]:
+                # print(backend)
+                plt.scatter(data["x"], data["y"], label=backend, marker=scatter_markers[backend])
         plt.legend()
         plt.ylabel("Time (s)")
         plt.xlabel(r"Length of hydrogen chain, $H_n$")
