@@ -85,14 +85,14 @@ def a_gate_indices(n_qubits, n_electrons, x_gates):
 # Main function
 def symm_preserving_circuit(n_qubits, n_electrons):
     """
-    Symmetry-preserving circuit ansatz from Gard et al. Reference: https://doi.org/10.1038/s41534-019-0240-1
+    Symmetry-preserving circuit ansatz from Gard et al. (https://doi.org/10.1038/s41534-019-0240-1)
 
     Args:
         n_qubits: Number of qubits in the quantum circuit
         n_electrons: Number of electrons in the molecular system
 
     Returns:
-        Qibo ``Circuit``: Circuit ansatz
+        Qibo ``Circuit``: Circuit corresponding to the symmetry-preserving ansatz
     """
     circuit = Circuit(n_qubits)
     x_gates = x_gate_indices(n_qubits, n_electrons)

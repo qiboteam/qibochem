@@ -56,17 +56,16 @@ def double_excitation_gate(sorted_orbitals, theta):
 # Main function
 def givens_excitation_circuit(n_qubits, excitation, theta=None):
     """
-    Circuit ansatz for one Givens rotation excitation from Arrazola et al. Reference:
-    https://doi.org/10.22331/q-2022-06-20-742
+    Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al. (https://doi.org/10.22331/q-2022-06-20-742) for a single excitation.
 
     Args:
-        n_qubits: Number of qubits in the quantum circuit
+        n_qubits: Number of qubits in the circuit
         excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta (float): Rotation angle. Default: 0.0
 
     Returns:
-        Qibo ``Circuit``: Circuit ansatz
+        Qibo ``Circuit``: Circuit ansatz for a single Givens excitation
     """
     sorted_orbitals = sorted(excitation)
     # Check size of orbitals input
@@ -105,7 +104,7 @@ def givens_excitation_ansatz(
             use the MP2 amplitudes as the default guess parameters
 
     Returns:
-        Qibo ``Circuit``: Circuit corresponding to the 'Universal' ansatz
+        Qibo ``Circuit``: Circuit corresponding to a Givens excitation circuit ansatz
     """
     # TODO: Consolidate/Meld this function with the ucc_ansatz function; both are largely identical
 
