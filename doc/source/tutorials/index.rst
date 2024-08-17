@@ -12,3 +12,4 @@ This section provides examples of how to use Qibochem.
     hamiltonian
     ansatz
     measurement
+    adaptive
