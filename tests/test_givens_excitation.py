@@ -11,9 +11,31 @@ from qibochem.ansatz.givens_excitation import (
     double_excitation_gate,
     givens_excitation_ansatz,
     givens_excitation_circuit,
+    single_excitation_gate,
 )
 from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
 from qibochem.driver import Molecule
+
+
+def test_single_excitation_gate():
+    # Hardcoded test
+    theta = 0.1
+
+    control_gates = [
+        gates.CNOT(0, 1),
+        gates.RY(0, 0.5 * theta),
+        gates.CNOT(1, 0),
+        gates.RY(0, -0.5 * theta),
+        gates.CNOT(1, 0),
+        gates.CNOT(0, 1),
+    ]
+    test_list = single_excitation_gate([0, 1, 2, 3], 0.1)
+
+    # Check gates are correct
+    assert all(
+        control.name == test.name and control.target_qubits == test.target_qubits
+        for control, test in zip(control_gates, test_list)
+    )
 
 
 def test_double_excitation_gate():
@@ -62,7 +84,7 @@ def test_double_excitation_gate():
 @pytest.mark.parametrize(
     "excitation,expected",
     [
-        ([0, 2], [gates.GIVENS(0, 2, 0.0)]),
+        ([0, 2], single_excitation_gate([0, 2], 0.0)),
         ([0, 1, 2, 3], double_excitation_gate([0, 1, 2, 3], 0.0)),
     ],
 )
@@ -106,8 +128,8 @@ def test_givens_excitation_ansatz_h2():
     # Then check that the circuit parameters are the MP2 guess parameters
     # Get the MP2 amplitudes first, then expand the list based on the excitation type
     mp2_guess_amplitudes = [mp2_amplitude([0, 1, 2, 3], mol.eps, mol.tei) for _ in range(8)]  # Doubles
-    mp2_guess_amplitudes += [0.0, 0.0]  # Singles
-    coeffs = np.array([-0.125, 0.125, -0.125, 0.125, 0.125, -0.125, 0.125, -0.125, 1.0, 1.0])
+    mp2_guess_amplitudes += [0.0, 0.0, 0.0, 0.0]  # Singles
+    coeffs = np.array([-0.125, 0.125, -0.125, 0.125, 0.125, -0.125, 0.125, -0.125, 1.0, 1.0, 1.0, 1.0])
     mp2_guess_amplitudes = coeffs * np.array(mp2_guess_amplitudes)
     # Need to flatten the output of circuit.get_parameters() to compare it to mp2_guess_amplitudes
     test_parameters = np.array([_x for _tuple in test_circuit.get_parameters() for _x in _tuple])

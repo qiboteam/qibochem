@@ -1,5 +1,6 @@
 """
-Module documentation
+Circuit ansatz for representing a fermionic excitation as a Givens rotation by Arrazola et al.
+Reference: https://doi.org/10.22331/q-2022-06-20-742
 """
 
 from qibo import Circuit, gates
@@ -8,6 +9,28 @@ from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
 
 # Helper functions
+
+
+def single_excitation_gate(sorted_orbitals, theta):
+    """
+    Decomposition of a Givens single excitation gate into single qubit rotations and CNOTs. In principle, should be
+    identical to gates.GIVENS(qubit0, qubit1, theta)
+
+    Args:
+        sorted_orbitals (list): Sorted list of orbitals involved in the excitation
+        theta (float): Rotation angle
+
+    Returns:
+        (list): List of gates representing the decomposition of the Givens' single excitation gate
+    """
+    result = []
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    result.append(gates.RY(sorted_orbitals[0], 0.5 * theta))
+    result.append(gates.CNOT(sorted_orbitals[1], sorted_orbitals[0]))
+    result.append(gates.RY(sorted_orbitals[0], -0.5 * theta))
+    result.append(gates.CNOT(sorted_orbitals[1], sorted_orbitals[0]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    return result
 
 
 def double_excitation_gate(sorted_orbitals, theta):
@@ -56,7 +79,7 @@ def double_excitation_gate(sorted_orbitals, theta):
 # Main function
 def givens_excitation_circuit(n_qubits, excitation, theta=None):
     """
-    Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al. (https://doi.org/10.22331/q-2022-06-20-742) for a single excitation.
+    Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al.
 
     Args:
         n_qubits: Number of qubits in the circuit
@@ -76,7 +99,7 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
 
     circuit = Circuit(n_qubits)
     if len(excitation) == 2:
-        circuit.add(gates.GIVENS(excitation[0], excitation[1], theta))
+        circuit.add(single_excitation_gate(sorted_orbitals, theta))
     elif len(excitation) == 4:
         circuit.add(double_excitation_gate(sorted_orbitals, theta))
     else:
