@@ -10,6 +10,7 @@ Despite VQE being cheaper than QPE, circuit depth is still a big problem for tod
 
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
     mol.run_pyscf()
+    mol.hf_embedding(active=[0, 1, 2, 5])
     circuit = ucc_ansatz(mol)
     print(circuit.summary())
 
@@ -17,22 +18,21 @@ Output:
 
 .. code-block:: output
 
-    Circuit depth = 8937
-    Total number of gates = 15108
-    Number of qubits = 12
+    Circuit depth = 1874
+    Total number of gates = 3300
+    Number of qubits = 8
     Most common gates:
-    cx: 6976
-    h: 4992
-    sdg: 1248
-    s: 1248
-    rz: 640
+    cx: 1312
+    h: 1216
+    sdg: 304
+    s: 304
+    rz: 160
     x: 4
 
-
-As shown in the above code block, a full UCCSD circuit for a LiH/STO-3G system has a circuit depth of 8937 (!), with almost 7000 CNOT gates required!
+As shown in the above code block, the full UCCSD circuit for a simplified LiH/STO-3G system has a circuit depth of 1874 (!), with more than 1000 CNOT gates required!
 Hence, there is still a need to further reduce and simplify the circuit ansatzes used for running a VQE simulation.
 
-Other than designing shorter circuit ansatzes, one alternative approach is through the use of energy gradients - for instance, through the Parameter Shift Rule on hardware - to filter and reduce the number of fermionic excitations in a circuit ansatz.  (REFS!!!)
+Other than designing shorter and more efficient circuit ansatzes, one alternative approach is through the use of energy gradients - for instance, through the Parameter Shift Rule on hardware - to filter and reduce the number of fermionic excitations in a circuit ansatz.  (REFS!!!)
 This is known as an adaptive method, in the sense that the quantum gates used to construct the circuit ansatz, as well as its actual structure and arrangement is not fixed, and varies depending on the molecular system under study.
 
 For example, in a H2/STO-3G system mapped with the Jordan-Wigner transformation, there are three possible spin-allowed fermionic excitations:
@@ -105,17 +105,96 @@ Output:
     Exact result: -1.1361895
       VQE result: -1.1361895
 
-As can be seen, we managed to find the exact result using only one doubles excitation!
+We managed to find the exact result by applying only the doubles excitation!
 
-Next, let's look at the potential savings for the LiH/STO-3G system.
+Next, let's look at the potential savings for the simplified LiH/STO-3G system.
 To reduce the circuit depth further, we will use the more modern ansatz, the Givens excitation circuit from Arrazola et al., instead of the UCC ansatz.
 
+As was done in the above example, we will start with a HF circuit, then find the gradients for each circuit ansatz corresponding to a fermionic excitation.
+After that, the excitation with the largest absolute value of the gradient will be added to the initial circuit, followed by a VQE simulation.
+
+.. code-block:: python
+
+    from qibo.derivative import parameter_shift
+    from qibo.models import VQE
+
+    from qibochem.driver import Molecule
+    from qibochem.ansatz import hf_circuit, givens_excitation_circuit, generate_excitations, sort_excitations
+
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
+    mol.run_pyscf()
+    mol.hf_embedding(active=[0, 1, 2, 5])
+    hamiltonian = mol.hamiltonian()
+
+    n_qubits = mol.n_active_orbs
+    n_elec = mol.n_active_e
+
+    circuit = hf_circuit(n_qubits, n_elec)
+
+    excitations = sort_excitations(generate_excitations(2, list(range(n_elec)), list(range(n_elec, n_qubits))))
+    excitations += sort_excitations(generate_excitations(1, list(range(n_elec)), list(range(n_elec, n_qubits))))
+
+    excitation_gradients = {}
+    for excitation in excitations:
+        _circuit = circuit.copy()
+        _circuit += givens_excitation_circuit(n_qubits, excitation)
+        n_parameters = len(_circuit.get_parameters())
+        gradient = [round(parameter_shift(_circuit, hamiltonian, index), 5) for index in range(n_parameters)]
+        print(f"Energy gradients for {excitation}: {gradient}")
+        excitation_gradients[tuple(excitation)] = gradient[0] # Gradient magnitude is equal throughout
+
+    # Find the excitation corresponding to the largest gradient, and add it to the circuit
+    max_grad = max(excitation_gradients, key=lambda x: abs(excitation_gradientis.get(x)))
+    print(f"\nExcitation with the largest gradient: {max_grad}; Gradient = {excitation_gradients[max_grad]}")
+    circuit += givens_excitation_circuit(n_qubits, max_grad)
+
+    # Run VQE with the updated circuit
+    vqe = VQE(circuit, hamiltonian)
+
+    circuit_parameters = [param for _tuple in circuit.get_parameters() for param in _tuple]
+    best, params, extra = vqe.minimize(circuit_parameters, method='BFGS', compile=False)
+
+    print(f" HF energy: {mol.e_hf:.7f}")
+    print(f"VQE result: {best:.7f}")
+
+Output:
+
+.. code-block:: output
+
+    Energy gradients for [0, 1, 4, 5]: [0.02132, -0.02132, 0.02132, -0.02132, -0.02132, 0.02132, -0.02132, 0.02132]
+    Energy gradients for [0, 1, 6, 7]: [0.00569, -0.00569, 0.00569, -0.00569, -0.00569, 0.00569, -0.00569, 0.00569]
+    Energy gradients for [2, 3, 4, 5]: [0.01136, -0.01136, 0.01136, -0.01136, -0.01136, 0.01136, -0.01136, 0.01136]
+    Energy gradients for [2, 3, 6, 7]: [0.12225, -0.12225, 0.12225, -0.12225, -0.12225, 0.12225, -0.12225, 0.12225]
+    Energy gradients for [0, 1, 4, 7]: [0.00016, -0.00016, 0.00016, -0.00016, -0.00016, 0.00016, -0.00016, 0.00016]
+    Energy gradients for [0, 1, 5, 6]: [-0.00016, 0.00016, -0.00016, 0.00016, 0.00016, -0.00016, 0.00016, -0.00016]
+    Energy gradients for [2, 3, 4, 7]: [-0.03254, 0.03254, -0.03254, 0.03254, 0.03254, -0.03254, 0.03254, -0.03254]
+    Energy gradients for [2, 3, 5, 6]: [0.03254, -0.03254, 0.03254, -0.03254, -0.03254, 0.03254, -0.03254, 0.03254]
+    Energy gradients for [0, 3, 4, 5]: [0.00029, -0.00029, 0.00029, -0.00029, -0.00029, 0.00029, -0.00029, 0.00029]
+    Energy gradients for [1, 2, 4, 5]: [-0.00029, 0.00029, -0.00029, 0.00029, 0.00029, -0.00029, 0.00029, -0.00029]
+    Energy gradients for [0, 3, 6, 7]: [0.00108, -0.00108, 0.00108, -0.00108, -0.00108, 0.00108, -0.00108, 0.00108]
+    Energy gradients for [1, 2, 6, 7]: [-0.00108, 0.00108, -0.00108, 0.00108, 0.00108, -0.00108, 0.00108, -0.00108]
+    Energy gradients for [0, 2, 4, 6]: [0.00299, -0.00299, 0.00299, -0.00299, -0.00299, 0.00299, -0.00299, 0.00299]
+    Energy gradients for [1, 3, 5, 7]: [0.00299, -0.00299, 0.00299, -0.00299, -0.00299, 0.00299, -0.00299, 0.00299]
+    Energy gradients for [0, 3, 4, 7]: [-0.00236, 0.00236, -0.00236, 0.00236, 0.00236, -0.00236, 0.00236, -0.00236]
+    Energy gradients for [0, 3, 5, 6]: [-0.00063, 0.00063, -0.00063, 0.00063, 0.00063, -0.00063, 0.00063, -0.00063]
+    Energy gradients for [1, 2, 4, 7]: [-0.00063, 0.00063, -0.00063, 0.00063, 0.00063, -0.00063, 0.00063, -0.00063]
+    Energy gradients for [1, 2, 5, 6]: [-0.00236, 0.00236, -0.00236, 0.00236, 0.00236, -0.00236, 0.00236, -0.00236]
+    Energy gradients for [0, 4]: [0.0, -0.0]
+    Energy gradients for [1, 5]: [-0.0, 0.0]
+    Energy gradients for [0, 6]: [0.0, -0.0]
+    Energy gradients for [1, 7]: [-0.0, 0.0]
+    Energy gradients for [2, 4]: [-0.0, 0.0]
+    Energy gradients for [3, 5]: [0.0, -0.0]
+    Energy gradients for [2, 6]: [-0.0, 0.0]
+    Energy gradients for [3, 7]: [0.0, -0.0]
+
+    Excitation with the largest gradient: (2, 3, 6, 7); Gradient = 0.12225
+     HF energy: -7.8605387
+    VQE result: -7.8732886
 
 
-TODO:
-Starting with a HF ansatz, find gradient of each Givens excitation, and sort the excitations by the magnitude of the gradient.
-
-Then apply circuit ansatz for each excitation iteratively, until energy converges.
+Energy difference of ~0.01 Hartrees, result still yet to converge.
+So apply circuit ansatz for each excitation with the largest gradient iteratively, until energy converges.
 How much time/circuit depth do we save in this approach, compared to the naive, add everything approach?
 
 
