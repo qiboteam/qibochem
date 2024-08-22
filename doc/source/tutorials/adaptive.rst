@@ -193,9 +193,170 @@ Output:
     VQE result: -7.8732886
 
 
-Energy difference of ~0.01 Hartrees, result still yet to converge.
-So apply circuit ansatz for each excitation with the largest gradient iteratively, until energy converges.
-How much time/circuit depth do we save in this approach, compared to the naive, add everything approach?
+After adding the circuit ansatz corresponding to one double excitation and running VQE,
+the resultant energy was found to be about 0.01 Hartrees lower compared to the bare HF ansatz.
+Clearly, there is still room for further improvement in the obtained energies.
+
+To do so, we further extend the circuit ansatz by adding in more excitations iteratively,
+with the excitation with the largest (in magnitute) energy gradients added on at each step.
+This can be carried out until the difference between each iteration is small (<0.001 Hartrees), or until there are no more remaining excitations to be added.
+
+.. warning::
+
+      The code block below might take a few minutes to run!
+
+.. code-block:: python
+
+    import numpy as np
+
+    from qibo.models import VQE
+    from qibo.derivative import parameter_shift
+
+    from qibochem.driver import Molecule
+    from qibochem.ansatz import hf_circuit, givens_excitation_circuit, generate_excitations, sort_excitations
+
+    mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
+    mol.run_pyscf()
+    mol.hf_embedding(active=[0, 1, 2, 5])
+    hamiltonian = mol.hamiltonian()
+
+    exact_result = mol.eigenvalues(hamiltonian)[0]
+
+    n_qubits = mol.n_active_orbs
+    n_elec = mol.n_active_e
+
+    circuit = hf_circuit(n_qubits, n_elec)
+
+    excitations = sort_excitations(generate_excitations(2, list(range(n_elec)), list(range(n_elec, n_qubits))))
+    excitations += sort_excitations(generate_excitations(1, list(range(n_elec)), list(range(n_elec, n_qubits))))
+
+    excitation_gradient = {tuple(excitation):0.0 for excitation in excitations}
+    count = 0
+    current_energy = mol.e_hf
+    n_fixed_params = 0
+    # Iterating through all excitations; loop breaks if difference in VQE result between excitations is v small
+    while excitations:
+        print(f"Iteration {count+1}:")
+        for excitation in excitations:
+            _circuit = circuit.copy()
+            _circuit += givens_excitation_circuit(n_qubits, excitation)
+            n_parameters = len(_circuit.get_parameters())
+            gradient = [round(parameter_shift(_circuit, hamiltonian, index), 5) for index in range(n_parameters)][n_fixed_params:]
+            # print(f"Energy gradient for {excitation}: {gradient}")
+            excitation_gradient[tuple(excitation)] = gradient[0] # Gradient magnitude is equal throughout
+
+        # Find the excitation corresponding to the largest gradient, and add it to the circuit
+        max_grad = max(excitation_gradient, key=lambda x: abs(excitation_gradient.get(x)))
+        print(f"Excitation with the largest gradient: {max_grad}; Gradient = {excitation_gradient[max_grad]}")
+        circuit += givens_excitation_circuit(n_qubits, max_grad)
+        # Remove max_grad from excitations and excitation_data
+        excitations.pop(excitations.index(list(max_grad)))
+        del excitation_gradient[max_grad]
+
+        # Run VQE with the updated circuit
+        vqe = VQE(circuit, hamiltonian)
+
+        circuit_parameters = [param for _tuple in circuit.get_parameters() for param in _tuple]
+        best, params, extra = vqe.minimize(circuit_parameters, method='BFGS', compile=False)
+
+        n_fixed_params = len(params)
+
+        print(f"\nExact result: {exact_result:.7f}")
+        print(f"  VQE result: {best:.7f}")
+        energy_diff = best - current_energy
+        print(f"Difference to previous result: {energy_diff:.7f}")
+
+        if abs(energy_diff) < 1e-3:
+            print("\nEnergy has converged; exiting while loop")
+            break
+        print()
+        # Update circuit parameters and current energy
+        circuit.set_parameters(params)
+        current_energy = best
+        count += 1
+
+
+    print("\nFinal circuit:")
+    print(circuit.draw())
+    print("\nCircuit statistics:")
+    print(circuit.summary())
+
+Output:
+
+.. code-block:: output
+
+    Iteration 1:
+    Excitation with the largest gradient: (2, 3, 6, 7); Gradient = 0.12225
+
+    Exact result: -7.8770974
+      VQE result: -7.8732886
+    Difference to previous result: -0.0127499
+
+    Iteration 2:
+    Excitation with the largest gradient: (2, 3, 4, 7); Gradient = -0.03485
+
+    Exact result: -7.8770974
+      VQE result: -7.8748417
+    Difference to previous result: -0.0015531
+
+    Iteration 3:
+    Excitation with the largest gradient: (2, 3, 5, 6); Gradient = 0.03364
+
+    Exact result: -7.8770974
+      VQE result: -7.8762910
+    Difference to previous result: -0.0014493
+
+    Iteration 4:
+    Excitation with the largest gradient: (0, 1, 4, 5); Gradient = 0.02124
+
+    Exact result: -7.8770974
+      VQE result: -7.8763762
+    Difference to previous result: -0.0000853
+
+    Energy has converged; exiting while loop
+
+    Final circuit:
+    q0:     ─X──────────────────────────────────────────────────────────────────── ...
+    q1:     ─X──────────────────────────────────────────────────────────────────── ...
+    q2:     ─X───o─H─o───RY─o─────RY───X─RY─────o─RY─o─X─H─o─────o─H─o───RY─o───── ...
+    q3:     ─X───|───X───RY─|───X─RY─X─|─RY─X───|─RY─X─|───|─────|───X───RY─|───X─ ...
+    q4:     ─────|──────────|───|────|─|────|───|──────|───|───o─X─────o────|───|─ ...
+    q5:     ─────|──────────|───|────|─|────|───|──────|───|───|───────|────|───|─ ...
+    q6:     ───o─X─────o────|───|────o─o────|───|──────o───X─o─|───────|────|───|─ ...
+    q7:     ───X───H───X────X─H─o───────────o─H─X────────H───X─X───H───X────X─H─o─ ...
+
+    q0: ... ────────────────────────────────────────────────────────────────────── ...
+    q1: ... ────────────────────────────────────────────────────────────────────── ...
+    q2: ... RY───X─RY─────o─RY─o─X─H─o─────o─H─o───RY─o─────RY───X─RY─────o─RY─o─X ...
+    q3: ... RY─X─|─RY─X───|─RY─X─|───|─────|───X───RY─|───X─RY─X─|─RY─X───|─RY─X─| ...
+    q4: ... ───o─o────|───|──────o───X─o───|──────────|───|────|─|────|───|──────| ...
+    q5: ... ──────────|───|────────────|─o─X─────o────|───|────o─o────|───|──────o ...
+    q6: ... ──────────|───|────────────|─X───H───X────X─H─o───────────o─H─X─────── ...
+    q7: ... ──────────o─H─X────────H───X────────────────────────────────────────── ...
+
+    q0: ... ─────────o─H─o───RY─o─────RY───X─RY─────o─RY─o─X─H─o───
+    q1: ... ─────────|───X───RY─|───X─RY─X─|─RY─X───|─RY─X─|───|───
+    q2: ... ─H─o─────|──────────|───|────|─|────|───|──────|───|───
+    q3: ... ───|─────|──────────|───|────|─|────|───|──────|───|───
+    q4: ... ───|───o─X─────o────|───|────o─o────|───|──────o───X─o─
+    q5: ... ───X─o─X───H───X────X─H─o───────────o─H─X────────H───X─
+    q6: ... ─H───X─────────────────────────────────────────────────
+    q7: ... ───────────────────────────────────────────────────────
+
+    Circuit statistics:
+    Circuit depth = 78
+    Total number of gates = 116
+    Number of qubits = 8
+    Most common gates:
+    cx: 56
+    ry: 32
+    h: 24
+    x: 4
+
+Recall that the full UCCSD circuit for our system had a circuit depth of 1874, with more than 1000 CNOT gates required.
+In contrast, the use of a simpler circuit ansatz in conjunction with an adaptive approach allowed us to find a VQE energy that is within chemical accuracy,
+while using only 56 CNOT gates and with a final gate depth of only 78.
+This is a >20-fold reduction in the gate depth and number of CNOT gates used!
 
 
 .. comment
