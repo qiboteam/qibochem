@@ -53,7 +53,11 @@ If you use the Qibochem plugin please refer to the documentation for citation in
 
 ## Contact
 
-For questions, comments and suggestions please contact us at [https://matrix.to/#/#qibo:matrix.org](url)
+To get in touch with the community and the developers, consider joining the Qibo workspace on Matrix:
+
+[![Matrix](https://img.shields.io/matrix/qibo%3Amatrix.org?logo=matrix)](https://matrix.to/#/#qibo:matrix.org)
+
+If you have a question about the project, contact us at [📫](mailto:qiboteam@qibo.science).
 
 ## Contributing
 
