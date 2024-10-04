@@ -243,7 +243,7 @@ def test_ucc_ansatz_error_checks():
     """Test the checks for input validity"""
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))])
     # Define number of electrons and spin-obritals by hand
-    mol.nelec = (2, 2)
+    mol.nelec = 2
     mol.nso = 12
 
     # Excitation level check: Input is in ("S", "D", "T", "Q")
