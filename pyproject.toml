@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qibochem"
-version = "0.0.3"
+version = "0.0.4"
 description = "Quantum chemistry module for quantum computing with Qibo"
 authors = ["The Qibo team"]
 license = "Apache License 2.0"
@@ -16,10 +16,10 @@ packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
-qibo = ">=0.2.0"
-openfermion = "^1.5"
-pyscf = "^2.4.0"
-scipy = "^1.10.1"
+qibo = ">=0.2.8"
+openfermion = "^1.6"
+pyscf = "^2.5.0"
+scipy = "^1.13"
 
 [build-system]
 requires = ["poetry-core"]
