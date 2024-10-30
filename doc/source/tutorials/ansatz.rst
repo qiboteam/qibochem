@@ -139,12 +139,13 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     q3: ... ─────o─RX─RX─o────────────o─RX─
 
 
+
 UCC with Qubit-Excitation-Based n-tuple Excitation
 --------------------------------------------------
 
 A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f7]_ and Magoulas et al. [#f8]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated have a reduction of CNOTs from :math:`(2n-1)2^{2n}` to :math:`2^{2n-1}+4n-2`.
 
-An example
+An example for the :math:`H_2` molecule is given here:
 
 
 .. code-block:: python
