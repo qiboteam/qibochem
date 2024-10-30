@@ -18,6 +18,7 @@ from qibochem.ansatz.ucc import (
     ucc_ansatz,
     ucc_circuit,
 )
+from qibochem.ansatz.qeb import qeb_circuit
 from qibochem.driver import Molecule
 
 
@@ -144,6 +145,50 @@ def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
     # Check that number of parametrised gates matches
     assert len(test_circuit.get_parameters()) == len(basis_rotations)
 
+@pytest.mark.parametrize(
+    "excitation,mapping,basis_rotations,coeffs",
+    [
+        ([0, 2], None, ("Y0 X2", "X0 Y2"), (0.5, -0.5)),  # JW singles
+        (
+            [0, 1, 2, 3],
+            None,
+            (
+                "X0 X1 Y2 X3",
+                "Y0 Y1 Y2 X3",
+                "Y0 X1 X2 X3",
+                "X0 Y1 X2 X3",
+                "Y0 X1 Y2 Y3",
+                "X0 Y1 Y2 Y3",
+                "X0 X1 X2 Y3",
+                "Y0 Y1 X2 Y3",
+            ),
+            (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25),
+        ),  # JW doubles
+    ],
+)
+def test_qeb_circuit(excitation, mapping, basis_rotations, coeffs):
+    """Build QEB circuit"""
+    theta = 0.1
+    n_qubits = 4
+
+    # Build the control array using SymbolicHamiltonian.circuit
+    # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
+    control_circuit = Circuit(n_qubits)
+    for coeff, basis_rotation in zip(coeffs, basis_rotations):
+        n_terms = len(basis_rotation)
+        pauli_term = SymbolicHamiltonian(
+            symbols.I(n_qubits - 1)
+            * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
+        )
+        control_circuit += pauli_term.circuit(-coeff * theta)
+    control_result = control_circuit(nshots=1)
+    control_state = control_result.state(True)
+    
+    test_circuit = qeb_circuit(n_qubits, excitation, theta=theta, trotter_steps=1)
+    test_result = test_circuit(nshots=1)
+    test_state = test_result.state(True)
+    assert np.allclose(control_state, test_state)
+
 
 def test_ucc_ferm_qubit_map_error():
     """If unknown fermion to qubit map used"""
@@ -184,6 +229,7 @@ def test_ucc_ansatz_h2():
     # Need to flatten the output of circuit.get_parameters() to compare it to mp2_guess_amplitudes
     test_parameters = np.array([_x for _tuple in test_circuit.get_parameters() for _x in _tuple])
     assert np.allclose(mp2_guess_amplitudes, test_parameters)
+
 
 
 def test_ucc_ansatz_embedding():

@@ -104,7 +104,8 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 .. code-block:: python
 
     from qibochem.driver.molecule import Molecule
-    from qibochem.ansatz import hf_circuit, ucc_circuit
+    from qibochem.ansatz.hf_reference import hf_circuit 
+    from qibochem.ansatz.ucc import ucc_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     mol.run_pyscf()
@@ -137,6 +138,41 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     q2: ... ───o─X─H──H──X─o────────o─X─H──
     q3: ... ─────o─RX─RX─o────────────o─RX─
 
+
+UCC with Qubit-Excitation-Based n-tuple Excitation 
+--------------------------------------------------
+
+A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f7]_ and Magoulas et al. [#f8]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated have a reduction of CNOTs from :math:`(2n-1)2^{2n}` to :math:`2^{2n-1}+4n-2`.
+
+An example
+
+
+.. code-block:: python
+
+    from qibochem.driver.molecule import Molecule
+    from qibochem.ansatz.hf_reference import hf_circuit
+    from qibochem.ansatz.qeb import qeb_circuit
+
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
+    mol.run_pyscf()
+    hamiltonian = mol.hamiltonian()
+
+    # Set parameters for the rest of the experiment
+    n_qubits = mol.nso
+    n_electrons = mol.nelec
+
+    # Build UCCD circuit
+    circuit = hf_circuit(n_qubits, n_electrons) # Start with HF circuit
+    circuit += qeb_circuit(n_qubits, [0, 1, 2, 3]) # Then add the double excitation circuit ansatz
+
+    print(circuit.draw())
+
+.. code-block:: output
+
+    q0: ─X─X─────X─o──X─────X─
+    q1: ─X─o───X───o────X───o─
+    q2: ─────X─|─X─o──X─|─X───
+    q3: ─────o─o───RY───o─o───
 
 ..
    _Basis rotation ansatz
@@ -233,3 +269,7 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
 .. [#f6] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
 
 .. [#f7] Clements, W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.
+
+.. [#f8] Yordanov Y. S. et al., 'Efficient Quantum Circuits for Quantum Computational Chemistry', Phys Rev A 102 (2020) 062612.
+
+.. [#f9] Magoulas, I. and Evangelista, F. A., 'CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit Excitations', J. Chem. Theory Comput. 19 (2023) 822. 
