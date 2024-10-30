@@ -10,6 +10,7 @@ from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.ansatz import hf_circuit
+from qibochem.ansatz.qeb import qeb_circuit
 from qibochem.ansatz.ucc import (
     expi_pauli,
     generate_excitations,
@@ -18,7 +19,6 @@ from qibochem.ansatz.ucc import (
     ucc_ansatz,
     ucc_circuit,
 )
-from qibochem.ansatz.qeb import qeb_circuit
 from qibochem.driver import Molecule
 
 
@@ -145,6 +145,7 @@ def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
     # Check that number of parametrised gates matches
     assert len(test_circuit.get_parameters()) == len(basis_rotations)
 
+
 @pytest.mark.parametrize(
     "excitation,mapping,basis_rotations,coeffs",
     [
@@ -183,7 +184,7 @@ def test_qeb_circuit(excitation, mapping, basis_rotations, coeffs):
         control_circuit += pauli_term.circuit(-coeff * theta)
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
-    
+
     test_circuit = qeb_circuit(n_qubits, excitation, theta=theta, trotter_steps=1)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
@@ -229,7 +230,6 @@ def test_ucc_ansatz_h2():
     # Need to flatten the output of circuit.get_parameters() to compare it to mp2_guess_amplitudes
     test_parameters = np.array([_x for _tuple in test_circuit.get_parameters() for _x in _tuple])
     assert np.allclose(mp2_guess_amplitudes, test_parameters)
-
 
 
 def test_ucc_ansatz_embedding():

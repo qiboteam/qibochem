@@ -104,7 +104,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 .. code-block:: python
 
     from qibochem.driver.molecule import Molecule
-    from qibochem.ansatz.hf_reference import hf_circuit 
+    from qibochem.ansatz.hf_reference import hf_circuit
     from qibochem.ansatz.ucc import ucc_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
@@ -139,7 +139,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     q3: ... ─────o─RX─RX─o────────────o─RX─
 
 
-UCC with Qubit-Excitation-Based n-tuple Excitation 
+UCC with Qubit-Excitation-Based n-tuple Excitation
 --------------------------------------------------
 
 A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f7]_ and Magoulas et al. [#f8]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated have a reduction of CNOTs from :math:`(2n-1)2^{2n}` to :math:`2^{2n-1}+4n-2`.
@@ -272,4 +272,4 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
 
 .. [#f8] Yordanov Y. S. et al., 'Efficient Quantum Circuits for Quantum Computational Chemistry', Phys Rev A 102 (2020) 062612.
 
-.. [#f9] Magoulas, I. and Evangelista, F. A., 'CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit Excitations', J. Chem. Theory Comput. 19 (2023) 822. 
+.. [#f9] Magoulas, I. and Evangelista, F. A., 'CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit Excitations', J. Chem. Theory Comput. 19 (2023) 822.
