@@ -1,4 +1,4 @@
-from qibo import Circuit, gates, models
+from qibo import Circuit, gates
 
 
 def qeb_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1) -> Circuit:
