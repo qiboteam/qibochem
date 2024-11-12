@@ -185,7 +185,7 @@ def test_qeb_circuit(excitation, mapping, basis_rotations, coeffs):
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
 
-    test_circuit = qeb_circuit(n_qubits, excitation, theta=theta, trotter_steps=1)
+    test_circuit = qeb_circuit(n_qubits, excitation, theta=theta)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
     assert np.allclose(control_state, test_state)
