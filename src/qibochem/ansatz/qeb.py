@@ -1,7 +1,7 @@
 from qibo import Circuit, gates
 
 
-def qeb_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1) -> Circuit:
+def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
     r"""
     Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
