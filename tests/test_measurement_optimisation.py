@@ -4,10 +4,7 @@ Test functionality to reduce the measurement cost of running VQE
 
 import pytest
 
-from qibochem.measurement.optimization import (
-    check_terms_commutativity,
-    group_commuting_terms,
-)
+from qibochem.measurement.util import check_terms_commutativity, group_commuting_terms
 
 
 @pytest.mark.parametrize(
