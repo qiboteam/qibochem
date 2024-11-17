@@ -5,6 +5,10 @@ Utility functions for optimising measurements and calculation of expectation val
 import networkx as nx
 import numpy as np
 
+# Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
+PAULI_BINARY = {"I": (0, 0), "Z": (0, 1), "X": (1, 0), "Y": (1, 1)}
+BINARY_PAULI = {(0, 0): "I", (0, 1): "Z", (1, 0): "X", (1, 1): "Y"}  # Vice versa
+
 
 def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
     """
@@ -72,3 +76,45 @@ def group_commuting_terms(terms_list, qubitwise):
         sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
     )
     return term_groups
+
+
+def pauli_to_symplectic(pauli_string, n_qubits):
+    """
+    Map a single Pauli term to the corresponding symplectic vector
+
+    Args:
+        pauli_string: Iterable of strings representing a single Pauli term, e.g ["X0", "Y26", "Z200"]
+            Can get with: [factor.name for factor in term.factors], where term is a Qibo SymbolicTerm
+        n_qubits: Number of qubits used for the molecular Hamiltonian; needed to define the dimensions of the vector
+
+    Returns:
+        np.array: Symplectic vector for the given Pauli string (1D np.array)
+    """
+    # Parse the Pauli string to return the single qubit Pauli operator for each qubit
+    pauli_ops = {int(pauli_op[1:]): pauli_op[0] for pauli_op in pauli_string}
+    # Convert to the symplectic vector
+    sym_vector = np.reshape(
+        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(n_qubits)]), newshape=2 * n_qubits, order="F"
+    )
+    return sym_vector
+
+
+def symplectic_to_pauli(symplectic_vector):
+    """
+    Map a symplectic vector back to a single Pauli term
+
+    Args:
+        symplectic_vector (np.array): Symplectic vector to be converted
+
+    Returns:
+        list: A list of Pauli operators for a single Pauli term, e.g. ['Y0', 'X2']
+    """
+    dim = symplectic_vector.shape[0] // 2
+
+    pauli_op_vectors = [tuple(symplectic_vector[[_i, _i + dim]]) for _i in range(dim)]
+    pauli_op_terms = [
+        f"{BINARY_PAULI[vector]}{_q}"
+        for _q, vector in zip(range(dim), pauli_op_vectors)
+        if vector != (0, 0)  # Not retaining I terms
+    ]
+    return pauli_op_terms
