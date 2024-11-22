@@ -9,6 +9,7 @@ from qibochem.measurement.util import (
     check_terms_commutativity,
     group_commuting_terms,
     pauli_to_symplectic,
+    symplectic_inner_product,
     symplectic_to_pauli,
 )
 
@@ -68,3 +69,23 @@ def test_pauli_to_symplectic(function_args, expected):
 def test_symplectic_to_pauli(function_args, expected):
     result = symplectic_to_pauli(**function_args)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    "u,v",
+    [
+        (np.array([1, 1, 0, 0, 0, 1, 1, 0]), np.array([1, 1, 0, 0, 0, 1, 1, 0])),
+        (np.array([1, 0, 0, 0, 1, 1, 1, 1]), np.array([1, 1, 0, 0, 0, 1, 1, 0])),
+    ],
+)
+def test_symplectic_inner_product(u, v):
+    # Using the actual definition instead of array slicing to calculate the symplectic inner product
+    dim = u.shape[0] // 2
+    j_matrix = np.concatenate(
+        (
+            np.concatenate((np.zeros((dim, dim)), np.identity(dim, dtype=int)), axis=1),
+            np.concatenate((np.identity(dim, dtype=int), np.zeros((dim, dim))), axis=1),
+        ),
+        axis=0,
+    )
+    assert symplectic_inner_product(u, v) == (np.dot(u, np.dot(j_matrix, v)).astype(int) % 2)

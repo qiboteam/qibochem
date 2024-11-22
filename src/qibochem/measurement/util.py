@@ -118,3 +118,14 @@ def symplectic_to_pauli(symplectic_vector):
         if vector != (0, 0)  # Not retaining I terms
     ]
     return pauli_op_terms
+
+
+def symplectic_inner_product(u, v):
+    """
+    Inner product of the symplectic vector space := (u, Jv), where
+    J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]]
+
+    Returns:
+        0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute"""
+    dim = u.shape[0] // 2
+    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
