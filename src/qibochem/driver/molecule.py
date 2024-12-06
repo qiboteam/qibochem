@@ -79,8 +79,8 @@ class Molecule:
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
-        assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
         if xyz_file is not None:
+            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
             with open(xyz_file, encoding="utf-8") as file_handler:
                 # First two lines: # atoms and comment line (charge, multiplicity)
                 _n_atoms = int(file_handler.readline())  # Not needed/used
@@ -92,7 +92,7 @@ class Molecule:
                     _charge, _multiplicity = split_line
                 else:
                     # Otherwise, use the default (from __init__) values of 0 and 1
-                    _charge, _multiplicity = charge, multiplicity
+                    _charge, _multiplicity = self.charge, self.multiplicity
 
                 # Start reading xyz coordinates from the 3rd line onwards
                 _geometry = []
