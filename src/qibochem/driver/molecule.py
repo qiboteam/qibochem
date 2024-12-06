@@ -4,6 +4,7 @@ Driver for obtaining molecular integrals from either PySCF or PSI4
 
 from pathlib import Path
 
+import attr
 import numpy as np
 import openfermion
 from qibo.hamiltonians import SymbolicHamiltonian
@@ -15,6 +16,7 @@ from qibochem.driver.hamiltonian import (
 )
 
 
+@attr.s
 class Molecule:
     """
     Class representing a single molecule
@@ -31,56 +33,46 @@ class Molecule:
 
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
-        # Basic properties
-        # Define using the function arguments if xyz_file not given
-        if xyz_file is None:
-            self.geometry = geometry
-            self.charge = charge
-            self.multiplicity = multiplicity
-        else:
-            # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self._process_xyz_file(xyz_file, charge, multiplicity)
-        if basis is None:
-            # Default bais is STO-3G
-            self.basis = "sto-3g"
-        else:
-            self.basis = basis
+    geometry = attr.ib(default=[], validator=attr.validators.instance_of(list))
+    charge = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    multiplicity = attr.ib(default=1, validator=attr.validators.instance_of(int))
+    basis = attr.ib(default="sto-3g", validator=attr.validators.instance_of(str))
+    xyz_file = attr.ib(default=None)
 
-        self.nelec = None  #: Total number of electrons for the molecule
-        self.norb = None  #: Number of molecular orbitals considered for the molecule
-        self.nso = None  #: Number of molecular spin-orbitals considered for the molecule
-        self.e_hf = None  #: Hartree-Fock energy
-        self.oei = None  #: One-electron integrals
-        self.tei = None  #: Two-electron integrals, order follows the second quantization notation
+    nelec = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    norb = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    nso = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    e_hf = attr.ib(default=None)
+    oei = attr.ib(default=None)
+    tei = attr.ib(default=None)
 
-        self.ca = None
-        self.pa = None
-        self.da = None
-        self.nalpha = None
-        self.nbeta = None
-        self.e_nuc = None
-        self.overlap = None
-        self.eps = None
-        self.fa = None
-        self.hcore = None
-        self.ja = None
-        self.ka = None
-        self.aoeri = None
+    ca = attr.ib(default=None)
+    pa = attr.ib(default=None)
+    da = attr.ib(default=None)
+    nalpha = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    nbeta = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    e_nuc = attr.ib(default=None)
+    overlap = attr.ib(default=None)
+    eps = attr.ib(default=None)
+    fa = attr.ib(default=None)
+    hcore = attr.ib(default=None)
+    ja = attr.ib(default=None)
+    ka = attr.ib(default=None)
+    aoeri = attr.ib(default=None)
 
-        # For HF embedding
-        self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
+    # For HF embedding
+    active = attr.ib(default=None)
+    frozen = attr.ib(default=None)
 
-        self.inactive_energy = None
-        self.embed_oei = None
-        self.embed_tei = None
+    inactive_energy = attr.ib(default=None)
+    embed_oei = attr.ib(default=None)
+    embed_tei = attr.ib(default=None)
 
-        self.n_active_e = None  #: Number of electrons included in the active space if HF embedding is used
-        self.n_active_orbs = None  #: Number of spin-orbitals in the active space if HF embedding is used
+    n_active_e = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    n_active_orbs = attr.ib(default=0, validator=attr.validators.instance_of(int))
 
-    def _process_xyz_file(self, xyz_file, charge, multiplicity):
+    # Runs after init, formerly the _process_xyz_file function
+    def __attrs_post_init__(self):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
             charge, and multiplicity
@@ -88,31 +80,33 @@ class Molecule:
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
-        with open(xyz_file, encoding="utf-8") as file_handler:
-            # First two lines: # atoms and comment line (charge, multiplicity)
-            _n_atoms = int(file_handler.readline())  # Not needed/used
+        if self.xyz_file is not None:
+            assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
+            with open(self.xyz_file, encoding="utf-8") as file_handler:
+                # First two lines: # atoms and comment line (charge, multiplicity)
+                _n_atoms = int(file_handler.readline())  # Not needed/used
 
-            # Try to read charge and multiplicity from comment line
-            split_line = [int(_num) for _num in file_handler.readline().split()]
-            if len(split_line) == 2:
-                # Format of comment line matches (charge, multiplicity):
-                _charge, _multiplicity = split_line
-            else:
-                # Otherwise, use the default (from __init__) values of 0 and 1
-                _charge, _multiplicity = charge, multiplicity
+                # Try to read charge and multiplicity from comment line
+                split_line = [int(_num) for _num in file_handler.readline().split()]
+                if len(split_line) == 2:
+                    # Format of comment line matches (charge, multiplicity):
+                    _charge, _multiplicity = split_line
+                else:
+                    # Otherwise, use the default (from __init__) values of 0 and 1
+                    _charge, _multiplicity = self.charge, self.multiplicity
 
-            # Start reading xyz coordinates from the 3rd line onwards
-            _geometry = []
-            for line in file_handler:
-                split_line = line.split()
-                # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
-                atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
-                _geometry.append(tuple(atom_xyz))
+                # Start reading xyz coordinates from the 3rd line onwards
+                _geometry = []
+                for line in file_handler:
+                    split_line = line.split()
+                    # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
+                    atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
+                    _geometry.append(tuple(atom_xyz))
 
-        # Set the class attributes
-        self.charge = _charge
-        self.multiplicity = _multiplicity
-        self.geometry = _geometry
+            # Set the class attributes
+            self.charge = _charge
+            self.multiplicity = _multiplicity
+            self.geometry = _geometry
 
     def run_pyscf(self, max_scf_cycles=50):
         """

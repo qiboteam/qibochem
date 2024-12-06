@@ -20,6 +20,7 @@ qibo = ">=0.2.8"
 openfermion = "^1.6"
 pyscf = "^2.5.0"
 scipy = "^1.13"
+attrs = "^21.2.0"
 
 [build-system]
 requires = ["poetry-core"]
