@@ -35,6 +35,7 @@ class Molecule(object):
     geometry = attr.ib(default=None, validator=attr.validators.instance_of(list))
     charge = attr.ib(default=0, validator=attr.validators.instance_of(int))
     multiplicity = attr.ib(default=1, validator=attr.validators.instance_of(int))
+    xyz_file = attr.ib(default=1, validator=attr.validators.instance_of(str))
     if xyz_file is not None:
         # Check if xyz_file exists, then fill in the Molecule attributes
         assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
