@@ -79,9 +79,9 @@ class Molecule:
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
-        if xyz_file is not None:
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            with open(xyz_file, encoding="utf-8") as file_handler:
+        if self.xyz_file is not None:
+            assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
+            with open(self.xyz_file, encoding="utf-8") as file_handler:
                 # First two lines: # atoms and comment line (charge, multiplicity)
                 _n_atoms = int(file_handler.readline())  # Not needed/used
 
