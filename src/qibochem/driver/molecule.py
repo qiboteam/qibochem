@@ -4,6 +4,7 @@ Driver for obtaining molecular integrals from either PySCF or PSI4
 
 from pathlib import Path
 
+import attr
 import numpy as np
 import openfermion
 from qibo.hamiltonians import SymbolicHamiltonian
@@ -14,8 +15,8 @@ from qibochem.driver.hamiltonian import (
     qubit_to_symbolic_hamiltonian,
 )
 
-
-class Molecule:
+@attr.s
+class Molecule(object):
     """
     Class representing a single molecule
 
@@ -31,54 +32,46 @@ class Molecule:
 
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
-        # Basic properties
-        # Define using the function arguments if xyz_file not given
-        if xyz_file is None:
-            self.geometry = geometry
-            self.charge = charge
-            self.multiplicity = multiplicity
-        else:
-            # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self._process_xyz_file(xyz_file, charge, multiplicity)
-        if basis is None:
-            # Default bais is STO-3G
-            self.basis = "sto-3g"
-        else:
-            self.basis = basis
+    geometry = attr.ib(default=None, validator=attr.validators.instance_of(list))
+    charge = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    multiplicity = attr.ib(default=1, validator=attr.validators.instance_of(int))
+    if xyz_file is not None:
+        # Check if xyz_file exists, then fill in the Molecule attributes
+        assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
+        self._process_xyz_file(xyz_file, charge, multiplicity)
+    basis = attr.ib(default="sto-3g", validator=attr.validators.instance_of(str))
 
-        self.nelec = None  #: Total number of electrons for the molecule
-        self.norb = None  #: Number of molecular orbitals considered for the molecule
-        self.nso = None  #: Number of molecular spin-orbitals considered for the molecule
-        self.e_hf = None  #: Hartree-Fock energy
-        self.oei = None  #: One-electron integrals
-        self.tei = None  #: Two-electron integrals, order follows the second quantization notation
+    nelec = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    norb = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    nso = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    e_hf = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    oei = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    tei = attr.ib(default=None, validator=attr.validators.instance_of(int))
 
-        self.ca = None
-        self.pa = None
-        self.da = None
-        self.nalpha = None
-        self.nbeta = None
-        self.e_nuc = None
-        self.overlap = None
-        self.eps = None
-        self.fa = None
-        self.hcore = None
-        self.ja = None
-        self.ka = None
-        self.aoeri = None
+    ca = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    pa = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    da = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    nalpha = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    nbeta = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    e_nuc = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    overlap = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    eps = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    fa = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    hcore = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    ja = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    ka = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    aoeri = attr.ib(default=None, validator=attr.validators.instance_of(int))
 
-        # For HF embedding
-        self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
+    # For HF embedding
+    active = attr.ib(default=None, validator=attr.validators.instance_of(tuple))
+    frozen = attr.ib(default=None, validator=attr.validators.instance_of(tuple))
 
-        self.inactive_energy = None
-        self.embed_oei = None
-        self.embed_tei = None
+    inactive_energy = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    embed_oei = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    embed_tei = attr.ib(default=None, validator=attr.validators.instance_of(int))
 
-        self.n_active_e = None  #: Number of electrons included in the active space if HF embedding is used
-        self.n_active_orbs = None  #: Number of spin-orbitals in the active space if HF embedding is used
+    n_active_e = attr.ib(default=None, validator=attr.validators.instance_of(int))
+    n_active_orbs = attr.ib(default=None, validator=attr.validators.instance_of(int))
 
     def _process_xyz_file(self, xyz_file, charge, multiplicity):
         """
