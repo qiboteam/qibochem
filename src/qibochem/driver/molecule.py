@@ -15,8 +15,9 @@ from qibochem.driver.hamiltonian import (
     qubit_to_symbolic_hamiltonian,
 )
 
+
 @attr.s
-class Molecule(object):
+class Molecule:
     """
     Class representing a single molecule
 
