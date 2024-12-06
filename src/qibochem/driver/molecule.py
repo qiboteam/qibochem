@@ -71,7 +71,7 @@ class Molecule:
     n_active_e = attr.ib(default=0, validator=attr.validators.instance_of(int))
     n_active_orbs = attr.ib(default=0, validator=attr.validators.instance_of(int))
 
-    #Runs after init, formerly the _process_xyz_file function
+    # Runs after init, formerly the _process_xyz_file function
     def __attrs_post_init__(self):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
