@@ -279,4 +279,13 @@ def main():
 
 
 if __name__ == "__main__":
+    # Hopefully correct result for H2/BK mapping: Two groups
+    #
+    # Group 1:
+    # Terms: ['X0 Z1 X2', 'Y0 Z1 Y2', 'X0 Z1 X2 Z3', 'Y0 Z1 Y2 Z3', 'Z0 Z2', 'Z0 Z1 Z2', 'Z0 Z2 Z3', 'Z0 Z1 Z2 Z3', 'Z1', 'Z1 Z3']
+    # Measurements: {0: 'Bell02', 1: 'Z', 2: 'Bell02', 3: 'Z'}
+    #
+    # Group 2:
+    # Terms: ['Z0', 'Z2', 'Z0 Z1', 'Z1 Z2 Z3']
+    # Measurements: {0: 'Z', 1: 'Z', 2: 'Z', 3: 'Z'}
     main()
