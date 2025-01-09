@@ -3,6 +3,7 @@ Driver for obtaining molecular integrals from either PySCF or PSI4
 """
 
 from pathlib import Path
+from dataclasses import dataclass, field
 
 import attr
 import numpy as np
@@ -16,7 +17,7 @@ from qibochem.driver.hamiltonian import (
 )
 
 
-@attr.s
+@dataclass
 class Molecule:
     """
     Class representing a single molecule
@@ -33,46 +34,46 @@ class Molecule:
 
     """
 
-    geometry = attr.ib(default=[], validator=attr.validators.instance_of(list))
-    charge = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    multiplicity = attr.ib(default=1, validator=attr.validators.instance_of(int))
-    basis = attr.ib(default="sto-3g", validator=attr.validators.instance_of(str))
-    xyz_file = attr.ib(default=None)
+    geometry: list = field(default_factory=list)
+    charge: int = 0
+    multiplicity: int = 1
+    basis: str = "sto-3g"
+    xyz_file: str = None
 
-    nelec = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    norb = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    nso = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    e_hf = attr.ib(default=None)
-    oei = attr.ib(default=None)
-    tei = attr.ib(default=None)
+    nelec: int = 0
+    norb: int = 0
+    nso: int = 0
+    e_hf: float = None
+    oei: float = None
+    tei: float = None
 
-    ca = attr.ib(default=None)
-    pa = attr.ib(default=None)
-    da = attr.ib(default=None)
-    nalpha = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    nbeta = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    e_nuc = attr.ib(default=None)
-    overlap = attr.ib(default=None)
-    eps = attr.ib(default=None)
-    fa = attr.ib(default=None)
-    hcore = attr.ib(default=None)
-    ja = attr.ib(default=None)
-    ka = attr.ib(default=None)
-    aoeri = attr.ib(default=None)
+    ca: int = None
+    pa: int = None
+    da: int = None
+    nalpha: int = 0
+    nbeta: int = 0
+    e_nuc: float = None
+    overlap: float = None
+    eps: float = None
+    fa: float = None
+    hcore: float = None
+    ja: float = None
+    ka: float = None
+    aoeri: float = None
 
     # For HF embedding
-    active = attr.ib(default=None)
-    frozen = attr.ib(default=None)
+    active: int = None
+    frozen: int = None
 
-    inactive_energy = attr.ib(default=None)
-    embed_oei = attr.ib(default=None)
-    embed_tei = attr.ib(default=None)
+    inactive_energy: float = None
+    embed_oei: int = None
+    embed_tei: int = None
 
-    n_active_e = attr.ib(default=0, validator=attr.validators.instance_of(int))
-    n_active_orbs = attr.ib(default=0, validator=attr.validators.instance_of(int))
+    n_active_e: int = 0
+    n_active_orbs: int = 0
 
     # Runs after init, formerly the _process_xyz_file function
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
             charge, and multiplicity
