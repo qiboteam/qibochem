@@ -42,9 +42,12 @@ In practice, the expectation value for each of the individual Pauli terms have t
 This process of obtaining the electronic energy (Hamiltonian expectation value) is still reasonable for a small system.
 However, the number of Pauli terms in a molecular Hamiltonian scales on the order of :math:`O(N^4)`, where N is the number of qubits.
 
+.. warning::
+
+    The code block below might take a few minutes to run!
+
 .. code-block:: python
 
-    # Warning: This code block might take a few minutes to run
     from qibochem.driver import Molecule
 
     # Build the N2 molecule and get the molecular Hamiltonian
