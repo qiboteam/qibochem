@@ -52,6 +52,18 @@ def generate_entangled_measurements(measurements, entanglements=None):
     return result
 
 
+def disallowed_entanglements(measurements):
+    """
+    Finds the qubit which cannot be measured using entangled measurements. For odd numbers of measurements, the last
+    qubit has to be a single qubit Pauli measurement. If >1 qubit with Pauli measurements, still can be flexibile
+    """
+    result = set()
+    pauli_measurements = [qubit for qubit, measurement in measurements.items() if len(measurement) == 1]
+    if len(pauli_measurements) == 1:
+        result.add(pauli_measurements[0])
+    return result
+
+
 def check_compatible(term1_measurements, term2_measurements):
     """Must have common measurements for the qubits present in both terms"""
     compatible = True
@@ -63,16 +75,20 @@ def check_compatible(term1_measurements, term2_measurements):
     return compatible
 
 
-def select_measurement(possible_measurements):
+def select_measurement(possible_measurements, no_entanglements):
     """
     Select appropriate measurements from all possible measurements. Roughly corresponds to lines 6 to 17 in Algorithm 2
     TODO: Add other entangled measurements beside Bell measurements
+
+    Args:
+        possible_measurements (dict): (qubit, list of possible measurements)
+        no_entanglements (list): Qubits that have to be single qubit Pauli measurements
     """
     # Add in single qubit Pauli measurements first
     result = {
         qubit: measurements[0]
         for qubit, measurements in possible_measurements.items()
-        if len(measurements) == 1 and len(measurements[0]) == 1
+        if len(measurements[0]) == 1 and (len(measurements) == 1 or qubit in no_entanglements)
     }
     # Add possible Bell measurements next
     n_entangled_measurements = 0
@@ -115,7 +131,8 @@ def main():
     bell_measurements = (("X", "X"), ("Y", "Y"), ("Z", "Z"))
 
     # Define model Hamiltonians
-    mol = Molecule(xyz_file="../h2.xyz")
+    # mol = Molecule(xyz_file="../h2.xyz")
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
     # mol = Molecule(xyz_file="../lih.xyz")
     mol.run_pyscf()
     # mol.hf_embedding(active=[0, 1, 2, 3, 4])
@@ -174,98 +191,92 @@ def main():
 
     # Iterate over all nodes to merge compatible nodes
     # In practice: Define the new grouping as a list of lists.
-    grouping = []
+    grouping = []  # Grouping of Hamiltonian terms
+    measurement_groups = []  # Also need to record what measurements to use for each group
+    disallowed_entanglement_groups = []  # Record qubits which cannot be used for Bell measurements
 
     print("\nAll nodes:")
     all_nodes = [node for node, degree in sorted_nodes]
     print(all_nodes)
+    print()
     remaining_nodes = list(all_nodes)  # Make a copy of all_nodes to track which have been merged
-    measurement_groups = []  # Also need to record what measurements to use for each group
 
     while remaining_nodes:
-        for _i, node1 in enumerate(all_nodes):
-            if node1 in remaining_nodes:
-                print("Node1:", node1)
-                # Base case: grouping is empty, just add the first node in directly
-                if not grouping:
-                    remaining_nodes.remove(node1)
-                    grouping.append([node1])
-                    measurement_groups.append(tpb_measurements[node1])
-                    # continue
-                for _j, node2 in enumerate(all_nodes):
-                    if _j > _i and node2 in remaining_nodes:
-                        print("Node2:", node2)
-                        # Should have something in grouping by now
-                        group_index = None  # Flag to see which group to add node2 to
-                        for _k, group in enumerate(grouping):
-                            print(f"Group {_k}: {group}")
-                            # Get the measurements for the current group
-                            current_measurements = measurement_groups[_k]
-                            # Add entangled measurements in as well
-                            measurements = generate_entangled_measurements(current_measurements)
-                            print(f"Current possible measurements: {measurements}")
+        group_index = None  # Flag to see which group to add node to
+        node = remaining_nodes[0]
+        print("Node:", node)
+        node_no_entanglements = disallowed_entanglements(tpb_measurements[node])
+        # If something in grouping, loop through each group and check compatibility of current node
+        if grouping:
+            for _k, group in enumerate(grouping):
+                print(f"Group {_k}: {group}")
+                # Get the measurements for the current group
+                current_measurements = measurement_groups[_k]
+                # Add entangled measurements in as well
+                measurements = generate_entangled_measurements(current_measurements)
+                print(f"Current possible measurements: {measurements}")
+                # Combine the set of forbidden entanglements for the current node and group
+                no_entanglements = disallowed_entanglement_groups[_k] | node_no_entanglements
+                print(f"Disallowed entanglements: {no_entanglements}")
 
-                            # Algorithm 2 in the reference paper. Not 100% sure is correct!
-                            # Check whether current pair of Pauli strings is compatible with current set of measurements
-                            if check_compatible(measurements, all_measurements[node2]):
-                                print(f"node1 ({measurements}) and node2 ({all_measurements[node2]}) compatible!")
-                                # Generate permutations of overlapping qubit positions with different terms and check if
-                                # any of the entangled measurements can be applied to the position (???)
-                                possible_new_measurements = {
-                                    qubit: sorted(possible_measurements, key=len)
-                                    for qubit in set(measurements.keys()) & set(all_measurements[node2].keys())
-                                    if (
-                                        possible_measurements := set(measurements[qubit])
-                                        & set(all_measurements[node2][qubit])
-                                    )
-                                }
-                                # Add on measurements for qubits in current set of measurements, but not in the new node considered
-                                possible_new_measurements = {
-                                    **measurements,
-                                    **possible_new_measurements,
-                                }
-                                print(f"Possible new measurements: {possible_new_measurements} (Overlap with current)")
-                                if not possible_new_measurements:
-                                    possible_new_measurements = {**measurements, **all_measurements[node2]}
-                                    print(
-                                        f"Possible new measurements: {possible_new_measurements} (No overlap with current)"
-                                    )
-                                # Add on measurements for qubits not in current set of measurements, but in the new node considered
-                                # TODO: Probably can merge with the previous if condition...?
-                                possible_new_measurements = {**all_measurements[node2], **possible_new_measurements}
+                # Algorithm 2 in the reference paper. Not 100% sure is correct!
+                # Check whether current pair of Pauli strings is compatible with current set of measurements
+                if check_compatible(measurements, all_measurements[node]):
+                    print(f"Measurement group ({measurements}) compatible with current node ({all_measurements[node]})")
+                    # Generate permutations of overlapping qubit positions with different terms and check if
+                    # any of the entangled measurements can be applied to the position (???)
+                    possible_new_measurements = {
+                        qubit: sorted(possible_measurements, key=len)
+                        for qubit in set(measurements.keys()) & set(all_measurements[node].keys())
+                        if (possible_measurements := set(measurements[qubit]) & set(all_measurements[node][qubit]))
+                    }
+                    # Add on measurements for qubits in current set of measurements, but not in the new node considered
+                    possible_new_measurements = {
+                        **measurements,
+                        **possible_new_measurements,
+                    }
+                    print(f"Possible new measurements: {possible_new_measurements} (Overlap with current)")
+                    if not possible_new_measurements:
+                        possible_new_measurements = {**measurements, **all_measurements[node]}
+                        print(f"Possible new measurements: {possible_new_measurements} (No overlap with current)")
+                    new_measurements = select_measurement(possible_new_measurements, no_entanglements)
 
-                                new_measurements = select_measurement(possible_new_measurements)
-                                print(f"New measurements: {new_measurements}")
-                                # Add measurements for the remaining qubits (in node2 but not in current set of measurements)
-                                new_measurements = {
-                                    **new_measurements,
-                                    **{
-                                        qubit: measurement
-                                        for qubit, measurement in tpb_measurements[node2].items()
-                                        if qubit not in new_measurements.keys()
-                                    },
-                                }
+                    # Add measurements for qubits in current node but not in current set of measurements
+                    new_measurements = {
+                        **new_measurements,
+                        **{
+                            qubit: measurement
+                            for qubit, measurement in tpb_measurements[node].items()
+                            if qubit not in new_measurements.keys()
+                        },
+                    }
+                    print(f"New measurements: {new_measurements}")
 
-                                group_index = _k
-                                break
-                            else:
-                                print(f"node1 ({node1}) and node2 ({node2}) not compatible!")
+                    group_index = _k
+                    break
+                else:
+                    print(
+                        f"Possible measurements for current node ({all_measurements[node]}) not compatible with "
+                        f"current group ({measurements})"
+                    )
 
-                        if group_index is None:
-                            print("No current group compatible. Creating new measurement group")
-                            grouping.append([node2])
-                            measurement_groups.append(tpb_measurements[node2])
-                        else:
-                            print(f"Adding {new_measurements} to group {group_index}")
-                            grouping[group_index].append(node2)
-                            measurement_groups[group_index] = new_measurements
-                        remaining_nodes.remove(node2)
-
-                        print()
-
-                    print("Remaining nodes:")
-                    print(remaining_nodes)
-                print()
+        # Add current node to a group and remove it from remaining_nodes
+        if group_index is None:
+            print("No current group compatible. Creating new measurement group")
+            grouping.append([node])
+            measurement_groups.append(tpb_measurements[node])
+            disallowed_entanglement_groups.append(node_no_entanglements)
+        else:
+            grouping[group_index].append(node)
+            measurement_groups[group_index] = new_measurements
+            no_entanglements = disallowed_entanglements(new_measurements)
+            disallowed_entanglement_groups[group_index] |= no_entanglements
+            print(
+                f"Adding {node} to group {group_index}, new_measurements: {new_measurements}, "
+                f"no_entanglements: {disallowed_entanglement_groups[group_index]}"
+            )
+        remaining_nodes.remove(node)
+        print()
 
     # Check to ensure all nodes were placed in a group
     grouped_terms = {term for group in grouping for term in group}
