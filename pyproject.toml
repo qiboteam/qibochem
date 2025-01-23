@@ -15,7 +15,7 @@ classifiers = [
 packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<3.13"
 qibo = ">=0.2.8"
 openfermion = "^1.6"
 pyscf = "^2.5.0"
