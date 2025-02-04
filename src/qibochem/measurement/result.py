@@ -31,11 +31,6 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
     return hamiltonian.expectation(state_ket)
 
 
-def symbolic_term_to_symbol(symbolic_term):
-    """Convert a single Pauli word in the form of a Qibo SymbolicTerm to a Qibo Symbol"""
-    return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
-
-
 def pauli_term_measurement_expectation(pauli_term, frequencies, qubit_map):
     """
     Calculate the expectation value of a single general Pauli string for some measurement frequencies
