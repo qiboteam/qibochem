@@ -7,8 +7,8 @@ from qibo.optimizers import optimize
 from scipy.optimize import minimize
 
 from qibochem.ansatz import hf_circuit, ucc_circuit
-from qibochem.driver.molecule import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.driver import Molecule
+from qibochem.measurement import expectation
 
 # Define molecule and populate
 mol = Molecule(xyz_file="lih.xyz")
