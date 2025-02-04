@@ -105,13 +105,7 @@ def expectation_from_samples(
             frequencies = result.frequencies(binary=True)
             qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-                # First term is all Z terms, can use expectation_from_samples directly.
-                if _i > 0:
-                    total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
-                # Otherwise, need to use the general pauli_term_measurement_expectation function
-                else:
-                    z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in terms))
-                    total += z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
+                total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
     # Add the constant term if present. Note: Energies (in chemistry) are all real values
     total += hamiltonian.constant.real
     return total

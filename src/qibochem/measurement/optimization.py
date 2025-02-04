@@ -133,23 +133,12 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
             will be two empty lists - ``([], [])`` - if there are no Z terms present.
     """
     result = []
-    # Split up the Z and X/Y terms
-    z_only_terms = [
-        term for term in hamiltonian.terms if not any(factor.name[0] in ("X", "Y") for factor in term.factors)
-    ]
-    xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
-    # Add the Z terms into result first, followed by the terms with X/Y's
-    if z_only_terms:
-        result.append((qwc_measurement_gates(z_only_terms), z_only_terms))
+    if grouping is None:
+        result += [(qwc_measurement_gates([term]), [term]) for term in hamiltonian.terms]
+    elif grouping == "qwc":
+        result += qwc_measurements(hamiltonian.terms)
     else:
-        result.append(([], []))
-    if xy_terms:
-        if grouping is None:
-            result += [(qwc_measurement_gates([term]), [term]) for term in xy_terms]
-        elif grouping == "qwc":
-            result += qwc_measurements(xy_terms)
-        else:
-            raise NotImplementedError("Not ready yet!")
+        raise NotImplementedError("Not ready yet!")
     return result
 
 
