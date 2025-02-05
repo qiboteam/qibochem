@@ -64,15 +64,15 @@ def expectation_from_samples(
         circuit (qibo.models.Circuit): Quantum circuit ansatz
         hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
         n_shots (int): Number of times the circuit is run. Default: ``1000``
-        group_pauli_terms: Whether or not to group Pauli X/Y terms in the Hamiltonian together to reduce the measurement
-            cost. Available options: ``None``: (Default) Hamiltonian terms containing X/Y are not grouped together, and
+        group_pauli_terms: Whether or not to group Hamiltonian terms together to reduce the measurement
+            cost. Available options: ``None``: (Default) No grouping of Hamiltonian terms, and
             ``"qwc"``: Terms that commute qubitwise are grouped together
-        n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
-            *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
-            term in the Hamiltonian.
-        shot_allocation: Iterable containing the number of shots to be allocated to each term in the Hamiltonian respectively if
-            n_shots_per_pauli_term is ``False``. Default: ``None``; shots are allocated based on the magnitudes of the coefficients
-            of the Hamiltonian terms.
+        n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
+            Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
+            to get the expectation value for each term in the Hamiltonian.
+        shot_allocation: Iterable containing the number of shots to be allocated to each term (or group of terms) in the
+            Hamiltonian respectively if n_shots_per_pauli_term is ``False``. Default: ``None``; shots are allocated
+            based on the magnitudes of the coefficients of the Hamiltonian terms.
 
     Returns:
         float: Hamiltonian expectation value

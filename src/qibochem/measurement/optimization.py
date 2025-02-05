@@ -122,7 +122,7 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
 
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian of interest
-        grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the
+        grouping: Whether or not to group Hamiltonian terms together, i.e. use the same set of measurements to get the
             expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
             together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement gates
             associated with each group of X/Y terms
