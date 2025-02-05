@@ -41,15 +41,15 @@ class Molecule:
     xyz_file: str = None
 
     nelec: int = 0
-    norb: np.ndarray
+    norb: np.array
     nso: int = 0
     e_hf: float = None
     oei: float = None
     tei: float = None
 
-    ca: np.ndarray
-    pa: np.ndarray
-    da: np.ndarray
+    ca: np.array
+    pa: np.array
+    da: np.array
     nalpha: int = 0
     nbeta: int = 0
     e_nuc: float = None
