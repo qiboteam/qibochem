@@ -5,7 +5,6 @@ Driver for obtaining molecular integrals from either PySCF or PSI4
 from pathlib import Path
 from dataclasses import dataclass, field
 
-import attr
 import numpy as np
 import openfermion
 from qibo.hamiltonians import SymbolicHamiltonian
@@ -34,43 +33,43 @@ class Molecule:
 
     """
 
-    geometry: list = field(default_factory=list)
-    charge: int = 0
+    geometry: list = None
+    charge: int = None
     multiplicity: int = 1
     basis: str = "sto-3g"
     xyz_file: str = None
 
-    nelec: int = 0
-    norb: np.ndarray = None
-    nso: int = 0
-    e_hf: float = None
-    oei: float = None
-    tei: float = None
-
-    ca: np.ndarray = None
-    pa: np.ndarray = None
-    da: np.ndarray = None
-    nalpha: int = 0
-    nbeta: int = 0
-    e_nuc: float = None
-    overlap: float = None
-    eps: float = None
-    fa: float = None
-    hcore: float = None
-    ja: float = None
-    ka: float = None
-    aoeri: float = None
-
     # For HF embedding
-    active: int = None
-    frozen: int = None
+    active: None = None
+    frozen: None = None
 
-    inactive_energy: float = None
-    embed_oei: int = None
-    embed_tei: int = None
+    nelec: None = None
+    norb: None = None
+    nso: None = None
+    e_hf: None = None
+    oei: None = None
+    tei: None = None
 
-    n_active_e: int = 0
-    n_active_orbs: int = 0
+    ca: None = None
+    pa: None = None
+    da: None = None
+    nalpha: None = None
+    nbeta: None = None
+    e_nuc: None = None
+    overlap: None = None
+    eps: None = None
+    fa: None = None
+    hcore: None = None
+    ja: None = None
+    ka: None = None
+    aoeri: None = None
+
+    inactive_energy: None = None
+    embed_oei: None = None
+    embed_tei: None = None
+
+    n_active_e: None = None
+    n_active_orbs: None = None
 
     # Runs after init, formerly the _process_xyz_file function
     def __post_init__(self):
