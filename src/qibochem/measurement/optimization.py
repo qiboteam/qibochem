@@ -88,9 +88,14 @@ def qwc_measurement_gates(grouped_terms):
     """
     m_gates = {}
     for term in grouped_terms:
-        for factor in term.factors:
-            if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I":
-                m_gates[factor.target_qubit] = gates.M(factor.target_qubit, basis=type(factor.gate))
+        m_gates = {
+            **m_gates,
+            **{
+                factor.target_qubit: gates.M(factor.target_qubit, basis=type(factor.gate))
+                for factor in term.factors
+                if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I"
+            },
+        }
     return list(m_gates.values())
 
 
