@@ -30,3 +30,15 @@ Basis rotation
 --------------
 
 .. autofunction:: qibochem.ansatz.basis_rotation.basis_rotation_gates
+
+Givens Excitation
+-----------------
+
+.. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_circuit
+
+.. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_ansatz
+
+Symmetry-Preserving
+-------------------
+
+.. autofunction:: qibochem.ansatz.symmetry.symm_preserving_circuit
