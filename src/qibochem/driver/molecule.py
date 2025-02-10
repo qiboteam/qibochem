@@ -2,8 +2,8 @@
 Driver for obtaining molecular integrals from either PySCF or PSI4
 """
 
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import openfermion
