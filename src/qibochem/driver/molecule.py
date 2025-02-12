@@ -39,47 +39,50 @@ class Molecule:
     basis: str = "sto-3g"
     xyz_file: str = None
 
-    # For HF embedding
+    # or HF embedding
     active: None = None
-    frozen: None = None
+    frozen: None = field(default=None, init=False)
 
-    nelec: None = None
-    norb: None = None
-    nso: None = None
-    e_hf: None = None
-    oei: None = None
-    tei: None = None
+    nelec: None = field(default=None, init=False)
+    norb: None = field(default=None, init=False)
+    nso: None = field(default=None, init=False)
+    e_hf: None = field(default=None, init=False)
+    oei: None = field(default=None, init=False)
+    tei: None = field(default=None, init=False)
 
-    ca: None = None
-    pa: None = None
-    da: None = None
-    nalpha: None = None
-    nbeta: None = None
-    e_nuc: None = None
-    overlap: None = None
-    eps: None = None
-    fa: None = None
-    hcore: None = None
-    ja: None = None
-    ka: None = None
-    aoeri: None = None
+    ca: None = field(default=None, init=False)
+    pa: None = field(default=None, init=False)
+    da: None = field(default=None, init=False)
+    nalpha: None = field(default=None, init=False)
+    nbeta: None = field(default=None, init=False)
+    e_nuc: None = field(default=None, init=False)
+    overlap: None = field(default=None, init=False)
+    eps: None = field(default=None, init=False)
+    fa: None = field(default=None, init=False)
+    hcore: None = field(default=None, init=False)
+    ja: None = field(default=None, init=False)
+    ka: None = field(default=None, init=False)
+    aoeri: None = field(default=None, init=False)
 
-    inactive_energy: None = None
-    embed_oei: None = None
-    embed_tei: None = None
+    inactive_energy: None = field(default=None, init=False)
+    embed_oei: None = field(default=None, init=False)
+    embed_tei: None = field(default=None, init=False)
 
-    n_active_e: None = None
-    n_active_orbs: None = None
+    n_active_e: None = field(default=None, init=False)
+    n_active_orbs: None = field(default=None, init=False)
 
     # Runs after init, formerly the _process_xyz_file function
     def __post_init__(self):
         """
-        Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
-            charge, and multiplicity
-
-        Args:
-            xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
+        Initializes certain variables.
+        Inits multiplicit, basis, and certain parameters based on .xyz_file
+        Reads a .xyz_file to obtain and set the molecular coordinates (in OpenFermion format),
+        charge, and multiplicity.
         """
+        if self.multiplicity is None:
+            self.multiplicity = 1
+        if self.basis is None:
+            self.basis = "sto-3g"
         if self.xyz_file is not None:
             assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
             with open(self.xyz_file, encoding="utf-8") as file_handler:
