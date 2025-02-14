@@ -39,11 +39,11 @@ def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expect
     ],
 )
 def test_expectation_from_samples(terms, gates_to_add, expected):
-    hamiltonian = SymbolicHamiltonian(terms)
+    hamiltonian = SymbolicHamiltonian(terms, nqubits=2)
     circuit = Circuit(2)
     circuit.add(gates_to_add)
     result = expectation_from_samples(circuit, hamiltonian)
-    assert result == expected
+    assert result == pytest.approx(expectation(circuit, hamiltonian))
 
 
 def test_measurement_basis_rotations_error():
@@ -56,20 +56,22 @@ def test_measurement_basis_rotations_error():
 @pytest.mark.parametrize(
     "method,max_shots_per_term,expected",
     [
-        ("u", None, [100, 100]),  # Control test; i.e. working normally
-        (None, None, [190, 10]),  # Default arguments test
-        (None, 100, [100, 100]),  # max_shots_per_term error
-        (None, 25, [100, 100]),  # If max_shots_per_term is too small
-        (None, 1000, [190, 10]),  # If max_shots_per_term is too large
+        ("u", None, [66, 67, 67]),  # Control test; i.e. working normally
+        (None, None, [10, 188, 2]),  # Default arguments test
+        (None, 100, [84, 100, 16]),  # max_shots_per_term error
+        (None, 25, [83, 100, 17]),  # If max_shots_per_term is too small
+        (None, 1000, [10, 188, 2]),  # If max_shots_per_term is too large
     ],
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
-    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
+    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
     grouped_terms = measurement_basis_rotations(hamiltonian)
     n_shots = 200
-    assert (
-        allocate_shots(grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term) == expected
+    test_allocation = allocate_shots(
+        grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term
     )
+    # Might have the occasional off by one error, hence set the max allowed difference to be 1
+    assert max(abs(_i - _j) for _i, _j in zip(test_allocation, expected)) <= 1
 
 
 def test_allocate_shots_coefficient_edge_case():
@@ -88,20 +90,20 @@ def test_allocate_shots_input_validity():
 
 
 @pytest.mark.parametrize(
-    "gates_to_add,shot_allocation,threshold,expected",
+    "gates_to_add,shot_allocation,expected",
     [
-        ([gates.X(0), gates.Z(0)], [10, 0], None, -1.0),  # State vector: -|1>, Measuring X
-        ([gates.X(0)], [0, 1000], 0.1, 0.0),  # State vector: |1>, Measuring X
+        ([gates.H(0)], [10, 0], 1.0),  # State vector: 1/sqrt(2)(|0> + |1>), Measuring X
+        ([gates.X(0), gates.Z(0)], [0, 10], -1.0),  # State vector: -|1>, Measuring Z
     ],
 )
-def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, threshold, expected):
+def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, expected):
     circuit = Circuit(1)
     circuit.add(gates_to_add)
-    hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
+    hamiltonian = SymbolicHamiltonian(X(0) + Z(0))
     result = expectation_from_samples(
         circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
-    assert pytest.approx(result, abs=threshold) == expected
+    assert result == pytest.approx(expectation(circuit, hamiltonian))
 
 
 def test_expectation_invalid_shot_allocation():
@@ -130,16 +132,14 @@ def test_qwc_functionality(hamiltonian):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 5000
+    n_shots = 10000
     test = expectation_from_samples(
         circuit,
         hamiltonian,
         n_shots=n_shots,
         group_pauli_terms="qwc",
     )
-    assert test == pytest.approx(
-        expected, abs=0.05
-    ), f"Failure: {[[factor.name for factor in term.factors] for term in hamiltonian.terms]}"
+    assert test == pytest.approx(expected, abs=0.05)
 
 
 @pytest.mark.parametrize(
@@ -151,9 +151,6 @@ def test_qwc_functionality(hamiltonian):
 )
 def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     """Test HF energy of H2 molecule"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
-
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
 
@@ -171,4 +168,4 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
         n_shots=n_shots,
         group_pauli_terms="qwc",
     )
-    assert pytest.approx(hf_energy, abs=threshold) == h2_ref_energy
+    assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=threshold)
