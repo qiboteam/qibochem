@@ -400,19 +400,19 @@ class Molecule:
         constant += self.e_nuc  # Add nuclear repulsion energy
 
         # Start with an InteractionOperator
-        ham = fermionic_hamiltonian(oei, tei, constant)
+        ham = _fermionic_hamiltonian(oei, tei, constant)
         if ham_type in ("f", "ferm"):
             # OpenFermion FermionOperator Hamiltonian
             ham = openfermion.transforms.get_fermion_operator(ham)
             ham.compress()
             return ham
-        ham = qubit_hamiltonian(ham, ferm_qubit_map)
+        ham = _qubit_hamiltonian(ham, ferm_qubit_map)
         if ham_type in ("q", "qubit"):
             # OpenFermion QubitOperator Hamiltonian
             return ham
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
-            return qubit_to_symbolic_hamiltonian(ham)
+            return _qubit_to_symbolic_hamiltonian(ham)
         raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
