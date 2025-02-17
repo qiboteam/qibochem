@@ -9,9 +9,9 @@ import openfermion
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
-    fermionic_hamiltonian,
-    qubit_hamiltonian,
-    qubit_to_symbolic_hamiltonian,
+    _fermionic_hamiltonian,
+    _qubit_hamiltonian,
+    _qubit_to_symbolic_hamiltonian,
 )
 
 
@@ -418,12 +418,12 @@ class Molecule:
     @staticmethod
     def eigenvalues(hamiltonian):
         """
-        Finds the lowest 6 exact eigenvalues of the molecular Hamiltonian
-            Note: Uses the ``eigenvalues()`` class method for a Qibo ``SymbolicHamiltonian`` object
+        Finds the lowest 6 exact eigenvalues of a given Hamiltonian
 
         Args:
-            hamiltonian: Molecular Hamiltonian, given as a ``FermionOperator``, ``QubitOperator``, or
-                ``SymbolicHamiltonian`` (not recommended)
+            hamiltonian (:class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator` or :class:`qibo.hamiltonians.SymbolicHamiltonian`):
+                Hamiltonian of interest. If the input is a :class:`qibo.hamiltonians.SymbolicHamiltonian`, the whole
+                Hamiltonian matrix has to be built first (not recommended).
         """
         if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
             from scipy.sparse import linalg  # pylint: disable=C0415
