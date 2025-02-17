@@ -20,13 +20,13 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
     Expectation value using state vector simulations
 
     Args:
-        circuit (qibo.models.Circuit): Quantum circuit ansatz
-        hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
 
     Returns:
         float: Expectation value of the Hamiltonian for the given circuit
     """
-    result = circuit(nshots=1)
+    result = circuit()
     state_ket = result.state()
     return hamiltonian.expectation(state_ket)
 
@@ -61,21 +61,21 @@ def expectation_from_samples(
     Calculate expectation value of some Hamiltonian using sample measurements from running a Qibo quantum circuit
 
     Args:
-        circuit (qibo.models.Circuit): Quantum circuit ansatz
-        hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
         n_shots (int): Number of times the circuit is run. Default: ``1000``
-        group_pauli_terms: Whether or not to group Hamiltonian terms together to reduce the measurement
+        group_pauli_terms (str): Whether or not to group Hamiltonian terms together to reduce the measurement
             cost. Available options: ``None``: (Default) No grouping of Hamiltonian terms, and
             ``"qwc"``: Terms that commute qubitwise are grouped together
         n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
             Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
-            to get the expectation value for each term in the Hamiltonian.
+            to get the expectation value for each term (group of terms) in the Hamiltonian.
         shot_allocation: Iterable containing the number of shots to be allocated to each term (or group of terms) in the
-            Hamiltonian respectively if n_shots_per_pauli_term is ``False``. Default: ``None``; shots are allocated
-            based on the magnitudes of the coefficients of the Hamiltonian terms.
+            Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``; shots are
+            allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
 
     Returns:
-        float: Hamiltonian expectation value
+        float: Hamiltonian expectation value for the given circuit using sample measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping=group_pauli_terms)
