@@ -1,6 +1,5 @@
 """
 Circuit ansatz for representing a fermionic excitation as a Givens rotation by Arrazola et al.
-Reference: https://doi.org/10.22331/q-2022-06-20-742
 """
 
 from qibo import Circuit, gates
@@ -82,13 +81,18 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
     Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al.
 
     Args:
-        n_qubits: Number of qubits in the circuit
-        excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
+        n_qubits (int): Number of qubits in the circuit
+        excitation (list): Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta (float): Rotation angle. Default: 0.0
 
     Returns:
-        Qibo ``Circuit``: Circuit ansatz for a single Givens excitation
+        :class:`qibo.models.circuit.Circuit`: Circuit ansatz for a single Givens excitation
+
+    References:
+        1. J. M. Arrazola, O. D. Matteo, N. Quesada, S. Jahangiri, A. Delgado, and Nathan Killoran, *Universal quantum
+        circuits for quantum chemistry*, Quantum, 2022, 6, 742.
+        (`link <https://quantum-journal.org/papers/q-2022-06-20-742>`__)
     """
     sorted_orbitals = sorted(excitation)
     # Check size of orbitals input
@@ -115,19 +119,19 @@ def givens_excitation_ansatz(
 ):
     """
     Convenience function for buildng a circuit corresponding to the Givens excitation ansatz with multiple excitations
-    for a given ``Molecule``. If no excitations are given, it defaults to including all possible spin-allowed
-    excitations, up to doubles.
+    for a given :class:`qibochem.driver.Molecule`. If no excitations are given, it defaults to including all possible
+    spin-allowed excitations (up to doubles).
 
     Args:
-        molecule: The ``Molecule`` of interest.
-        excitations: List of excitations (e.g. ``[[0, 1, 2, 3], [0, 1, 4, 5]]``) used to build the
-            UCC circuit. Overrides the ``excitation_level`` argument
-        include_hf: Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
-        use_mp2_guess: Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter. Default: ``True``;
-            use the MP2 amplitudes as the default guess parameters
+        molecule (:class:`qibochem.driver.Molecule`): Molecule of interest
+        excitations (list): List of excitations (e.g. ``[[0, 1, 2, 3], [0, 1, 4, 5]]``) used to build the
+            Givens excitation circuit
+        include_hf (bool): Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
+        use_mp2_guess (bool): Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter.
+            Default: ``True``, uses the MP2 amplitudes as the initial guess parameters
 
     Returns:
-        Qibo ``Circuit``: Circuit corresponding to a Givens excitation circuit ansatz
+        :class:`qibochem.models.circuit.Circuit`: Circuit corresponding to a Givens excitation circuit ansatz
     """
     # TODO: Consolidate/Meld this function with the ucc_ansatz function; both are largely identical
 

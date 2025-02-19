@@ -20,8 +20,8 @@ def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
     References:
         1. I. Magoulas and F. A. Evangelista, *CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit
         Excitations*, Journal of Chemical Theory and Computation, 2023, 19(3), 822-836.
-        Available `here <https://pubs.acs.org/doi/10.1021/acs.jctc.2c01016>`_ or
-        on `arXiv <https://arxiv.org/abs/2210.05771>`_.
+        (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.2c01016>`__ or
+        on `arXiv <https://arxiv.org/abs/2210.05771>`__)
     """
 
     n_orbitals = len(excitation)
