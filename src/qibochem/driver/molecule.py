@@ -23,10 +23,10 @@ class Molecule:
         geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
         charge (int): Net electronic charge of molecule
         multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired electrons
-        basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
+        basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: ``"STO-3G"`` (minimal basis)
         xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
-            charge and spin multiplity if it is given in this format: "{charge} {multiplicity}"
-        active: Iterable representing the set of MOs to be included in the quantum simulation
+            charge and spin multiplity if it is given in this format: ``{charge} {multiplicity}``
+        active (list): Iterable representing the set of MOs to be included in the quantum simulation
             e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
     """
@@ -116,11 +116,10 @@ class Molecule:
 
     def run_pyscf(self, max_scf_cycles=50):
         """
-        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
-            molecular integrals
+        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and molecular integrals
 
         Args:
-            max_scf_cycles: Maximum number of SCF cycles in PySCF
+            max_scf_cycles (int): Maximum number of SCF cycles in PySCF
         """
         import pyscf  # pylint: disable=C0415
 
@@ -132,7 +131,6 @@ class Molecule:
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
         pyscf_job.max_cycle = max_scf_cycles
         pyscf_job.run()
-        # print(dir(pyscf_job))
 
         # Save results from HF calculation
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
@@ -319,12 +317,12 @@ class Molecule:
 
     def hf_embedding(self, active=None, frozen=None):
         """
-        Turns on HF embedding for a given active/frozen space, and fills in the class attributes:
-            ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
+        Turns on HF embedding for a given active/frozen space, and fills in the class attributes: ``inactive_energy``
+        , ``embed_oei``, and ``embed_tei``.
 
         Args:
-            active: Iterable representing the active-space for quantum simulation
-            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+            active (list): Iterable representing the active-space for quantum simulation
+            frozen (list): Iterable representing the *occupied* orbitals to be removed from the simulation
         """
         # Default arguments for active and frozen if no arguments given
         if active is None and frozen is None:
@@ -363,27 +361,27 @@ class Molecule:
     ):
         """
         Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
-        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` attributes are all not ``None``), the
+        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` class attributes are all not ``None``), the
         corresponding values for the molecular integrals will be used instead.
 
         Args:
-            ham_type: Format of molecular Hamiltonian returned. The available options are:
-                ``("f", "ferm")``: OpenFermion ``FermionOperator``,
-                ``("q", "qubit")``: OpenFermion ``QubitOperator``, or
-                ``("s", "sym")``: Qibo ``SymbolicHamiltonian`` (default)
-            oei: 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute , unless
-                the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
-            tei: 2-electron integrals in the second-quantization notation (and MO basis). The default value is the
-                ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then ``embed_tei``
-                is used.
-            constant: Constant value to be added to the electronic energy. Mainly used for adding the inactive Fock
-                energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute exists
-                and is not ``None``, then ``inactive_energy`` is used.
-            ferm_qubit_map: Which fermion to qubit transformation to use.
-                Must be either ``jw`` (default) or ``bk``
+            ham_type (str): Format of molecular Hamiltonian returned. The available options are:
+                ``("f", "ferm")``: :class:`openfermion.FermionOperator`,
+                ``("q", "qubit")``: :class:`openfermion.QubitOperator`, or
+                ``("s", "sym")``: :class:`qibo.hamiltonians.SymbolicHamiltonian` (default)
+            oei (ndarray): 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute,
+                unless the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
+            tei (ndarray): 2-electron integrals in the second-quantization notation (and MO basis). The default value
+                is the ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then
+                ``embed_tei`` is used.
+            constant (float): Constant value to be added to the electronic energy. Mainly used for adding the inactive
+                Fock energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute
+                exists and is not ``None``, then ``inactive_energy`` is used.
+            ferm_qubit_map (str): Which fermion to qubit transformation to use. Must be either ``"jw"`` (Default)
+                or ``"bk"``
 
         Returns:
-            Molecular Hamiltonian in the format of choice
+            :class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator` or :class:`qibo.hamiltonians.SymbolicHamiltonian`: Molecular Hamiltonian in the format of choice
         """
         # Define default variables
         if ham_type is None:
