@@ -5,6 +5,16 @@ Functions for optimising the measurement cost of obtaining the expectation value
 import networkx as nx
 import numpy as np
 from qibo import gates
+from qibo.hamiltonians import SymbolicHamiltonian
+from qibo.symbols import X, Y, Z
+
+
+def term_to_string(term):
+    """
+    Convert a single Pauli term (from SymbolicHamiltonian.form.args) to its string representation. Drops the coefficient
+    and will not check if input is a float!!
+    """
+    return " ".join(str(_x) for _x in term.args if isinstance(_x, (X, Y, Z))) if term.args else str(term)
 
 
 def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
@@ -75,49 +85,65 @@ def group_commuting_terms(terms_list, qubitwise):
     return term_groups
 
 
-def qwc_measurement_gates(grouped_terms):
+def qwc_measurement_gates(hamiltonian):
     """
     Get the list of (basis rotation) measurement gates to be added to the circuit. The measurements from the resultant
-    circuit can then be used to obtain the expectation values of ALL the terms in grouped_terms directly.
+    circuit can then be used to obtain the expectation values of ALL the terms in hamiltonian directly.
 
     Args:
-        grouped_terms (list): List of SymbolicTerms that mutually commutes (qubitwise)
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian with all terms mutually commuting
+            qubitwise
 
     Returns:
         list: Measurement gates to be appended to the Qibo circuit
     """
-    m_gates = {}
-    for term in grouped_terms:
-        m_gates = {
-            **m_gates,
-            **{
-                factor.target_qubit: gates.M(factor.target_qubit, basis=type(factor.gate))
-                for factor in term.factors
-                if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I"
-            },
-        }
+    m_gates, _m_gates = {}, {}
+    if not hamiltonian.form.args:
+        # Term is either a constant or a single Pauli operator without a coefficient
+        if isinstance(pauli_term := hamiltonian.form, (X, Y, Z)):
+            # print("Single Pauli operator found")
+            _m_gates = {pauli_term.target_qubit: gates.M(pauli_term.target_qubit, basis=type(pauli_term.gate))}
+    else:
+        for pauli_term in hamiltonian.form.args:
+            # print("Pauli term:", pauli_term)
+            if pauli_term.args:
+                _m_gates = {
+                    factor.target_qubit: gates.M(factor.target_qubit, basis=type(factor.gate))
+                    for factor in pauli_term.args
+                    if isinstance(factor, (X, Y, Z)) and m_gates.get(factor.target_qubit) is None
+                }
+            else:
+                # Term is either a constant or a single Pauli operator without a coefficient
+                if isinstance(pauli_term, (X, Y, Z)):
+                    # print("Single Pauli operator found")
+                    _m_gates = {pauli_term.target_qubit: gates.M(pauli_term.target_qubit, basis=type(pauli_term.gate))}
+            # print(_m_gates)
+            # print()
+    m_gates = {**m_gates, **_m_gates}
     return list(m_gates.values())
 
 
-def qwc_measurements(terms_list):
+def qwc_measurements(hamiltonian):
     """
     Sort out a list of Hamiltonian terms into separate groups of mutually qubitwise commuting terms, and returns the
     grouped terms along with their associated measurement gates
 
     Args:
-        terms_list: Iterable of SymbolicTerms
+        hamiltonian: Hamiltonian of interest
 
     Returns:
-        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
-            term1, term2, ... are SymbolicTerms.
+        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], sorted_ham), where
+            sorted_ham is a SymbolicHamiltonian
     """
-    ham_terms = {" ".join(factor.name for factor in term.factors): term for term in terms_list}
+    ham_terms = {term_to_string(term): term for term in hamiltonian.form.args}
     term_groups = group_commuting_terms(ham_terms.keys(), qubitwise=True)
-    result = [
-        (qwc_measurement_gates(symbolic_terms := [ham_terms[term] for term in term_group]), symbolic_terms)
+    return [
+        (
+            (sorted_ham := SymbolicHamiltonian(sum(ham_terms[term] for term in term_group))),
+            qwc_measurement_gates(sorted_ham),
+        )
         for term_group in term_groups
     ]
-    return result
 
 
 def measurement_basis_rotations(hamiltonian, grouping=None):
@@ -133,17 +159,38 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
             gates associated with each group of terms
 
     Returns:
-        list: List of two-tuples; the first item is a list of measurement gates (:class:`qibo.gates.M`), and the second
-            item is the corresponding list of Hamiltonian terms (:class:`qibo.hamiltonian.terms.SymbolicTerm`).
+        list: List of two-tuples; the first item is a Hamiltonian (SymbolicHamiltonian), and the second is a list of
+            measurement gates (:class:`qibo.gates.M`) that can be used for the corresponding Hamiltonians.
     """
     result = []
     if grouping is None:
-        result += [(qwc_measurement_gates([term]), [term]) for term in hamiltonian.terms]
+        # for term in hamiltonian.form.args:
+        #     if term.args or isinstance(term, (X, Y, Z)):
+        #         print("Pauli term:", term)
+        #         ham_term = SymbolicHamiltonian(term)
+        #         print(qwc_measurement_gates(ham_term))
+        #         print()
+
+        result += [
+            ((ham_term := SymbolicHamiltonian(term)), qwc_measurement_gates(ham_term))
+            for term in hamiltonian.form.args
+            if term.args or isinstance(term, (X, Y, Z))
+        ]
     elif grouping == "qwc":
-        result += qwc_measurements(hamiltonian.terms)
+        result += qwc_measurements(hamiltonian)
     else:
         raise NotImplementedError("Not ready yet!")
     return result
+
+
+# from qibo import Circuit, gates
+#
+#
+# hamiltonian = SymbolicHamiltonian(0.26 + 4.2 * Z(0) * X(2) + Z(1) + 5 * X(0) * Y(1))
+#
+# result = measurement_basis_rotations(hamiltonian) # , "qwc")
+# for term in result:
+#     print(term)
 
 
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
