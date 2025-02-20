@@ -141,7 +141,7 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
 UCC with Qubit-Excitation-Based n-tuple Excitation
 --------------------------------------------------
 
-A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f7]_ and Magoulas et al. [#f8]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated for :math:`N` qubits have a reduction of CNOTs from :math:`(2N-1)2^{2N}` to :math:`2^{2N-1}+4N-2`.
+A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f6]_ and Magoulas et al. [#f7]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated for :math:`N` qubits have a reduction of CNOTs from :math:`(2N-1)2^{2N}` to :math:`2^{2N-1}+4N-2`.
 
 An example for the :math:`H_2` molecule is given here:
 
@@ -178,7 +178,7 @@ An example for the :math:`H_2` molecule is given here:
 Basis rotation ansatz
 ---------------------
 
-The starting points for contemporary quantum chemistry methods are often those based on the mean field approximation within a (finite) molecular orbital basis, i.e. the Hartree-Fock method. The electronic energy is calculated as the mean value of the electronic Hamiltonian :math:`\hat{H}_{\mathrm{elec}}` acting on a normalized single Slater determinant function :math:`\psi` [#f6]_
+The starting points for contemporary quantum chemistry methods are often those based on the mean field approximation within a (finite) molecular orbital basis, i.e. the Hartree-Fock method. The electronic energy is calculated as the mean value of the electronic Hamiltonian :math:`\hat{H}_{\mathrm{elec}}` acting on a normalized single Slater determinant function :math:`\psi` [#f8]_
 
 .. math::
 
@@ -188,7 +188,7 @@ The starting points for contemporary quantum chemistry methods are often those b
             \langle \phi_i\phi_j||\phi_i\phi_j \rangle
     \end{align*}
 
-The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimization of the energy functional with respect to parameters :math:`\kappa` that parameterize the unitary rotations of the orbital basis. Qibochem's implementation uses the QR decomposition of the unitary matrix as employed by Clements et al., [#f7]_ which results in a rectangular gate layout of `Givens rotation gates <https://qibo.science/qibo/stable/api-reference/qibo.html#givens-gate>`_ that yield linear CNOT gate depth when decomposed.
+The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimization of the energy functional with respect to parameters :math:`\kappa` that parameterize the unitary rotations of the orbital basis. Qibochem's implementation uses the QR decomposition of the unitary matrix as employed by Clements et al., [#f9]_ which results in a rectangular gate layout of `Givens rotation gates <https://qibo.science/qibo/stable/api-reference/qibo.html#givens-gate>`_ that yield linear CNOT gate depth when decomposed.
 
 
 .. code-block:: python
@@ -266,10 +266,10 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
 
 .. [#f5] Barkoutsos, P. K. et al., 'Quantum algorithms for electronic structure calculations: Particle-hole Hamiltonian and optimized wave-function expansions', Phys. Rev. A 98 (2018) 022322.
 
-.. [#f6] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
+.. [#f6] Yordanov Y. S. et al., 'Efficient Quantum Circuits for Quantum Computational Chemistry', Phys Rev A 102 (2020) 062612.
 
-.. [#f7] Clements, W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.
+.. [#f7] Magoulas, I. and Evangelista, F. A., 'CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit Excitations', J. Chem. Theory Comput. 19 (2023) 822.
 
-.. [#f8] Yordanov Y. S. et al., 'Efficient Quantum Circuits for Quantum Computational Chemistry', Phys Rev A 102 (2020) 062612.
+.. [#f8] Piela, L. (2007). 'Ideas of Quantum Chemistry'. Elsevier B. V., the Netherlands.
 
-.. [#f9] Magoulas, I. and Evangelista, F. A., 'CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit Excitations', J. Chem. Theory Comput. 19 (2023) 822.
+.. [#f9] Clements, W. R. et al., 'Optimal Design for Universal Multiport Interferometers', Optica 3 (2016) 1460.

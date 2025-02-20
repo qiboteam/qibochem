@@ -245,26 +245,19 @@ def basis_rotation_layout(N):
 
 
 def basis_rotation_gates(A, z_array, parameters):
-    r"""
-    places the basis rotation gates on circuit in the order of Clements scheme QR decomposition
+    """
+    Obtains the basis rotation gates in the order of the Clements scheme QR decomposition
 
     Args:
-        A:
-            NxN matrix, with -1 being null, 0 is the control and integers
-            1 or greater being the index for angles in clements QR decomposition of
-            the unitary matrix representing the unitary transforms that
-            rotate the basis
-        z_array:
-            array of givens rotation angles in order of traversal from
-            QR decomposition
-        parameters:
-            array of parameters in order of traversal from QR decomposition
-    Outputs:
-        gate_list:
-            list of gates which implement the basis rotation using Clements scheme QR decomposition
-        ordered_angles:
-            list of angles ordered by sequence of singles excitation gates added to circuit
+        A (ndarray): Matrix with dimensions :math:`(N, N)`, with -1 being null, 0 is the control and integers 1 or
+            greater being the index for angles in Clements QR decomposition of the unitary matrix representing the
+            unitary transformation that rotate the basis
+        z_array (ndarray): Array of Givens rotation angles in order of traversal from the QR decomposition
+        parameters (ndarray): Array of parameters in order of traversal from the QR decomposition
 
+    Returns:
+        (list, list): Two separate lists of single excitation gates and their corresponding parameters to implement the
+        basis rotation using the Clements scheme QR decomposition
     """
     N = len(A[0])
     gate_list = []

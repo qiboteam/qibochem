@@ -126,16 +126,15 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     respective (group of) terms in the Hamiltonian
 
     Args:
-        hamiltonian (SymbolicHamiltonian): Hamiltonian of interest
-        grouping: Whether or not to group Hamiltonian terms together, i.e. use the same set of measurements to get the
-            expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
-            together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement gates
-            associated with each group of X/Y terms
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
+        grouping (str): Whether or not to group Hamiltonian terms together, i.e. use the same set of measurements to get
+            the expectation values of a group of terms simultaneously. Default value of ``None`` will not group any
+            terms together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement
+            gates associated with each group of terms
 
     Returns:
-        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
-            term1, term2, ... are SymbolicTerms. The first tuple always corresponds to all the Z terms present, which
-            will be two empty lists - ``([], [])`` - if there are no Z terms present.
+        list: List of two-tuples; the first item is a list of measurement gates (:class:`qibo.gates.M`), and the second
+            item is the corresponding list of Hamiltonian terms (:class:`qibo.hamiltonian.terms.SymbolicTerm`).
     """
     result = []
     if grouping is None:
