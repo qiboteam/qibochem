@@ -3,21 +3,25 @@ from qibo import Circuit, gates
 
 def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
     r"""
-    Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
-
-    Supports only Jordan-Wigner encoded circuits
-
-    Ref: arXiv:2210.05771
+    Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation.
+    This circuit ansatz is only valid for the Jordan-Wigner fermion to qubit mapping.
 
     Args:
-        n_qubits: Number of qubits in the quantum circuit
-        excitation: Iterable of orbitals involved in the excitation; must have an even number of elements
+        n_qubits (int): Number of qubits in the quantum circuit
+        excitation (list): Iterable of orbitals involved in the excitation; must have an even number of elements.
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
-        theta: UCC parameter. Defaults to 0.0
-        trotter_steps: Number of Trotter steps; i.e. number of times this ansatz is applied with ``theta`` = ``theta / trotter_steps``. Default: 1
+        theta (float): UCC parameter. Defaults to 0.0
+        trotter_steps (int): Number of Trotter steps; i.e. number of times this ansatz is applied
+            with :math:`\theta = \theta` / ``trotter_steps``. Default: 1
 
     Returns:
-        Qibo ``Circuit``: Circuit corresponding to a single UCC excitation
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
+
+    References:
+        1. I. Magoulas and F. A. Evangelista, *CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit
+        Excitations*, Journal of Chemical Theory and Computation, 2023, 19(3), 822-836.
+        (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.2c01016>`__ or
+        on `arXiv <https://arxiv.org/abs/2210.05771>`__)
     """
 
     n_orbitals = len(excitation)

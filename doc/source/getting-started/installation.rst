@@ -40,13 +40,3 @@ Installing on Windows
 
 The simplest way to get Qibochem on a Windows system is to use `Windows Subsystem for Linux <https://learn.microsoft.com/en-us/windows/wsl/install/>`_, and install Linux on Windows.
 Qibochem can then be installed directly using ``pip`` as described above.
-
-Otherwise, Qibochem will have to be installed from source, and after some modifications to the source code.
-
-.. warning::
-
-    Native Windows systems are not actively supported, so in principle possible doesn't necessarily mean that the below instructions will yield a working version of Qibochem!
-
-First, but the PySCF driver for obtaining molecular integrals is not available on Windows systems, so the relevant line in ``pyproject.toml`` has to be commented out.
-The alternative driver for Windows is PSI4; after installing PSI4, uncomment out the ``run_psi4`` function in the ``Molecule`` class.
-After these changes, return to the ``qibochem`` folder and run ``pip install .``

@@ -1,5 +1,5 @@
 """
-Symmetry-Preserving circuit ansatz from Gard et al. Reference: https://doi.org/10.1038/s41534-019-0240-1
+Symmetry-Preserving circuit ansatz from Gard et al.
 """
 
 from math import factorial
@@ -85,14 +85,19 @@ def a_gate_indices(n_qubits, n_electrons, x_gates):
 # Main function
 def symm_preserving_circuit(n_qubits, n_electrons):
     """
-    Symmetry-preserving circuit ansatz from Gard et al. (https://doi.org/10.1038/s41534-019-0240-1)
+    Symmetry-preserving circuit ansatz from Gard et al.
 
     Args:
-        n_qubits: Number of qubits in the quantum circuit
-        n_electrons: Number of electrons in the molecular system
+        n_qubits (int): Number of qubits in the quantum circuit
+        n_electrons (int): Number of electrons in the molecular system
 
     Returns:
-        Qibo ``Circuit``: Circuit corresponding to the symmetry-preserving ansatz
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the symmetry-preserving ansatz
+
+    References:
+        1. B. T. Gard, L. Zhu, G. S. Barron, N. J. Mayhall, S. E. Economou, and E. Barnes, *Efficient
+        symmetry-preserving state preparation circuits for the variational quantum eigensolver algorithm*, npj Quantum
+        Information, 2020, 6, 10. (`link <https://www.nature.com/articles/s41534-019-0240-1>`__)
     """
     circuit = Circuit(n_qubits)
     x_gates = x_gate_indices(n_qubits, n_electrons)

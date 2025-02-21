@@ -11,15 +11,15 @@ def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
     chosen by the user
 
     Args:
-        n_qubits: Number of qubits in the quantum circuit
-        n_layers: Number of layers of rotation and entangling gates
-        parameter_gates: Iterable of single-qubit rotation gates to be used in the ansatz. The gates should be given as
-            strings representing valid ``Qibo`` one-qubit gates. Default: ``["RY", "RZ"]``
-        coupling_gates: String representing the two-qubit entangling gate to be used in the ansatz; should be a
-            valid two-qubit ``Qibo`` gate. Default: ``"CZ"``
+        n_qubits (int): Number of qubits in the quantum circuit
+        n_layers (int): Number of layers of rotation and entangling gates
+        parameter_gates (list): Iterable of single-qubit rotation gates to be used in the ansatz. The gates should be given as
+            strings representing valid one-qubit gates. Default: ``["RY", "RZ"]``
+        coupling_gates (str): String representing the two-qubit entangling gate to be used in the ansatz; should be a
+            valid two-qubit gate. Default: ``"CZ"``
 
     Returns:
-        Qibo ``Circuit``: Circuit corresponding to the hardware-efficient ansatz
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the hardware-efficient ansatz
     """
     # Default variables
     if parameter_gates is None:
