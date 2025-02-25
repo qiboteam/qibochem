@@ -46,6 +46,7 @@ def pauli_term_measurement_expectation(expression, frequencies, qubit_map):
     Returns:
         float: Expectation value of expression
     """
+    z_only_ham = None  # Needed to satisfy pylint :(
     # print(expression, type(expression))
     # print(qubit_map)
     if isinstance(expression, Add):
