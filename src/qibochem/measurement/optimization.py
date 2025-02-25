@@ -7,6 +7,7 @@ import numpy as np
 from qibo import gates
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
+from sympy.core.numbers import One
 
 
 def term_to_string(term):
@@ -98,27 +99,17 @@ def qwc_measurement_gates(hamiltonian):
         list: Measurement gates to be appended to the Qibo circuit
     """
     m_gates, _m_gates = {}, {}
-    if not hamiltonian.form.args:
-        # Term is either a constant or a single Pauli operator without a coefficient
-        if isinstance(pauli_term := hamiltonian.form, (X, Y, Z)):
+    for term, _coeff in hamiltonian.form.as_coefficients_dict().items():
+        # Term should either be a single Pauli operator or a Pauli string
+        if isinstance(term, (X, Y, Z)):
             # print("Single Pauli operator found")
-            _m_gates = {pauli_term.target_qubit: gates.M(pauli_term.target_qubit, basis=type(pauli_term.gate))}
-    else:
-        for pauli_term in hamiltonian.form.args:
-            # print("Pauli term:", pauli_term)
-            if pauli_term.args:
-                _m_gates = {
-                    factor.target_qubit: gates.M(factor.target_qubit, basis=type(factor.gate))
-                    for factor in pauli_term.args
-                    if isinstance(factor, (X, Y, Z)) and m_gates.get(factor.target_qubit) is None
-                }
-            else:
-                # Term is either a constant or a single Pauli operator without a coefficient
-                if isinstance(pauli_term, (X, Y, Z)):
-                    # print("Single Pauli operator found")
-                    _m_gates = {pauli_term.target_qubit: gates.M(pauli_term.target_qubit, basis=type(pauli_term.gate))}
-            # print(_m_gates)
-            # print()
+            _m_gates = {term.target_qubit: gates.M(term.target_qubit, basis=type(term.gate))}
+        else:
+            _m_gates = {
+                pauli_op.target_qubit: gates.M(pauli_op.target_qubit, basis=type(pauli_op.gate))
+                for pauli_op in term.args
+                if m_gates.get(pauli_op.target_qubit) is None  # and isinstance(pauli_op, (X, Y, Z))
+            }
     m_gates = {**m_gates, **_m_gates}
     return list(m_gates.values())
 
@@ -132,7 +123,7 @@ def qwc_measurements(hamiltonian):
         hamiltonian: Hamiltonian of interest
 
     Returns:
-        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], sorted_ham), where
+        list: List of two-tuples, with each tuple given as (sorted_ham, [`list of measurement gates`]), where
             sorted_ham is a SymbolicHamiltonian
     """
     ham_terms = {term_to_string(term): term for term in hamiltonian.form.args}
@@ -164,17 +155,14 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     """
     result = []
     if grouping is None:
-        # for term in hamiltonian.form.args:
-        #     if term.args or isinstance(term, (X, Y, Z)):
-        #         print("Pauli term:", term)
-        #         ham_term = SymbolicHamiltonian(term)
-        #         print(qwc_measurement_gates(ham_term))
-        #         print()
-
+        # print("No grouping")
+        # for term, _coeff in hamiltonian.form.as_coefficients_dict().items():
+        #     if not isinstance(term, One): # Ignore any constant term
+        #         print(term)
         result += [
             ((ham_term := SymbolicHamiltonian(term)), qwc_measurement_gates(ham_term))
-            for term in hamiltonian.form.args
-            if term.args or isinstance(term, (X, Y, Z))
+            for term, _coeff in hamiltonian.form.as_coefficients_dict().items()
+            if not isinstance(term, One)  # Ignore any constant term
         ]
     elif grouping == "qwc":
         result += qwc_measurements(hamiltonian)
@@ -188,7 +176,7 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
 #
 # hamiltonian = SymbolicHamiltonian(0.26 + 4.2 * Z(0) * X(2) + Z(1) + 5 * X(0) * Y(1))
 #
-# result = measurement_basis_rotations(hamiltonian) # , "qwc")
+# result = measurement_basis_rotations(hamiltonian, "qwc")
 # for term in result:
 #     print(term)
 
@@ -210,12 +198,21 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     Returns:
         list: A list containing the number of shots to be used for each group of Pauli terms respectively.
     """
+    # for (hamiltonian, _) in grouped_terms:
+    #     for _t, coeff in hamiltonian.form.as_coefficients_dict().items():
+    #         print(_t, coeff)
+
+    # return
+
     if method is None:
         method = "c"
     if max_shots_per_term is None:
         # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
         term_coefficients = np.array(
-            [sum(abs(term.coefficient.real) for term in terms) for (_, terms) in grouped_terms]
+            [
+                sum(abs(coeff) for _t, coeff in hamiltonian.form.as_coefficients_dict().items())
+                for (hamiltonian, _) in grouped_terms
+            ]
         )
         max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
     max_shots_per_term = min(n_shots, max_shots_per_term)  # Don't let max_shots_per_term > n_shots if manually defined
@@ -240,8 +237,8 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             # and only for terms that haven't reached the upper limit yet
             term_coefficients = np.array(
                 [
-                    sum(abs(term.coefficient.real) for term in terms) if shots < max_shots_per_term else 0.0
-                    for shots, (_, terms) in zip(shot_allocation, grouped_terms)
+                    sum(abs(coeff) for _t, coeff in hamiltonian.form.as_coefficients_dict().items())
+                    for (hamiltonian, _) in grouped_terms
                 ]
             )
 
