@@ -120,7 +120,8 @@ def test_expectation_invalid_shot_allocation():
 @pytest.mark.parametrize(
     "hamiltonian",
     [
-        SymbolicHamiltonian(X(0) + Y(2)),
+        SymbolicHamiltonian(Z(2)),
+        SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0),
         SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
         SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
     ],
