@@ -22,25 +22,13 @@ from qibochem.measurement.result import pauli_term_measurement_expectation
         (X(0), {"10": 5}, [0, 1], -1.0),
         (X(2), {"010": 5}, [0, 2, 5], -1.0),
         (Y(4), {"110": 5}, [0, 2, 4], 1.0),
+        (X(0) * Y(1), {"11": 5}, [0, 1], 1.0),
+        (X(0) * Y(1) + X(0), {"11": 5}, [0, 1], 0.0),
     ],
 )
 def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expected):
-    # symbolic_term = SymbolicHamiltonian(term)
     result = pauli_term_measurement_expectation(term, frequencies, qubit_map)
-    assert result == expected, "{term}"
-
-
-# for test in zip(
-#     [
-#         (X(0), {"10": 5}, [0, 1], -1.0),
-#         (X(2), {"010": 5}, [0, 2, 5], -1.0),
-#         (Y(4), {"110": 5}, [0, 2, 4], 1.0),
-#         (X(0)*Y(1), {"11": 5}, [0, 1], 1.0),
-#     ],
-# ):
-#     for term, frequencies, qubit_map, expected in test:
-#         print(term, frequencies, qubit_map, expected)
-#         test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expected)
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -57,18 +45,6 @@ def test_expectation_from_samples(terms, gates_to_add):
     circuit.add(gates_to_add)
     result = expectation_from_samples(circuit, hamiltonian)
     assert result == pytest.approx(expected := expectation(circuit, hamiltonian)), f"{result} != {expected}"
-
-
-# for test in zip(
-#     [
-#         (Z(0), [gates.X(0)], -1.0),
-#         (Z(0) * Z(1), [gates.X(0)], -1.0),
-#         (X(0), [gates.H(0)], 1.0),
-#     ],
-# ):
-#     for terms, gates_to_add, expected in test:
-#         print(terms, gates_to_add, expected)
-#         test_expectation_from_samples(terms, gates_to_add)
 
 
 def test_measurement_basis_rotations_error():
@@ -97,21 +73,6 @@ def test_allocate_shots(method, max_shots_per_term, expected):
     )
     # Might have the occasional off by one error, hence set the max allowed difference to be 1
     assert max(abs(_i - _j) for _i, _j in zip(test_allocation, expected)) <= 1
-
-
-# print("\nTest allocate shots:")
-# for test in zip(
-#     [
-#         ("u", None, [66, 67, 67]),  # Control test; i.e. working normally
-#         (None, None, [10, 188, 2]),  # Default arguments test
-#         (None, 100, [84, 100, 16]),  # max_shots_per_term error
-#         (None, 25, [83, 100, 17]),  # If max_shots_per_term is too small
-#         (None, 1000, [10, 188, 2]),  # If max_shots_per_term is too large
-#     ],
-# ):
-#     for method, max_shots_per_term, expected in test:
-#         print(method, max_shots_per_term, expected)
-#         test_allocate_shots(method, max_shots_per_term, expected)
 
 
 def test_allocate_shots_coefficient_edge_case():
@@ -143,19 +104,7 @@ def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, expec
     result = expectation_from_samples(
         circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
     )
-    # assert result == pytest.approx(expectation(circuit, hamiltonian)), f"Result {result} != Exact {expectation(circuit, hamiltonian)}"
     assert result == pytest.approx(expected), f"Result {result} != Exact {expected}"
-
-
-for test in zip(
-    [
-        ([gates.H(0)], [10, 0], 1.0),  # State vector: 1/sqrt(2)(|0> + |1>), Measuring X
-        ([gates.X(0), gates.Z(0)], [0, 10], -1.0),  # State vector: -|1>, Measuring Z
-    ],
-):
-    for gates_to_add, shot_allocation, expected in test:
-        print(gates_to_add, shot_allocation, expected)
-        test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, expected)
 
 
 def test_expectation_invalid_shot_allocation():

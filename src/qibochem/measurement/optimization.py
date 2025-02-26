@@ -5,15 +5,14 @@ Functions for optimising the measurement cost of obtaining the expectation value
 import networkx as nx
 import numpy as np
 from qibo import gates
-from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 from sympy.core.numbers import One
 
 
 def term_to_string(term):
     """
-    Convert a single Pauli term (from SymbolicHamiltonian.form.args) to its string representation. Drops the coefficient
-    and will not check if input is a float!!
+    Convert a single Pauli term (:class:`sympy.Expr`) to its string representation. Drops the coefficient and will not
+    check if input is a float!!
     """
     return " ".join(str(_x) for _x in term.args if isinstance(_x, (X, Y, Z))) if term.args else str(term)
 
@@ -86,20 +85,6 @@ def group_commuting_terms(terms_list, qubitwise):
     return term_groups
 
 
-def constant_term(hamiltonian):
-    """Extract the constant term (if any) from a given Hamiltonian"""
-    constant = 0.0
-    ham_form = hamiltonian.form
-    if ham_form.args:
-        # Hamiltonian has >1 term
-        find_constant = [coeff for term, coeff in ham_form.as_coefficients_dict().items() if isinstance(term, One)]
-        constant = find_constant[0] if find_constant else 0.0
-    else:
-        # Single term is either a Pauli operator or a float
-        constant = float(ham_form) if not isinstance(ham_form, (X, Y, Z)) else 0.0
-    return constant
-
-
 def qwc_measurement_gates(expression):
     """
     Get the list of (basis rotation) measurement gates to be added to the circuit. The measurements from the resultant
@@ -115,7 +100,7 @@ def qwc_measurement_gates(expression):
     # Single Pauli operator
     if not expression.args:
         return [gates.M(expression.target_qubit, basis=type(expression.gate))]
-    # print("Expr.args:", expression.args)
+    # Either a single Pauli term or a sum of Pauli terms
     for term in expression.args:
         # Term should either be a single Pauli operator or a Pauli string
         if isinstance(term, (X, Y, Z)):
@@ -136,12 +121,13 @@ def qwc_measurements(hamiltonian):
     grouped terms along with their associated measurement gates
 
     Args:
-        hamiltonian: Hamiltonian of interest
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
 
     Returns:
         list: List of two-tuples, with each tuple given as (sorted_ham, [`list of measurement gates`]), where
-            sorted_ham is a SymbolicHamiltonian
+            sorted_ham is a :class:`qibo.hamiltonians.SymbolicHamiltonian`
     """
+    # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
     if hamiltonian.form.args:
         ham_terms = {
             term_to_string(term): (term, coeff)
@@ -153,8 +139,8 @@ def qwc_measurements(hamiltonian):
     term_groups = group_commuting_terms(ham_terms.keys(), qubitwise=True)
     return [
         (
-            sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group),  # Terms with coefficients
-            qwc_measurement_gates(sum(ham_terms[term][0] for term in term_group)),  # Terms without coefficients
+            sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group),  # Original expression: coeff*term
+            qwc_measurement_gates(sum(ham_terms[term][0] for term in term_group)),  # No coeff for qwc_measurement_gates
         )
         for term_group in term_groups
     ]
@@ -173,15 +159,12 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
             gates associated with each group of terms
 
     Returns:
-        list: List of two-tuples; the first item in the tuple is a sympy.Expr, and the second is a list of measurement
-            gates (:class:`qibo.gates.M`) that can be used for the corresponding Hamiltonians.
+        list: List of two-tuples; the first item in the tuple is a group of Pauli terms (:class:`sympy.Expr`), and the
+            second is a list of measurement gates (:class:`qibo.gates.M`) that can be used to get the expectation value
+            for the corresponding expression.
     """
     result = []
     if grouping is None:
-        # print("No grouping")
-        # for term, _coeff in hamiltonian.form.as_coefficients_dict().items():
-        #     if not isinstance(term, One): # Ignore any constant term
-        #         print(term)
         result += [
             (coeff * term, qwc_measurement_gates(term))
             for term, coeff in hamiltonian.form.as_coefficients_dict().items()
@@ -194,19 +177,13 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     return result
 
 
-# hamiltonian = SymbolicHamiltonian(0.26 + 4.2 * Z(0) * X(2) + Z(1) + 5 * X(0) * Y(1))
-#
-# result = measurement_basis_rotations(hamiltonian, "qwc")
-# for term in result:
-#     print(term, "M gates: ", [m_gate.target_qubits for m_gate in term[1]])
-
-
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
     """
     Allocate shots to each group of terms in the Hamiltonian for calculating the expectation value of the Hamiltonian.
 
     Args:
-        grouped_terms (list): Output of measurement_basis_rotations
+        grouped_terms (list): Output of measurement_basis_rotations; list of two-tuples with the first term a
+            :class:`sympy.Expr` and the second the list of corresponding measurement gates (not used here).
         n_shots (int): Total number of shots to be allocated
         method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is
             distributed based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots``
@@ -218,12 +195,6 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     Returns:
         list: A list containing the number of shots to be used for each group of Pauli terms respectively.
     """
-    # for (hamiltonian, _) in grouped_terms:
-    #     for _t, coeff in hamiltonian.form.as_coefficients_dict().items():
-    #         print(_t, coeff)
-
-    # return
-
     if method is None:
         method = "c"
     if max_shots_per_term is None:
