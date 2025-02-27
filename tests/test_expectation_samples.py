@@ -58,10 +58,10 @@ def test_measurement_basis_rotations_error():
     "method,max_shots_per_term,expected",
     [
         ("u", None, [66, 67, 67]),  # Control test; i.e. working normally
-        (None, None, [10, 188, 2]),  # Default arguments test
-        (None, 100, [84, 100, 16]),  # max_shots_per_term error
-        (None, 25, [83, 100, 17]),  # If max_shots_per_term is too small
-        (None, 1000, [10, 188, 2]),  # If max_shots_per_term is too large
+        (None, None, [23, 168, 9]),  # Default arguments test
+        (None, 100, [75, 100, 25]),  # max_shots_per_term error
+        (None, 25, [75, 100, 25]),  # If max_shots_per_term is too small
+        (None, 1000, [23, 168, 9]),  # If max_shots_per_term is too large
     ],
 )
 def test_allocate_shots(method, max_shots_per_term, expected):

@@ -201,7 +201,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
         term_coefficients = np.array(
             [
-                sum(abs(coeff) for _t, coeff in expression.as_coefficients_dict().items())
+                sum(abs(coeff) ** (2 / 3) for _t, coeff in expression.as_coefficients_dict().items())
                 for (expression, _) in grouped_terms
             ],
             dtype=float,
@@ -230,7 +230,7 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             term_coefficients = np.array(
                 [
                     (
-                        sum(abs(coeff) for _t, coeff in expression.as_coefficients_dict().items())
+                        sum(abs(coeff) ** (2 / 3) for _t, coeff in expression.as_coefficients_dict().items())
                         if shots < max_shots_per_term
                         else 0.0
                     )
