@@ -10,10 +10,10 @@ from qibo.symbols import X, Y, Z
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation, expectation_from_samples
 from qibochem.measurement.optimization import (
-    allocate_shots,
     measurement_basis_rotations,
 )
 from qibochem.measurement.result import pauli_term_measurement_expectation
+from qibochem.measurement.shot_allocation import allocate_shots
 
 
 @pytest.mark.parametrize(

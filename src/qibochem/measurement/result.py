@@ -11,10 +11,8 @@ from qibo.symbols import X, Y, Z
 from sympy import Add, Mul
 from sympy.core.numbers import One
 
-from qibochem.measurement.optimization import (
-    allocate_shots,
-    measurement_basis_rotations,
-)
+from qibochem.measurement.optimization import measurement_basis_rotations
+from qibochem.measurement.shot_allocation import allocate_shots
 
 
 def expectation(circuit: qibo.models.Circuit, hamiltonian: qibo.hamiltonians.SymbolicHamiltonian):
