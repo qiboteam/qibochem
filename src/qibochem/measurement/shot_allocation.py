@@ -3,6 +3,12 @@ Functions for allocating shots to the Hamiltonian terms
 """
 
 import numpy as np
+from sympy.core.numbers import One
+
+
+def coefficients_sum(expression):
+    """Sum up the absolute value of the coefficients for all non-constant terms in a sympy.Expr"""
+    return sum(abs(coeff) for term, coeff in expression.as_coefficients_dict().items() if not isinstance(term, One))
 
 
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
@@ -27,11 +33,9 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         method = "c"
     if max_shots_per_term is None:
         # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
+        # Using coefficients**(2/3) following arxiv:2307.06504
         term_coefficients = np.array(
-            [
-                sum(abs(coeff) ** (2 / 3) for _t, coeff in expression.as_coefficients_dict().items())
-                for (expression, _) in grouped_terms
-            ],
+            [coefficients_sum(expression) ** (2 / 3) for (expression, _) in grouped_terms],
             dtype=float,
         )
         max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
@@ -55,13 +59,10 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         if method in ("c", "coefficients"):
             # Split shots based on the relative magnitudes of the coefficients of the (group of) Pauli term(s)
             # and only for terms that haven't reached the upper limit yet
+            # Using coefficients**(2/3) following arxiv:2307.06504
             term_coefficients = np.array(
                 [
-                    (
-                        sum(abs(coeff) ** (2 / 3) for _t, coeff in expression.as_coefficients_dict().items())
-                        if shots < max_shots_per_term
-                        else 0.0
-                    )
+                    coefficients_sum(expression) ** (2 / 3) if shots < max_shots_per_term else 0.0
                     for shots, (expression, _) in zip(shot_allocation, grouped_terms)
                 ],
                 dtype=float,
