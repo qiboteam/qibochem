@@ -79,10 +79,6 @@ class Molecule:
         Reads a .xyz_file to obtain and set the molecular coordinates (in OpenFermion format),
         charge, and multiplicity.
         """
-        if self.multiplicity is None:
-            self.multiplicity = 1
-        if self.basis is None:
-            self.basis = "sto-3g"
         if self.xyz_file is not None:
             assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
             with open(self.xyz_file, encoding="utf-8") as file_handler:
