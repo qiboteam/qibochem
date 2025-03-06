@@ -40,15 +40,15 @@ class Molecule:
     xyz_file: str = None
 
     # or HF embedding
-    active: None = None
-    frozen: None = field(default=None, init=False)
+    active: None = None #: Iterable of molecular orbitals included in the active space
+    frozen: None = field(default=None, init=False) #: Iterable representing the occupied molecular orbitals removed from the simulation
 
-    nelec: None = field(default=None, init=False)
-    norb: None = field(default=None, init=False)
-    nso: None = field(default=None, init=False)
-    e_hf: None = field(default=None, init=False)
-    oei: None = field(default=None, init=False)
-    tei: None = field(default=None, init=False)
+    nelec: None = field(default=None, init=False) #: Total number of electrons for the molecule
+    norb: None = field(default=None, init=False) #: Number of molecular orbitals considered for the molecule
+    nso: None = field(default=None, init=False) #: Number of molecular spin-orbitals considered for the molecule
+    e_hf: None = field(default=None, init=False) #: Hartree-Fock energy
+    oei: None = field(default=None, init=False) #: One-electron integrals
+    tei: None = field(default=None, init=False) #: Two-electron integrals, order follows the second quantization notation
 
     ca: None = field(default=None, init=False)
     pa: None = field(default=None, init=False)
