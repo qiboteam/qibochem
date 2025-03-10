@@ -68,20 +68,26 @@ class Molecule:
     embed_oei: None = field(default=None, init=False)
     embed_tei: None = field(default=None, init=False)
 
-    n_active_e: None = field(default=None, init=False)
-    n_active_orbs: None = field(default=None, init=False)
+    n_active_e: None = field(default=None, init=False) #: Number of electrons included in the active space if HF embedding is used
+    n_active_orbs: None = field(default=None, init=False) #: Number of spin-orbitals in the active space if HF embedding is used
 
-    # Runs after init, formerly the _process_xyz_file function
+    # Runs after init
     def __post_init__(self):
-        """
-        Initializes certain variables.
-        Inits multiplicit, basis, and certain parameters based on .xyz_file
-        Reads a .xyz_file to obtain and set the molecular coordinates (in OpenFermion format),
-        charge, and multiplicity.
-        """
         if self.xyz_file is not None:
-            assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
-            with open(self.xyz_file, encoding="utf-8") as file_handler:
+            self._process_xyz_file(self.xyz_file, self.charge, self.multiplicity)
+
+
+    def _process_xyz_file(self, xyz_file, charge, multiplicity):
+        """
+        Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
+            charge, and multiplicity
+
+        Args:
+            xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
+        """
+        if xyz_file is not None:
+            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
+            with open(xyz_file, encoding="utf-8") as file_handler:
                 # First two lines: # atoms and comment line (charge, multiplicity)
                 _n_atoms = int(file_handler.readline())  # Not needed/used
 
@@ -92,7 +98,7 @@ class Molecule:
                     _charge, _multiplicity = split_line
                 else:
                     # Otherwise, use the default (from __init__) values of 0 and 1
-                    _charge, _multiplicity = self.charge, self.multiplicity
+                    _charge, _multiplicity = charge, multiplicity
 
                 # Start reading xyz coordinates from the 3rd line onwards
                 _geometry = []
