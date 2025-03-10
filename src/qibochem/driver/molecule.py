@@ -72,14 +72,17 @@ class Molecule:
     embed_oei: None = field(default=None, init=False)
     embed_tei: None = field(default=None, init=False)
 
-    n_active_e: None = field(default=None, init=False) #: Number of electrons included in the active space if HF embedding is used
-    n_active_orbs: None = field(default=None, init=False) #: Number of spin-orbitals in the active space if HF embedding is used
+    n_active_e: None = field(
+        default=None, init=False
+    )  #: Number of electrons included in the active space if HF embedding is used
+    n_active_orbs: None = field(
+        default=None, init=False
+    )  #: Number of spin-orbitals in the active space if HF embedding is used
 
     # Runs after init
     def __post_init__(self):
         if self.xyz_file is not None:
             self._process_xyz_file(self.xyz_file, self.charge, self.multiplicity)
-
 
     def _process_xyz_file(self, xyz_file, charge, multiplicity):
         """
