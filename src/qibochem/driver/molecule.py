@@ -89,33 +89,32 @@ class Molecule:
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
-        if xyz_file is not None:
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            with open(xyz_file, encoding="utf-8") as file_handler:
-                # First two lines: # atoms and comment line (charge, multiplicity)
-                _n_atoms = int(file_handler.readline())  # Not needed/used
+        assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
+        with open(xyz_file, encoding="utf-8") as file_handler:
+            # First two lines: # atoms and comment line (charge, multiplicity)
+            _n_atoms = int(file_handler.readline())  # Not needed/used
 
-                # Try to read charge and multiplicity from comment line
-                split_line = [int(_num) for _num in file_handler.readline().split()]
-                if len(split_line) == 2:
-                    # Format of comment line matches (charge, multiplicity):
-                    _charge, _multiplicity = split_line
-                else:
-                    # Otherwise, use the default (from __init__) values of 0 and 1
-                    _charge, _multiplicity = charge, multiplicity
+            # Try to read charge and multiplicity from comment line
+            split_line = [int(_num) for _num in file_handler.readline().split()]
+            if len(split_line) == 2:
+                # Format of comment line matches (charge, multiplicity):
+                _charge, _multiplicity = split_line
+            else:
+                # Otherwise, use the default (from __init__) values of 0 and 1
+                _charge, _multiplicity = charge, multiplicity
 
-                # Start reading xyz coordinates from the 3rd line onwards
-                _geometry = []
-                for line in file_handler:
-                    split_line = line.split()
-                    # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
-                    atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
-                    _geometry.append(tuple(atom_xyz))
+            # Start reading xyz coordinates from the 3rd line onwards
+            _geometry = []
+            for line in file_handler:
+                split_line = line.split()
+                # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
+                atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
+                _geometry.append(tuple(atom_xyz))
 
-            # Set the class attributes
-            self.charge = _charge
-            self.multiplicity = _multiplicity
-            self.geometry = _geometry
+        # Set the class attributes
+        self.charge = _charge
+        self.multiplicity = _multiplicity
+        self.geometry = _geometry
 
     def run_pyscf(self, max_scf_cycles=50):
         """
