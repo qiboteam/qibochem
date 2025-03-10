@@ -2,6 +2,7 @@
 Driver for obtaining molecular integrals from either PySCF or PSI4
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,7 @@ from qibochem.driver.hamiltonian import (
 )
 
 
+@dataclass
 class Molecule:
     """
     Class representing a single molecule
@@ -31,54 +33,56 @@ class Molecule:
 
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
-        # Basic properties
-        # Define using the function arguments if xyz_file not given
-        if xyz_file is None:
-            self.geometry = geometry
-            self.charge = charge
-            self.multiplicity = multiplicity
-        else:
-            # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self._process_xyz_file(xyz_file, charge, multiplicity)
-        if basis is None:
-            # Default bais is STO-3G
-            self.basis = "sto-3g"
-        else:
-            self.basis = basis
+    geometry: list = None
+    charge: int = None
+    multiplicity: int = 1
+    basis: str = "sto-3g"
+    xyz_file: str = None
 
-        self.nelec = None  #: Total number of electrons for the molecule
-        self.norb = None  #: Number of molecular orbitals considered for the molecule
-        self.nso = None  #: Number of molecular spin-orbitals considered for the molecule
-        self.e_hf = None  #: Hartree-Fock energy
-        self.oei = None  #: One-electron integrals
-        self.tei = None  #: Two-electron integrals, order follows the second quantization notation
+    # or HF embedding
+    active: None = None  #: Iterable of molecular orbitals included in the active space
+    frozen: None = field(
+        default=None, init=False
+    )  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
-        self.ca = None
-        self.pa = None
-        self.da = None
-        self.nalpha = None
-        self.nbeta = None
-        self.e_nuc = None
-        self.overlap = None
-        self.eps = None
-        self.fa = None
-        self.hcore = None
-        self.ja = None
-        self.ka = None
-        self.aoeri = None
+    nelec: None = field(default=None, init=False)  #: Total number of electrons for the molecule
+    norb: None = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
+    nso: None = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
+    e_hf: None = field(default=None, init=False)  #: Hartree-Fock energy
+    oei: None = field(default=None, init=False)  #: One-electron integrals
+    tei: None = field(
+        default=None, init=False
+    )  #: Two-electron integrals, order follows the second quantization notation
 
-        # For HF embedding
-        self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
+    ca: None = field(default=None, init=False)
+    pa: None = field(default=None, init=False)
+    da: None = field(default=None, init=False)
+    nalpha: None = field(default=None, init=False)
+    nbeta: None = field(default=None, init=False)
+    e_nuc: None = field(default=None, init=False)
+    overlap: None = field(default=None, init=False)
+    eps: None = field(default=None, init=False)
+    fa: None = field(default=None, init=False)
+    hcore: None = field(default=None, init=False)
+    ja: None = field(default=None, init=False)
+    ka: None = field(default=None, init=False)
+    aoeri: None = field(default=None, init=False)
 
-        self.inactive_energy = None
-        self.embed_oei = None
-        self.embed_tei = None
+    inactive_energy: None = field(default=None, init=False)
+    embed_oei: None = field(default=None, init=False)
+    embed_tei: None = field(default=None, init=False)
 
-        self.n_active_e = None  #: Number of electrons included in the active space if HF embedding is used
-        self.n_active_orbs = None  #: Number of spin-orbitals in the active space if HF embedding is used
+    n_active_e: None = field(
+        default=None, init=False
+    )  #: Number of electrons included in the active space if HF embedding is used
+    n_active_orbs: None = field(
+        default=None, init=False
+    )  #: Number of spin-orbitals in the active space if HF embedding is used
+
+    # Runs after init
+    def __post_init__(self):
+        if self.xyz_file is not None:
+            self._process_xyz_file(self.xyz_file, self.charge, self.multiplicity)
 
     def _process_xyz_file(self, xyz_file, charge, multiplicity):
         """
@@ -88,6 +92,7 @@ class Molecule:
         Args:
             xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
         """
+        assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
         with open(xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
             _n_atoms = int(file_handler.readline())  # Not needed/used
