@@ -39,12 +39,6 @@ class Molecule:
     basis: str = "sto-3g"
     xyz_file: str = None
 
-    # or HF embedding
-    active: None = None  #: Iterable of molecular orbitals included in the active space
-    frozen: None = field(
-        default=None, init=False
-    )  #: Iterable representing the occupied molecular orbitals removed from the simulation
-
     nelec: None = field(default=None, init=False)  #: Total number of electrons for the molecule
     norb: None = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
     nso: None = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
@@ -67,6 +61,12 @@ class Molecule:
     ja: None = field(default=None, init=False)
     ka: None = field(default=None, init=False)
     aoeri: None = field(default=None, init=False)
+
+    # or HF embedding
+    active: None = None  #: Iterable of molecular orbitals included in the active space
+    frozen: None = field(
+        default=None, init=False
+    )  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
     inactive_energy: None = field(default=None, init=False)
     embed_oei: None = field(default=None, init=False)
