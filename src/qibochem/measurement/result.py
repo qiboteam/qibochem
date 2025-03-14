@@ -7,7 +7,9 @@ from functools import reduce
 
 import qibo
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import Z
+from qibo.symbols import X, Y, Z
+from sympy import Add, Mul
+from sympy.core.numbers import One
 
 from qibochem.measurement.optimization import (
     allocate_shots,
@@ -15,7 +17,7 @@ from qibochem.measurement.optimization import (
 )
 
 
-def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
+def expectation(circuit: qibo.models.Circuit, hamiltonian: qibo.hamiltonians.SymbolicHamiltonian):
     """
     Expectation value using state vector simulations
 
@@ -31,20 +33,42 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
     return hamiltonian.expectation(state_ket)
 
 
-def pauli_term_measurement_expectation(pauli_term, frequencies, qubit_map):
+def constant_term(hamiltonian):
+    """Extract the constant term (if any) from a given SymbolicHamiltonian"""
+    constant = 0.0
+    ham_form = hamiltonian.form
+    if ham_form.args:
+        # Hamiltonian has >1 term
+        find_constant = [coeff for term, coeff in ham_form.as_coefficients_dict().items() if isinstance(term, One)]
+        constant = find_constant[0] if find_constant else 0.0
+    else:
+        # Single term is either a Pauli operator or a float
+        constant = float(ham_form) if not isinstance(ham_form, (X, Y, Z)) else 0.0
+    return constant
+
+
+def pauli_term_measurement_expectation(expression, frequencies, qubit_map):
     """
-    Calculate the expectation value of a single general Pauli string for some measurement frequencies
+    Calculate the expectation value of group of general Pauli strings for some measurement frequencies
 
     Args:
-        pauli_term (SymbolicTerm): Single general Pauli term, e.g. X0*Z2
+        expression (sympy.Expr): (Group of) Pauli terms, e.g. X0*Z2 + Y1
         frequencies: Measurement frequencies, taken from MeasurementOutcomes.frequencies(binary=True)
+        qubit_map (dict): Mapping the output frequencies to the corresponding qubit
 
     Returns:
-        float: Expectation value of pauli_term
+        float: Expectation value of expression
     """
-    # Replace every (non-I) Symbol with Z, then include the term coefficient
-    pauli_z = [Z(int(factor.target_qubit)) for factor in pauli_term.factors if factor.name[0] != "I"]
-    z_only_ham = SymbolicHamiltonian(pauli_term.coefficient * reduce(lambda x, y: x * y, pauli_z, 1.0))
+    z_only_ham = None  # Needed to satisfy pylint :(
+    if isinstance(expression, Add):
+        # Sum of multiple Pauli terms
+        return sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in expression.args)
+    if isinstance(expression, Mul):
+        # Single Pauli term
+        pauli_z_terms = [Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term for term in expression.args]
+        z_only_ham = SymbolicHamiltonian(reduce(lambda x, y: x * y, pauli_z_terms, 1.0))
+    elif isinstance(expression, (X, Y, Z)):
+        z_only_ham = SymbolicHamiltonian(Z(expression.target_qubit), nqubits=expression.target_qubit + 1)
     # Can now apply expectation_from_samples directly
     return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
 
@@ -88,9 +112,9 @@ def expectation_from_samples(
             grouped_terms
         ), f"shot_allocation list ({len(shot_allocation)}) doesn't match the number of grouped terms ({len(grouped_terms)})"
 
-    total = 0.0
-    for _i, (measurement_gates, terms) in enumerate(grouped_terms):
-        if measurement_gates and terms:
+    total = constant_term(hamiltonian)
+    for _i, (expression, measurement_gates) in enumerate(grouped_terms):
+        if measurement_gates:
             _circuit = circuit.copy()
             _circuit.add(measurement_gates)
 
@@ -100,7 +124,5 @@ def expectation_from_samples(
             frequencies = result.frequencies(binary=True)
             qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-                total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
-    # Add the constant term if present. Note: Energies (in chemistry) are all real values
-    total += hamiltonian.constant.real
+                total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
