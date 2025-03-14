@@ -26,7 +26,7 @@ Qibochem then uses these integrals and the `OpenFermion <https://quantumai.googl
 
 .. code-block:: python
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
 
     mol = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
     mol.run_pyscf()

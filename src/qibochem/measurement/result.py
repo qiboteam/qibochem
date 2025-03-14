@@ -20,20 +20,15 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: SymbolicHamiltonian):
     Expectation value using state vector simulations
 
     Args:
-        circuit (qibo.models.Circuit): Quantum circuit ansatz
-        hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
 
     Returns:
         float: Expectation value of the Hamiltonian for the given circuit
     """
-    result = circuit(nshots=1)
+    result = circuit()
     state_ket = result.state()
     return hamiltonian.expectation(state_ket)
-
-
-def symbolic_term_to_symbol(symbolic_term):
-    """Convert a single Pauli word in the form of a Qibo SymbolicTerm to a Qibo Symbol"""
-    return symbolic_term.coefficient * reduce(lambda x, y: x * y, symbolic_term.factors, 1.0)
 
 
 def pauli_term_measurement_expectation(pauli_term, frequencies, qubit_map):
@@ -66,21 +61,21 @@ def expectation_from_samples(
     Calculate expectation value of some Hamiltonian using sample measurements from running a Qibo quantum circuit
 
     Args:
-        circuit (qibo.models.Circuit): Quantum circuit ansatz
-        hamiltonian (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
         n_shots (int): Number of times the circuit is run. Default: ``1000``
-        group_pauli_terms: Whether or not to group Pauli X/Y terms in the Hamiltonian together to reduce the measurement
-            cost. Available options: ``None``: (Default) Hamiltonian terms containing X/Y are not grouped together, and
+        group_pauli_terms (str): Whether or not to group Hamiltonian terms together to reduce the measurement
+            cost. Available options: ``None``: (Default) No grouping of Hamiltonian terms, and
             ``"qwc"``: Terms that commute qubitwise are grouped together
-        n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term in the Hamiltonian, or for
-            *all* the terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used to get the expectation value for each
-            term in the Hamiltonian.
-        shot_allocation: Iterable containing the number of shots to be allocated to each term in the Hamiltonian respectively if
-            n_shots_per_pauli_term is ``False``. Default: ``None``; shots are allocated based on the magnitudes of the coefficients
-            of the Hamiltonian terms.
+        n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
+            Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
+            to get the expectation value for each term (group of terms) in the Hamiltonian.
+        shot_allocation: Iterable containing the number of shots to be allocated to each term (or group of terms) in the
+            Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``; shots are
+            allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
 
     Returns:
-        float: Hamiltonian expectation value
+        float: Hamiltonian expectation value for the given circuit using sample measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping=group_pauli_terms)
@@ -105,13 +100,7 @@ def expectation_from_samples(
             frequencies = result.frequencies(binary=True)
             qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-                # First term is all Z terms, can use expectation_from_samples directly.
-                if _i > 0:
-                    total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
-                # Otherwise, need to use the general pauli_term_measurement_expectation function
-                else:
-                    z_ham = SymbolicHamiltonian(sum(symbolic_term_to_symbol(term) for term in terms))
-                    total += z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
+                total += sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in terms)
     # Add the constant term if present. Note: Energies (in chemistry) are all real values
     total += hamiltonian.constant.real
     return total

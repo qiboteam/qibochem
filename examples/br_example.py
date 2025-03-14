@@ -8,7 +8,7 @@ from qibo.models import VQE
 
 from qibochem.ansatz import basis_rotation, hf_circuit
 from qibochem.driver import Molecule
-from qibochem.measurement.expectation import expectation
+from qibochem.measurement import expectation
 
 # Define molecule and populate
 mol = Molecule(xyz_file="h3p.xyz")

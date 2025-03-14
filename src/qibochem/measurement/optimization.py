@@ -88,9 +88,14 @@ def qwc_measurement_gates(grouped_terms):
     """
     m_gates = {}
     for term in grouped_terms:
-        for factor in term.factors:
-            if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I":
-                m_gates[factor.target_qubit] = gates.M(factor.target_qubit, basis=type(factor.gate))
+        m_gates = {
+            **m_gates,
+            **{
+                factor.target_qubit: gates.M(factor.target_qubit, basis=type(factor.gate))
+                for factor in term.factors
+                if m_gates.get(factor.target_qubit) is None and factor.name[0] != "I"
+            },
+        }
     return list(m_gates.values())
 
 
@@ -121,35 +126,23 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     respective (group of) terms in the Hamiltonian
 
     Args:
-        hamiltonian (SymbolicHamiltonian): Hamiltonian of interest
-        grouping: Whether or not to group the X/Y terms together, i.e. use the same set of measurements to get the
-            expectation values of a group of terms simultaneously. Default value of ``None`` will not group any terms
-            together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement gates
-            associated with each group of X/Y terms
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
+        grouping (str): Whether or not to group Hamiltonian terms together, i.e. use the same set of measurements to get
+            the expectation values of a group of terms simultaneously. Default value of ``None`` will not group any
+            terms together, while ``"qwc"`` will group qubitwise commuting terms together, and return the measurement
+            gates associated with each group of terms
 
     Returns:
-        list: List of two-tuples, with each tuple given as ([`list of measurement gates`], [term1, term2, ...]), where
-            term1, term2, ... are SymbolicTerms. The first tuple always corresponds to all the Z terms present, which
-            will be two empty lists - ``([], [])`` - if there are no Z terms present.
+        list: List of two-tuples; the first item is a list of measurement gates (:class:`qibo.gates.M`), and the second
+            item is the corresponding list of Hamiltonian terms (:class:`qibo.hamiltonian.terms.SymbolicTerm`).
     """
     result = []
-    # Split up the Z and X/Y terms
-    z_only_terms = [
-        term for term in hamiltonian.terms if not any(factor.name[0] in ("X", "Y") for factor in term.factors)
-    ]
-    xy_terms = [term for term in hamiltonian.terms if term not in z_only_terms]
-    # Add the Z terms into result first, followed by the terms with X/Y's
-    if z_only_terms:
-        result.append((qwc_measurement_gates(z_only_terms), z_only_terms))
+    if grouping is None:
+        result += [(qwc_measurement_gates([term]), [term]) for term in hamiltonian.terms]
+    elif grouping == "qwc":
+        result += qwc_measurements(hamiltonian.terms)
     else:
-        result.append(([], []))
-    if xy_terms:
-        if grouping is None:
-            result += [(qwc_measurement_gates([term]), [term]) for term in xy_terms]
-        elif grouping == "qwc":
-            result += qwc_measurements(xy_terms)
-        else:
-            raise NotImplementedError("Not ready yet!")
+        raise NotImplementedError("Not ready yet!")
     return result
 
 

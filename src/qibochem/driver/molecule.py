@@ -10,9 +10,9 @@ import openfermion
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
-    fermionic_hamiltonian,
-    qubit_hamiltonian,
-    qubit_to_symbolic_hamiltonian,
+    _fermionic_hamiltonian,
+    _qubit_hamiltonian,
+    _qubit_to_symbolic_hamiltonian,
 )
 
 
@@ -26,10 +26,10 @@ class Molecule:
         charge (int): Net electronic charge of molecule. Default: ``0``
         multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired
             electrons. Default: ``1``
-        basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
+        basis (str): Atomic orbital basis set, used for the PySCF calculations. Default: ``"STO-3G"`` (minimal basis)
         xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
-            charge and spin multiplity if it is given in this format: "{charge} {multiplicity}"
-        active: Iterable representing the set of MOs to be included in the quantum simulation
+            charge and spin multiplity if it is given in this format: ``{charge} {multiplicity}``
+        active (list): Iterable representing the set of MOs to be included in the quantum simulation
             e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
     """
@@ -117,11 +117,10 @@ class Molecule:
 
     def run_pyscf(self, max_scf_cycles=50):
         """
-        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
-            molecular integrals
+        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and molecular integrals
 
         Args:
-            max_scf_cycles: Maximum number of SCF cycles in PySCF
+            max_scf_cycles (int): Maximum number of SCF cycles in PySCF
         """
         import pyscf  # pylint: disable=C0415
 
@@ -319,8 +318,8 @@ class Molecule:
 
     def hf_embedding(self, active=None, frozen=None):
         """
-        Turns on HF embedding for a given active/frozen space, and fills in the class attributes:
-            ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
+        Turns on HF embedding for a given active/frozen space, and fills in the class attributes: ``inactive_energy``
+        , ``embed_oei``, and ``embed_tei``.
 
         Args:
             active (list): Iterable representing the active-space for quantum simulation. Uses the ``Molecule.active``
@@ -365,27 +364,27 @@ class Molecule:
     ):
         """
         Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
-        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` attributes are all not ``None``), the
+        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` class attributes are all not ``None``), the
         corresponding values for the molecular integrals will be used instead.
 
         Args:
-            ham_type: Format of molecular Hamiltonian returned. The available options are:
-                ``("f", "ferm")``: OpenFermion ``FermionOperator``,
-                ``("q", "qubit")``: OpenFermion ``QubitOperator``, or
-                ``("s", "sym")``: Qibo ``SymbolicHamiltonian`` (default)
-            oei: 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute , unless
-                the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
-            tei: 2-electron integrals in the second-quantization notation (and MO basis). The default value is the
-                ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then ``embed_tei``
-                is used.
-            constant: Constant value to be added to the electronic energy. Mainly used for adding the inactive Fock
-                energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute exists
-                and is not ``None``, then ``inactive_energy`` is used.
-            ferm_qubit_map: Which fermion to qubit transformation to use.
-                Must be either ``jw`` (default) or ``bk``
+            ham_type (str): Format of molecular Hamiltonian returned. The available options are:
+                ``("f", "ferm")``: :class:`openfermion.FermionOperator`,
+                ``("q", "qubit")``: :class:`openfermion.QubitOperator`, or
+                ``("s", "sym")``: :class:`qibo.hamiltonians.SymbolicHamiltonian` (default)
+            oei (ndarray): 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute,
+                unless the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
+            tei (ndarray): 2-electron integrals in the second-quantization notation (and MO basis). The default value
+                is the ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then
+                ``embed_tei`` is used.
+            constant (float): Constant value to be added to the electronic energy. Mainly used for adding the inactive
+                Fock energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute
+                exists and is not ``None``, then ``inactive_energy`` is used.
+            ferm_qubit_map (str): Which fermion to qubit transformation to use. Must be either ``"jw"`` (Default)
+                or ``"bk"``
 
         Returns:
-            Molecular Hamiltonian in the format of choice
+            :class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator` or :class:`qibo.hamiltonians.SymbolicHamiltonian`: Molecular Hamiltonian in the format of choice
         """
         # Define default variables
         if ham_type is None:
@@ -402,30 +401,30 @@ class Molecule:
         constant += self.e_nuc  # Add nuclear repulsion energy
 
         # Start with an InteractionOperator
-        ham = fermionic_hamiltonian(oei, tei, constant)
+        ham = _fermionic_hamiltonian(oei, tei, constant)
         if ham_type in ("f", "ferm"):
             # OpenFermion FermionOperator Hamiltonian
             ham = openfermion.transforms.get_fermion_operator(ham)
             ham.compress()
             return ham
-        ham = qubit_hamiltonian(ham, ferm_qubit_map)
+        ham = _qubit_hamiltonian(ham, ferm_qubit_map)
         if ham_type in ("q", "qubit"):
             # OpenFermion QubitOperator Hamiltonian
             return ham
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
-            return qubit_to_symbolic_hamiltonian(ham)
+            return _qubit_to_symbolic_hamiltonian(ham)
         raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
     @staticmethod
     def eigenvalues(hamiltonian):
         """
-        Finds the lowest 6 exact eigenvalues of the molecular Hamiltonian
-            Note: Uses the ``eigenvalues()`` class method for a Qibo ``SymbolicHamiltonian`` object
+        Finds the lowest 6 exact eigenvalues of a given Hamiltonian
 
         Args:
-            hamiltonian: Molecular Hamiltonian, given as a ``FermionOperator``, ``QubitOperator``, or
-                ``SymbolicHamiltonian`` (not recommended)
+            hamiltonian (:class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator` or :class:`qibo.hamiltonians.SymbolicHamiltonian`):
+                Hamiltonian of interest. If the input is a :class:`qibo.hamiltonians.SymbolicHamiltonian`, the whole
+                Hamiltonian matrix has to be built first (not recommended).
         """
         if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
             from scipy.sparse import linalg  # pylint: disable=C0415

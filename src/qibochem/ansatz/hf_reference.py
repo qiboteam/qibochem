@@ -54,12 +54,13 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
     """Circuit to prepare a Hartree-Fock state
 
     Args:
-        n_qubits: Number of qubits in the quantum circuit
-        n_electrons: Number of electrons in the molecular system
-        ferm_qubit_map: Fermion to qubit map. Must be either Jordan-Wigner (``jw``) or Brayvi-Kitaev (``bk``). Default value is ``jw``.
+        n_qubits (int): Number of qubits in the quantum circuit
+        n_electrons (int): Number of electrons in the molecular system
+        ferm_qubit_map (str): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or Brayvi-Kitaev (``"bk"``).
+            Default value is ``"jw"``.
 
     Returns:
-        Qibo ``Circuit``: Circuit initialized in a HF reference state
+        :class:`qibo.models.circuit.Circuit`: Circuit initialized in a HF reference state
     """
     # Which fermion-to-qubit map to use
     if ferm_qubit_map is None:
