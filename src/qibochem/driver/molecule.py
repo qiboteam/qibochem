@@ -23,8 +23,9 @@ class Molecule:
 
     Args:
         geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
-        charge (int): Net electronic charge of molecule
-        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired electrons
+        charge (int): Net electronic charge of molecule. Default: ``0``
+        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired
+            electrons. Default: ``1``
         basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: "STO-3G" (minimal basis)
         xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
             charge and spin multiplity if it is given in this format: "{charge} {multiplicity}"
@@ -34,57 +35,57 @@ class Molecule:
     """
 
     geometry: list = None
-    charge: int = None
+    charge: int = 0
     multiplicity: int = 1
     basis: str = "sto-3g"
     xyz_file: str = None
 
-    nelec: None = field(default=None, init=False)  #: Total number of electrons for the molecule
-    norb: None = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
-    nso: None = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
-    e_hf: None = field(default=None, init=False)  #: Hartree-Fock energy
-    oei: None = field(default=None, init=False)  #: One-electron integrals
-    tei: None = field(
+    nelec: int = field(default=None, init=False)  #: Total number of electrons for the molecule
+    norb: int = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
+    nso: int = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
+    e_hf: float = field(default=None, init=False)  #: Hartree-Fock energy
+    oei: np.ndarray = field(default=None, init=False)  #: One-electron integrals
+    tei: np.ndarray = field(
         default=None, init=False
     )  #: Two-electron integrals, order follows the second quantization notation
 
-    ca: None = field(default=None, init=False)
-    pa: None = field(default=None, init=False)
-    da: None = field(default=None, init=False)
-    nalpha: None = field(default=None, init=False)
-    nbeta: None = field(default=None, init=False)
-    e_nuc: None = field(default=None, init=False)
-    overlap: None = field(default=None, init=False)
-    eps: None = field(default=None, init=False)
-    fa: None = field(default=None, init=False)
-    hcore: None = field(default=None, init=False)
-    ja: None = field(default=None, init=False)
-    ka: None = field(default=None, init=False)
-    aoeri: None = field(default=None, init=False)
+    ca: np.ndarray = field(default=None, init=False)
+    pa: np.ndarray = field(default=None, init=False)
+    da: np.ndarray = field(default=None, init=False)
+    nalpha: int = field(default=None, init=False)
+    nbeta: int = field(default=None, init=False)
+    e_nuc: float = field(default=None, init=False)
+    overlap: np.ndarray = field(default=None, init=False)
+    eps: np.ndarray = field(default=None, init=False)
+    fa: np.ndarray = field(default=None, init=False)
+    hcore: np.ndarray = field(default=None, init=False)
+    ja: np.ndarray = field(default=None, init=False)
+    ka: np.ndarray = field(default=None, init=False)
+    aoeri: np.ndarray = field(default=None, init=False)
 
-    # or HF embedding
-    active: None = None  #: Iterable of molecular orbitals included in the active space
-    frozen: None = field(
+    # For HF embedding
+    active: list = None  #: Iterable of molecular orbitals included in the active space
+    frozen: list = field(
         default=None, init=False
     )  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
-    inactive_energy: None = field(default=None, init=False)
-    embed_oei: None = field(default=None, init=False)
-    embed_tei: None = field(default=None, init=False)
+    inactive_energy: float = field(default=None, init=False)
+    embed_oei: np.ndarray = field(default=None, init=False)
+    embed_tei: np.ndarray = field(default=None, init=False)
 
-    n_active_e: None = field(
+    n_active_e: int = field(
         default=None, init=False
     )  #: Number of electrons included in the active space if HF embedding is used
-    n_active_orbs: None = field(
+    n_active_orbs: int = field(
         default=None, init=False
     )  #: Number of spin-orbitals in the active space if HF embedding is used
 
     # Runs after init
     def __post_init__(self):
         if self.xyz_file is not None:
-            self._process_xyz_file(self.xyz_file, self.charge, self.multiplicity)
+            self._process_xyz_file(self.xyz_file)
 
-    def _process_xyz_file(self, xyz_file, charge, multiplicity):
+    def _process_xyz_file(self):
         """
         Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
             charge, and multiplicity
@@ -102,9 +103,8 @@ class Molecule:
             if len(split_line) == 2:
                 # Format of comment line matches (charge, multiplicity):
                 _charge, _multiplicity = split_line
-            else:
-                # Otherwise, use the default (from __init__) values of 0 and 1
-                _charge, _multiplicity = charge, multiplicity
+                self.charge = _charge
+                self.multiplicity = _multiplicity
 
             # Start reading xyz coordinates from the 3rd line onwards
             _geometry = []
@@ -113,10 +113,6 @@ class Molecule:
                 # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
                 atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
                 _geometry.append(tuple(atom_xyz))
-
-        # Set the class attributes
-        self.charge = _charge
-        self.multiplicity = _multiplicity
         self.geometry = _geometry
 
     def run_pyscf(self, max_scf_cycles=50):
@@ -137,7 +133,6 @@ class Molecule:
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
         pyscf_job.max_cycle = max_scf_cycles
         pyscf_job.run()
-        # print(dir(pyscf_job))
 
         # Save results from HF calculation
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
@@ -328,8 +323,10 @@ class Molecule:
             ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
 
         Args:
-            active: Iterable representing the active-space for quantum simulation
-            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+            active (list): Iterable representing the active-space for quantum simulation. Uses the ``Molecule.active``
+                class attribute if not given.
+            frozen (list): Iterable representing the occupied orbitals to be removed from the simulation. Depends on the
+                `active` argument if not given.
         """
         # Default arguments for active and frozen if no arguments given
         if active is None and frozen is None:
