@@ -83,18 +83,15 @@ class Molecule:
     # Runs after init
     def __post_init__(self):
         if self.xyz_file is not None:
-            self._process_xyz_file(self.xyz_file)
+            self._process_xyz_file()
 
     def _process_xyz_file(self):
         """
-        Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
-            charge, and multiplicity
-
-        Args:
-            xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
+        Reads the .xyz file given when defining the Molecule to obtain the molecular coordinates (in OpenFermion format),
+        charge, and multiplicity
         """
-        assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-        with open(xyz_file, encoding="utf-8") as file_handler:
+        assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
+        with open(self.xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
             _n_atoms = int(file_handler.readline())  # Not needed/used
 
