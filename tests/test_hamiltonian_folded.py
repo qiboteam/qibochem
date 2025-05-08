@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 from qibo import symbols
+from qibo.models import Circuit
 from qibo.hamiltonians import SymbolicHamiltonian
+from qibochem.measurement import expectation
 
 from qibochem.driver.hamiltonian import _symbolic_identity, build_folded_hamiltonian
 
@@ -30,14 +32,12 @@ def test_build_folded_hamiltonian_symbolic():
     assert folded.nqubits == nqubits
     # Check that the folded Hamiltonian is (H - lam*I)^2
     # Evaluate on the |00> state
-    from qibo import Circuit
 
     c = Circuit(nqubits)
-    folded_val = folded.expectation(c)
+    folded_val = expectation(c, folded)
     # Compute expected value manually
     # For |00>, <Z0>=1, <X1>=0, <I>=1
-    h00 = 0.5 * 1 + 0.3 * 0
-    expected = (h00 - lam) ** 2
+    expected = 0.5**2 + 0.3**2 + lam**2 - lam
     assert np.isclose(folded_val, expected)
 
 
@@ -53,9 +53,8 @@ def test_build_folded_hamiltonian_qubitop():
     folded = build_folded_hamiltonian(Hq, lam)
     assert isinstance(folded, SymbolicHamiltonian)
     # Should match (0.7*<Z0> - 0.2)^2 on |0>
-    from qibo import Circuit
 
     c = Circuit(nqubits)
-    val = folded.expectation(c)
+    val = expectation(c, folded)
     expected = (0.7 * 1 - 0.2) ** 2
     assert np.isclose(val, expected)
