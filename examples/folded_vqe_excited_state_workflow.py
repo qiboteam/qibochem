@@ -8,9 +8,10 @@ Sample workflow for excited state calculation using Folded VQE (FS-VQE) as in ht
 
 import numpy as np
 from scipy.optimize import minimize
-from qibochem.driver.hamiltonian import build_folded_hamiltonian
+
 from qibochem.ansatz import hf_circuit, ucc_circuit
 from qibochem.driver import Molecule
+from qibochem.driver.hamiltonian import build_folded_hamiltonian
 from qibochem.measurement import expectation
 
 # --- Parameters for \omega search ---
@@ -18,6 +19,7 @@ DELTA_START_MULTIPLIER = 0.005
 DELTA_STEP = 0.002
 DELTA_MAX_MULTIPLIER = 0.20
 MAX_ITER = 20
+
 
 def get_ucc_excitations(n_qubits, n_electrons):
     # Copied from ucc_example1.py
@@ -29,17 +31,13 @@ def get_ucc_excitations(n_qubits, n_electrons):
         for _b in range(_a + 1, n_qubits)
         if (_i + _j + _a + _b) % 2 == 0 and ((_i % 2 + _j % 2) == (_a % 2 + _b % 2))
     ]
-    s_excitations = [
-        (_i, _a)
-        for _i in range(n_electrons)
-        for _a in range(n_electrons, n_qubits)
-        if (_i + _a) % 2 == 0
-    ]
+    s_excitations = [(_i, _a) for _i in range(n_electrons) for _a in range(n_electrons, n_qubits) if (_i + _a) % 2 == 0]
     d_excitations = sorted(d_excitations, key=lambda x: (x[3] - x[2]) + (x[2] % 2))
     s_excitations = sorted(s_excitations, key=lambda x: (x[1] - x[0]) + (x[0] % 2))
     excitations = d_excitations + s_excitations
     n_unique_excitations = 5  # For LiH example
     return excitations, n_unique_excitations
+
 
 def build_uccsd_circuit(n_qubits, n_electrons, excitations, parameters):
     circuit = hf_circuit(n_qubits, n_electrons)
@@ -66,6 +64,7 @@ def build_uccsd_circuit(n_qubits, n_electrons, excitations, parameters):
     circuit.set_parameters(all_parameters)
     return circuit
 
+
 def folded_vqe_excited_state_search_lih(verbose=True):
     # 1. Prepare molecule and Hamiltonian
     mol = Molecule(xyz_file="lih.xyz")
@@ -80,6 +79,7 @@ def folded_vqe_excited_state_search_lih(verbose=True):
     def cost_gs(params):
         circuit = build_uccsd_circuit(n_qubits, n_electrons, excitations, params)
         return expectation(circuit, hamiltonian)
+
     params = np.random.rand(n_unique_excitations)
     res_gs = minimize(cost_gs, params)
     E0 = res_gs.fun
@@ -96,6 +96,7 @@ def folded_vqe_excited_state_search_lih(verbose=True):
         omega = E0 + delta
         folded_ham = build_folded_hamiltonian(hamiltonian, omega)
         dense_ham = folded_ham.dense
+
         def cost_fs(params):
             circuit = build_uccsd_circuit(n_qubits, n_electrons, excitations, params)
             return expectation(circuit, dense_ham)
@@ -103,7 +104,9 @@ def folded_vqe_excited_state_search_lih(verbose=True):
         res_fs = minimize(cost_fs, params)
         folded_energy = res_fs.fun
         if verbose:
-            print(f"[FS-VQE] Iter {i+1}: delta_multiplier={delta_multiplier:.4f}, delta={delta:.6f}, folded_energy={folded_energy:.8f}")
+            print(
+                f"[FS-VQE] Iter {i+1}: delta_multiplier={delta_multiplier:.4f}, delta={delta:.6f}, folded_energy={folded_energy:.8f}"
+            )
         if folded_energy < delta**2:
             excited_energy = E0 + delta
             if verbose:
@@ -122,6 +125,7 @@ def folded_vqe_excited_state_search_lih(verbose=True):
             break
     raise RuntimeError("Failed to find excited state: try increasing DELTA_MAX_MULTIPLIER or MAX_ITER.")
 
+
 def main():
     result = folded_vqe_excited_state_search_lih()
     print("\nSummary:")
@@ -129,6 +133,7 @@ def main():
     print(f"Excited state energy: {result['excited_energy']:.8f}")
     print(f"delta: {result['delta']:.8f} (multiplier: {result['delta_multiplier']:.4f})")
     print(f"Folded energy: {result['folded_energy']:.8f}")
+
 
 if __name__ == "__main__":
     main()

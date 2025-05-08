@@ -67,6 +67,7 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
     )
     return SymbolicHamiltonian(symbolic_ham)
 
+
 # --- Folded Hamiltonian utilities for excited state VQE ---
 def _symbolic_identity(nqubits):
     """
@@ -77,6 +78,7 @@ def _symbolic_identity(nqubits):
         sympy expression representing the identity operator on nqubits
     """
     from qibo.symbols import I
+
     op = 1
     for q in range(nqubits):
         op *= I(q)
