@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 from qibo import symbols
-from qibo.models import Circuit
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibochem.measurement import expectation
+from qibo.models import Circuit
 
 from qibochem.driver.hamiltonian import _symbolic_identity, build_folded_hamiltonian
+from qibochem.measurement import expectation
 
 
 def test_symbolic_identity_basic():
