@@ -14,9 +14,8 @@ from sympy.core.numbers import One
 from qibochem.measurement.optimization import measurement_basis_rotations
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
+    allocate_shots_by_variance,
     coefficients_sum,
-    vmsa_shot_allocation,
-    vpsr_shot_allocation,
 )
 
 
