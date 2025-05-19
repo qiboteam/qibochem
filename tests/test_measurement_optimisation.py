@@ -56,7 +56,7 @@ def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
     ],
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
-    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
+    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Y(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
     grouped_terms = measurement_basis_rotations(hamiltonian)
     n_shots = 200
     test_allocation = allocate_shots(

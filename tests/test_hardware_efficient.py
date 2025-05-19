@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from qibo import Circuit, gates
+from qibo import gates
 from qibo.optimizers import optimize
 
 from qibochem.ansatz import he_circuit
