@@ -99,36 +99,27 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     return shot_allocation.tolist()
 
 
-def vmsa_shot_allocation(total_shots, n_trial_shots, variance_values):
+def allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, method="vmsa"):
     """
-    Allocate shots for each term in a Hamiltonian based on the computed sample variances of each term. Unlike in VPSR,
-    all shots will be allocated.
+    Allocate shots for each term in a Hamiltonian based on the computed sample variances of each term.
+
+    Args:
+        total_shots (int): Total shot budget for each expectation value evaluation
+        n_trial_shots (int): Number of shots used to obtain the sample variances of each term group
+        variance_values (List[float]): Sample variances for each term group
 
     Returns:
         list: List of integers corresponding to the allocation of the remaining shots
     """
+    assert method in ("vmsa", "vpsr"), f"Unknown shot assignment method ({method}) called"
     n_groups = len(variance_values)
     remaining_shots = total_shots - n_groups * n_trial_shots
     std_dev_values = [_var**0.5 for _var in variance_values]
-    # Calculate everything as floats first, then convert to ints
-    allocated_shots = [int(std_dev * remaining_shots / sum(std_dev_values)) for std_dev in std_dev_values]
-    # Throw any leftover shots into the last term (arbitrarily)
-    allocated_shots[-1] += remaining_shots - sum(allocated_shots)
-    return allocated_shots
-
-
-def vpsr_shot_allocation(total_shots, n_trial_shots, variance_values):
-    """
-    Allocate shots for each term in a Hamiltonian based on the computed sample variances of each term. Unlike in VMSA,
-    the total number of shots allocated will be < total_shots.
-
-    Returns:
-        list: List of integers corresponding to the allocation of the remaining shots
-    """
-    n_groups = len(variance_values)
-    remaining_shots = total_shots - n_groups * n_trial_shots
-    std_dev_values = [_var**0.5 for _var in variance_values]
-    _eta = sum(std_dev_values) ** 2 / (n_groups * sum(variance_values))  # eta in Equation 17 of the reference paper
+    # eta in Equation 17 of the reference paper, equal to 1 for VMSA, <1 if VPSR
+    _eta = 1 if method == "vmsa" else sum(std_dev_values) ** 2 / (n_groups * sum(variance_values))
     # Calculate everything as floats first, then convert to ints
     allocated_shots = [int(_eta * std_dev * remaining_shots / sum(std_dev_values)) for std_dev in std_dev_values]
+    # Throw any leftover shots into the last term (arbitrarily) if using VMSA
+    if method == "vmsa":
+        allocated_shots[-1] += remaining_shots - sum(allocated_shots)
     return allocated_shots
