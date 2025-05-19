@@ -11,7 +11,10 @@ from qibochem.measurement.optimization import (
     group_commuting_terms,
     measurement_basis_rotations,
 )
-from qibochem.measurement.shot_allocation import allocate_shots
+from qibochem.measurement.shot_allocation import (
+    allocate_shots,
+    allocate_shots_by_variance,
+)
 
 
 @pytest.mark.parametrize(
@@ -79,3 +82,18 @@ def test_allocate_shots_input_validity():
     grouped_terms = measurement_basis_rotations(hamiltonian)
     with pytest.raises(NameError):
         _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("vmsa", [0, 20, 40]),
+        ("vpsr", [0, 12, 24]),
+    ],
+)
+def test_allocate_shots_by_variance(method, expected):
+    total_shots = 120
+    n_trial_shots = 20
+    variance_values = [0.0, 16.0, 64.0]
+    test_allocation = allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, method=method)
+    assert test_allocation == expected
