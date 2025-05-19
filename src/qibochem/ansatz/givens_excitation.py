@@ -131,7 +131,7 @@ def givens_excitation_ansatz(
             Default: ``True``, uses the MP2 amplitudes as the initial guess parameters
 
     Returns:
-        :class:`qibochem.models.circuit.Circuit`: Circuit corresponding to a Givens excitation circuit ansatz
+        :class:`qibo.models.Circuit`: Circuit corresponding to a Givens excitation circuit ansatz
     """
     # TODO: Consolidate/Meld this function with the ucc_ansatz function; both are largely identical
 

@@ -2,6 +2,7 @@
 Driver for obtaining molecular integrals from either PySCF or PSI4
 """
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -15,15 +16,17 @@ from qibochem.driver.hamiltonian import (
 )
 
 
+@dataclass
 class Molecule:
     """
     Class representing a single molecule
 
     Args:
         geometry (list): Molecular coordinates in OpenFermion format,  e.g. ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
-        charge (int): Net electronic charge of molecule
-        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired electrons
-        basis (str): Atomic orbital basis set, used for the PySCF/PSI4 calculations. Default: ``"STO-3G"`` (minimal basis)
+        charge (int): Net electronic charge of molecule. Default: ``0``
+        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired
+            electrons. Default: ``1``
+        basis (str): Atomic orbital basis set, used for the PySCF calculations. Default: ``"STO-3G"`` (minimal basis)
         xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the electronic
             charge and spin multiplity if it is given in this format: ``{charge} {multiplicity}``
         active (list): Iterable representing the set of MOs to be included in the quantum simulation
@@ -31,64 +34,64 @@ class Molecule:
 
     """
 
-    def __init__(self, geometry=None, charge=0, multiplicity=1, basis=None, xyz_file=None, active=None):
-        # Basic properties
-        # Define using the function arguments if xyz_file not given
-        if xyz_file is None:
-            self.geometry = geometry
-            self.charge = charge
-            self.multiplicity = multiplicity
-        else:
-            # Check if xyz_file exists, then fill in the Molecule attributes
-            assert Path(f"{xyz_file}").exists(), f"{xyz_file} not found!"
-            self._process_xyz_file(xyz_file, charge, multiplicity)
-        if basis is None:
-            # Default bais is STO-3G
-            self.basis = "sto-3g"
-        else:
-            self.basis = basis
+    geometry: list = None
+    charge: int = 0
+    multiplicity: int = 1
+    basis: str = "sto-3g"
+    xyz_file: str = None
 
-        self.nelec = None  #: Total number of electrons for the molecule
-        self.norb = None  #: Number of molecular orbitals considered for the molecule
-        self.nso = None  #: Number of molecular spin-orbitals considered for the molecule
-        self.e_hf = None  #: Hartree-Fock energy
-        self.oei = None  #: One-electron integrals
-        self.tei = None  #: Two-electron integrals, order follows the second quantization notation
+    nelec: int = field(default=None, init=False)  #: Total number of electrons for the molecule
+    norb: int = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
+    nso: int = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
+    e_hf: float = field(default=None, init=False)  #: Hartree-Fock energy
+    oei: np.ndarray = field(default=None, init=False)  #: One-electron integrals
+    tei: np.ndarray = field(
+        default=None, init=False
+    )  #: Two-electron integrals, order follows the second quantization notation
 
-        self.ca = None
-        self.pa = None
-        self.da = None
-        self.nalpha = None
-        self.nbeta = None
-        self.e_nuc = None
-        self.overlap = None
-        self.eps = None
-        self.fa = None
-        self.hcore = None
-        self.ja = None
-        self.ka = None
-        self.aoeri = None
+    ca: np.ndarray = field(default=None, init=False)
+    pa: np.ndarray = field(default=None, init=False)
+    da: np.ndarray = field(default=None, init=False)
+    nalpha: int = field(default=None, init=False)
+    nbeta: int = field(default=None, init=False)
+    e_nuc: float = field(default=None, init=False)
+    overlap: np.ndarray = field(default=None, init=False)
+    eps: np.ndarray = field(default=None, init=False)
+    fa: np.ndarray = field(default=None, init=False)
+    hcore: np.ndarray = field(default=None, init=False)
+    ja: np.ndarray = field(default=None, init=False)
+    ka: np.ndarray = field(default=None, init=False)
+    aoeri: np.ndarray = field(default=None, init=False)
 
-        # For HF embedding
-        self.active = active  #: Iterable of molecular orbitals included in the active space
-        self.frozen = None  #: Iterable representing the occupied molecular orbitals removed from the simulation
+    # For HF embedding
+    active: list = None  #: Iterable of molecular orbitals included in the active space
+    frozen: list = field(
+        default=None, init=False
+    )  #: Iterable representing the occupied molecular orbitals removed from the simulation
 
-        self.inactive_energy = None
-        self.embed_oei = None
-        self.embed_tei = None
+    inactive_energy: float = field(default=None, init=False)
+    embed_oei: np.ndarray = field(default=None, init=False)
+    embed_tei: np.ndarray = field(default=None, init=False)
 
-        self.n_active_e = None  #: Number of electrons included in the active space if HF embedding is used
-        self.n_active_orbs = None  #: Number of spin-orbitals in the active space if HF embedding is used
+    n_active_e: int = field(
+        default=None, init=False
+    )  #: Number of electrons included in the active space if HF embedding is used
+    n_active_orbs: int = field(
+        default=None, init=False
+    )  #: Number of spin-orbitals in the active space if HF embedding is used
 
-    def _process_xyz_file(self, xyz_file, charge, multiplicity):
+    # Runs after init
+    def __post_init__(self):
+        if self.xyz_file is not None:
+            self._process_xyz_file()
+
+    def _process_xyz_file(self):
         """
-        Reads a .xyz file to obtain and set the molecular coordinates (in OpenFermion format),
-            charge, and multiplicity
-
-        Args:
-            xyz_file: .xyz file for molecule. Comment line should follow "{charge} {multiplicity}"
+        Reads the .xyz file given when defining the Molecule to obtain the molecular coordinates (in OpenFermion format),
+        charge, and multiplicity
         """
-        with open(xyz_file, encoding="utf-8") as file_handler:
+        assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
+        with open(self.xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
             _n_atoms = int(file_handler.readline())  # Not needed/used
 
@@ -97,9 +100,8 @@ class Molecule:
             if len(split_line) == 2:
                 # Format of comment line matches (charge, multiplicity):
                 _charge, _multiplicity = split_line
-            else:
-                # Otherwise, use the default (from __init__) values of 0 and 1
-                _charge, _multiplicity = charge, multiplicity
+                self.charge = _charge
+                self.multiplicity = _multiplicity
 
             # Start reading xyz coordinates from the 3rd line onwards
             _geometry = []
@@ -108,10 +110,6 @@ class Molecule:
                 # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
                 atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
                 _geometry.append(tuple(atom_xyz))
-
-        # Set the class attributes
-        self.charge = _charge
-        self.multiplicity = _multiplicity
         self.geometry = _geometry
 
     def run_pyscf(self, max_scf_cycles=50):
@@ -321,8 +319,10 @@ class Molecule:
         , ``embed_oei``, and ``embed_tei``.
 
         Args:
-            active (list): Iterable representing the active-space for quantum simulation
-            frozen (list): Iterable representing the *occupied* orbitals to be removed from the simulation
+            active (list): Iterable representing the active-space for quantum simulation. Uses the ``Molecule.active``
+                class attribute if not given.
+            frozen (list): Iterable representing the occupied orbitals to be removed from the simulation. Depends on the
+                `active` argument if not given.
         """
         # Default arguments for active and frozen if no arguments given
         if active is None and frozen is None:
