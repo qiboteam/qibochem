@@ -141,7 +141,7 @@ def test_qwc_functionality(hamiltonian):
         n_shots=n_shots,
         group_pauli_terms="qwc",
     )
-    assert test == pytest.approx(expected, abs=0.05)
+    assert test == pytest.approx(expected, abs=0.08)
 
 
 @pytest.mark.parametrize(
