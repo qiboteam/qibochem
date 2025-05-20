@@ -15,7 +15,6 @@ from qibochem.measurement.optimization import measurement_basis_rotations
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
     allocate_shots_by_variance,
-    coefficients_sum,
 )
 
 
@@ -79,7 +78,7 @@ def expectation_from_samples(
     circuit: qibo.models.Circuit,
     hamiltonian: SymbolicHamiltonian,
     n_shots: int = 1000,
-    group_pauli_terms=None,
+    grouping=None,
     n_shots_per_pauli_term: bool = True,
     shot_allocation=None,
 ) -> float:
@@ -90,7 +89,7 @@ def expectation_from_samples(
         circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
         n_shots (int): Number of times the circuit is run. Default: ``1000``
-        group_pauli_terms (str): Whether or not to group Hamiltonian terms together to reduce the measurement
+        grouping (str): Whether or not to group Hamiltonian terms together to reduce the measurement
             cost. Available options: ``None``: (Default) No grouping of Hamiltonian terms, and
             ``"qwc"``: Terms that commute qubitwise are grouped together
         n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
@@ -104,7 +103,7 @@ def expectation_from_samples(
         float: Hamiltonian expectation value for the given circuit using sample measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
-    grouped_terms = measurement_basis_rotations(hamiltonian, grouping=group_pauli_terms)
+    grouped_terms = measurement_basis_rotations(hamiltonian, grouping=grouping)
 
     # Check shot_allocation argument if not using n_shots_per_pauli_term
     if not n_shots_per_pauli_term:
@@ -130,12 +129,27 @@ def expectation_from_samples(
     return total
 
 
-def vmsa_energy(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_shots, grouping=None):
+def expectation_variance(circuit, hamiltonian, n_trial_shots, grouping):
+    """
+    Calculate the variance in the expectation value of a single Hamiltonian term group
+    """
+    # TODO: This is ugly...!!! How to improve upon it?
+    sample_results = [
+        expectation_from_samples(circuit, hamiltonian, n_shots=1, grouping=grouping) for _ in range(n_trial_shots)
+    ]
+    sample_mean = sum(sample_results) / n_trial_shots
+    sample_variance = sum((_x - sample_mean) ** 2 for _x in sample_results) / (n_trial_shots - 1)
+    return sample_mean, sample_variance
+
+
+def v_expectation(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
     """
     Loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated according to the
-    Variance-Minimized Shot Assignment (VMSA) strategy suggested in the reference paper (see below). Essentially, a
-    uniform number of trial shots are first used to find the sample variance for each term in the Hamiltonian. The
-    remaining shots are then allocated to the terms
+    Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches suggested in the
+    reference paper (see below). Essentially, a uniform number of trial shots are first used to find the sample variance
+    for each term in the Hamiltonian. For the VMSA method, all the remaining shots after allocated after obtaining the
+    sample variance of each Hamiltonian term (group), while for the VPSR method, a sufficient number of shots are
+    allocated to each term (group) to keep their variance below a certain threshold, i.e. not all shots are allocated.
 
     Args:
         circuit_parameters (np.ndarray): Circuit parameters
@@ -145,99 +159,42 @@ def vmsa_energy(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_shots
         n_trial_shots (int): Number of shots to use for finding the sample variance for each Hamiltonian term
         grouping (str): Whether or not to group Hamiltonian terms together. Available options: ``None``: (Default) No
             grouping of Hamiltonian terms, and ``"qwc"``: Terms that commute qubitwise are grouped together
+        method (str): Which variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
 
     Returns:
-        float: Hamiltonian expectation value
+        float: Hamiltonian expectation value obtained using a variance-based shot allocation scheme
 
     Reference:
-        1.
+        1. L. Zhu, S. Liang, C. Yang, X. Li, *Optimizing Shot Assignment in Variational Quantum Eigensolver
+        Measurement*, Journal of Chemical Theory and Computation, 2024, 20, 2390-2403
+        (`link <https://pubs.acs.org/doi/10.1021/acs.jctc.3c01113>`__)
     """
-    # TODO: Add reference in docstring
-    # TODO: Add input checks: n_trial_shots * nH terms <= n_shots
-    # TODO: Change group_pauli_terms to grouping everywhere else
-
+    # Input check: method is valid
+    assert method in ("vmsa", "vpsr"), f"Unknown shot assignment method ({method}) called"
     circuit.set_parameters(circuit_parameters)
     # Split up Hamiltonian into individual (groups of) terms to get the variance of each term (group)
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping=grouping)
-    # Sample variance for the first n_trial_shots
-    initial_mean_values = [
-        expectation_from_samples(
-            circuit, SymbolicHamiltonian(expression), n_shots=n_trial_shots, group_pauli_terms=grouping
-        )
+    # Input check: n_trial_shots * nH terms <= n_shots
+    assert (
+        n_trial_shots * len(grouped_terms) <= n_shots
+    ), f"n(Trial shots = {n_trial_shots}) * n(Term groups = {len(grouped_terms)}) > n(Total shots = {n_shots})"
+    # Sample means and variances for each term group, using n_trial_shots
+    sample_results = [
+        expectation_variance(circuit, SymbolicHamiltonian(expression), n_trial_shots, grouping=grouping)
         for expression, _ in grouped_terms
     ]
-    # TODO: Is this correct? (!!!)
-    variance_values = [
-        coefficients_sum(expression) ** 2 - mean**2 for mean, (expression, _) in zip(initial_mean_values, grouped_terms)
-    ]
+    sample_means = [result[0] for result in sample_results]
+    sample_variances = [result[1] for result in sample_results]
     # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
-    remaining_shot_allocation = vmsa_shot_allocation(n_shots, n_trial_shots, variance_values)
+    remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
-        expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, group_pauli_terms=grouping)
+        expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, grouping=grouping)
         for (expression, _), _n in zip(grouped_terms, remaining_shot_allocation)
     ]
     # Combine the results from the initial n_trial_shots and the remaining shots
     sum_values = [
         n_trial_shots * initial_mean + _n * new_mean
-        for initial_mean, _n, new_mean in zip(initial_mean_values, remaining_shot_allocation, new_mean_values)
+        for initial_mean, _n, new_mean in zip(sample_means, remaining_shot_allocation, new_mean_values)
     ]
     final_mean_values = [value / (n_trial_shots + _n) for value, _n in zip(sum_values, remaining_shot_allocation)]
-    return sum(final_mean_values) + constant_term(hamiltonian)
-
-
-def vpsr_energy(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_shots, grouping=None):
-    """
-    Loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated according to the
-    Variance-Preserved Shot Reduction (VPSR) strategy suggested in the reference paper (see below). Essentially, a
-    uniform number of trial shots are first used to find the sample variance for each term in the Hamiltonian. A
-    sufficient number of shots are then allocated to each term (group) to keep their variance below a certain threshold.
-    The key difference to the VMSA strategy is that not all remaining shots will be allocated.
-
-    Args:
-        circuit_parameters (np.ndarray): Circuit parameters
-        circuit (:class:`qibo.models.Circuit`): Circuit ansatz for running VQE
-        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
-        n_shots (int): Total number of shots for finding the Hamiltonian expectation value
-        n_trial_shots (int): Number of shots to use for finding the sample variance for each Hamiltonian term
-        grouping (str): Whether or not to group Hamiltonian terms together. Available options: ``None``: (Default) No
-            grouping of Hamiltonian terms, and ``"qwc"``: Terms that commute qubitwise are grouped together
-
-    Returns:
-        float: Hamiltonian expectation value
-
-    Reference:
-        1.
-    """
-    # TODO: Can probably combine this function with VMSA, but how to keep track of total shots used...?
-
-    circuit.set_parameters(circuit_parameters)
-    # Split up Hamiltonian into individual (groups of) terms to get the variance of each term (group)
-    grouped_terms = measurement_basis_rotations(hamiltonian, grouping=grouping)
-    # Sample variance for the first n_trial_shots
-    initial_mean_values = [
-        expectation_from_samples(
-            circuit, SymbolicHamiltonian(expression), n_shots=n_trial_shots, group_pauli_terms=grouping
-        )
-        for expression, _ in grouped_terms
-    ]
-    # TODO: Is this correct? (!!!)
-    variance_values = [
-        coefficients_sum(expression) ** 2 - mean**2 for mean, (expression, _) in zip(initial_mean_values, grouped_terms)
-    ]
-    # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
-    remaining_shot_allocation = vpsr_shot_allocation(n_shots, n_trial_shots, variance_values)
-    new_mean_values = [
-        expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, group_pauli_terms=grouping)
-        for (expression, _), _n in zip(grouped_terms, remaining_shot_allocation)
-    ]
-    # Combine the results from the initial n_trial_shots and the remaining shots
-    sum_values = [
-        n_trial_shots * initial_mean + _n * new_mean
-        for initial_mean, _n, new_mean in zip(initial_mean_values, remaining_shot_allocation, new_mean_values)
-    ]
-    final_mean_values = [value / (n_trial_shots + _n) for value, _n in zip(sum_values, remaining_shot_allocation)]
-
-    # How many shots used?
-    shots_used = len(initial_mean_values) * n_trial_shots + sum(remaining_shot_allocation)
-
     return sum(final_mean_values) + constant_term(hamiltonian)

@@ -3,7 +3,6 @@ Functions for optimising the measurement cost of obtaining the expectation value
 """
 
 import networkx as nx
-import numpy as np
 from qibo import gates
 from qibo.symbols import X, Y, Z
 from sympy.core.numbers import One
