@@ -153,3 +153,35 @@ def test_expectation_variance(hamiltonian, grouping, expected_variance):
     sample_mean, sample_variance = expectation_variance(circuit, hamiltonian, n_trial_shots, grouping)
     assert sample_mean == pytest.approx(expectation(circuit, hamiltonian), abs=0.25)
     assert sample_variance == pytest.approx(expected_variance, abs=0.25)
+
+
+@pytest.mark.parametrize(
+    "hamiltonian,grouping",
+    [
+        (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), None),
+        (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), "qwc"),
+        (SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)), None),
+        (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "qwc"),
+    ],
+)
+def test_v_expectation(hamiltonian, grouping):
+    """Small scale tests of variance-based expectation value evaluation"""
+    n_qubits = 3
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    expected = expectation(circuit, hamiltonian)
+    n_shots = 2000
+    n_trial_shots = 200
+    test = v_expectation(
+        circuit,
+        hamiltonian,
+        n_trial_shots=n_trial_shots,
+        n_shots=n_shots,
+        grouping=grouping,
+    )
+    print(test)
+    print(expected)
+    raise SyntaxError
+    assert test == pytest.approx(expected, abs=0.08)

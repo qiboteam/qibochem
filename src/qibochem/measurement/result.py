@@ -142,7 +142,7 @@ def expectation_variance(circuit, hamiltonian, n_trial_shots, grouping):
     return sample_mean, sample_variance
 
 
-def v_expectation(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
+def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
     """
     Loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated according to the
     Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches suggested in the
@@ -152,7 +152,6 @@ def v_expectation(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_sho
     allocated to each term (group) to keep their variance below a certain threshold, i.e. not all shots are allocated.
 
     Args:
-        circuit_parameters (np.ndarray): Circuit parameters
         circuit (:class:`qibo.models.Circuit`): Circuit ansatz for running VQE
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
         n_shots (int): Total number of shots for finding the Hamiltonian expectation value
@@ -171,7 +170,6 @@ def v_expectation(circuit_parameters, circuit, hamiltonian, n_shots, n_trial_sho
     """
     # Input check: method is valid
     assert method in ("vmsa", "vpsr"), f"Unknown shot assignment method ({method}) called"
-    circuit.set_parameters(circuit_parameters)
     # Split up Hamiltonian into individual (groups of) terms to get the variance of each term (group)
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping=grouping)
     # Input check: n_trial_shots * nH terms <= n_shots
