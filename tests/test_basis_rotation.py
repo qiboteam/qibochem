@@ -8,7 +8,6 @@ from qibo import Circuit, gates, models
 
 from qibochem.ansatz import basis_rotation
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 def test_unitary():
