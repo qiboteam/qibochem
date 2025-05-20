@@ -8,9 +8,12 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation, expectation_from_samples
+from qibochem.measurement import expectation, expectation_from_samples, v_expectation
 from qibochem.measurement.optimization import measurement_basis_rotations
-from qibochem.measurement.result import pauli_term_measurement_expectation
+from qibochem.measurement.result import (
+    expectation_variance,
+    pauli_term_measurement_expectation,
+)
 
 
 @pytest.mark.parametrize(
@@ -100,7 +103,7 @@ def test_qwc_functionality(hamiltonian):
         circuit,
         hamiltonian,
         n_shots=n_shots,
-        group_pauli_terms="qwc",
+        grouping="qwc",
     )
     assert test == pytest.approx(expected, abs=0.08)
 
@@ -129,6 +132,24 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
         hamiltonian,
         n_shots_per_pauli_term=n_shots_per_pauli_term,
         n_shots=n_shots,
-        group_pauli_terms="qwc",
+        grouping="qwc",
     )
     assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=threshold)
+
+
+@pytest.mark.parametrize(
+    "hamiltonian,grouping,expected_variance",
+    [
+        (SymbolicHamiltonian(X(0), nqubits=2), None, 0.0),
+        (SymbolicHamiltonian(X(0) + Z(0), nqubits=2), None, 1.0),
+        (SymbolicHamiltonian(Z(0) + X(0) * Z(1), nqubits=2), "qwc", 1.0),
+    ],
+)
+def test_expectation_variance(hamiltonian, grouping, expected_variance):
+    circuit = Circuit(2)
+    circuit.add(gates.H(0))
+    circuit.add(gates.X(1))
+    n_trial_shots = 100
+    sample_mean, sample_variance = expectation_variance(circuit, hamiltonian, n_trial_shots, grouping)
+    assert sample_mean == pytest.approx(expectation(circuit, hamiltonian), abs=0.25)
+    assert sample_variance == pytest.approx(expected_variance, abs=0.25)
