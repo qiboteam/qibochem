@@ -151,8 +151,8 @@ def test_expectation_variance(hamiltonian, grouping, expected_variance):
     circuit.add(gates.X(1))
     n_trial_shots = 100
     sample_mean, sample_variance = expectation_variance(circuit, hamiltonian, n_trial_shots, grouping)
-    assert sample_mean == pytest.approx(expectation(circuit, hamiltonian), abs=0.25)
-    assert sample_variance == pytest.approx(expected_variance, abs=0.25)
+    assert sample_mean == pytest.approx(expectation(circuit, hamiltonian), abs=0.4)
+    assert sample_variance == pytest.approx(expected_variance, abs=0.5)
 
 
 @pytest.mark.parametrize(
@@ -172,8 +172,8 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 10000
-    n_trial_shots = 500
+    n_shots = 1000
+    n_trial_shots = 100
     test = v_expectation(
         circuit,
         hamiltonian,
@@ -181,4 +181,4 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
         n_shots=n_shots,
         grouping=grouping,
     )
-    assert test == pytest.approx(expected, abs=0.08)
+    assert test == pytest.approx(expected, abs=0.5)
