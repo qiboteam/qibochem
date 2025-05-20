@@ -181,7 +181,4 @@ def test_v_expectation(hamiltonian, grouping):
         n_shots=n_shots,
         grouping=grouping,
     )
-    print(test)
-    print(expected)
-    raise SyntaxError
     assert test == pytest.approx(expected, abs=0.08)
