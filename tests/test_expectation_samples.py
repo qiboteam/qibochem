@@ -164,7 +164,7 @@ def test_expectation_variance(hamiltonian, grouping, expected_variance):
         (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "qwc"),
     ],
 )
-def test_v_expectation(hamiltonian, grouping):
+def test_v_expectation_vmsa(hamiltonian, grouping):
     """Small scale tests of variance-based expectation value evaluation"""
     n_qubits = 3
     circuit = Circuit(n_qubits)
@@ -172,8 +172,8 @@ def test_v_expectation(hamiltonian, grouping):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 2000
-    n_trial_shots = 200
+    n_shots = 10000
+    n_trial_shots = 500
     test = v_expectation(
         circuit,
         hamiltonian,
