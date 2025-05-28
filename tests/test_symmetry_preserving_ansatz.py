@@ -107,7 +107,7 @@ def test_symm_preserving_circuit_noise_model(n_qubits, n_electrons):
     for _i in range(test_circuit.nqubits):
         test_circuit.add(gates.M(_i))
         # control_circuit.add(gates.M(_i))
-        
+
     # counts = control_circuit(nshots=int(1e3)).frequencies()
     # probs = {}
     # for bitstring, count in counts.items():
@@ -115,9 +115,9 @@ def test_symm_preserving_circuit_noise_model(n_qubits, n_electrons):
     test_counts = test_circuit(nshots=int(1e3)).frequencies()
     test_probs = {}
     for bitstring, count in test_counts.items():
-        test_probs[bitstring] = count/sum(test_counts.values())
+        test_probs[bitstring] = count / sum(test_counts.values())
 
-    ground_truth = {format(i, f'0{n_qubits}b'): 1/2**n_qubits for i in range(2**n_qubits)}
+    ground_truth = {format(i, f"0{n_qubits}b"): 1 / 2**n_qubits for i in range(2**n_qubits)}
     # assert keys match
     assert ground_truth.keys() == test_probs.keys()
     # assert values
