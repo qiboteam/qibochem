@@ -48,6 +48,15 @@ def test_expi_pauli(pauli_string):
     assert np.allclose(control_state, test_state)
 
 
+@pytest.mark.parametrize(
+    "pauli_string",
+    [
+        "Z1",
+        "Z0 Z1",
+        "X0 X1",
+        "Y0 Y1",
+    ],
+)
 def test_expi_pauli_noise_model(pauli_string):
     n_qubits = 2
     theta = 0.1
