@@ -102,8 +102,8 @@ def test_givens_excitation_circuit(excitation, expected):
 @pytest.mark.parametrize(
     "excitation, expected",
     [
-        ([0, 2], {'0000': 0.25, '0010': 0.25, '1000': 0.25, '1010': 0.25}),
-        ([0, 1, 2, 3], {format(i, '04b'): 1/16 for i in range(16)}),
+        ([0, 2], {"0000": 0.25, "0010": 0.25, "1000": 0.25, "1010": 0.25}),
+        ([0, 1, 2, 3], {format(i, "04b"): 1 / 16 for i in range(16)}),
     ],
 )
 def test_givens_excitation_circuit_noise_model(excitation, expected):
@@ -116,7 +116,7 @@ def test_givens_excitation_circuit_noise_model(excitation, expected):
     counts = test_circuit(nshots=int(1e3)).frequencies()
     probs = {}
     for bitstring, count in counts.items():
-        probs[bitstring] = count/sum(counts.values())
+        probs[bitstring] = count / sum(counts.values())
     # assert keys match
     assert probs.keys() == expected.keys()
     # assert values
@@ -127,7 +127,7 @@ def test_givens_excitation_circuit_noise_model(excitation, expected):
 def test_givens_excitation_errors():
     """Input excitations are single or double?"""
     with pytest.raises(NotImplementedError):
-        test_circuit = givens_excitation_circuit(4, list(range(6)))
+        _test_circuit = givens_excitation_circuit(4, list(range(6)))
 
 
 def test_givens_excitation_ansatz_h2():
@@ -166,7 +166,7 @@ def test_givens_excitation_ansatz_h2_noise_model():
     """Test the measurement outcomes of ucc_ansatz with noise model using H2"""
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     mol.run_pyscf()
-    
+
     lam = 1.0
     noise_model = NoiseModel()
     noise_model.add(DepolarizingError(lam))
@@ -190,15 +190,15 @@ def test_givens_excitation_ansatz_h2_noise_model():
     for _i in range(control_circuit.nqubits):
         control_circuit.add(gates.M(_i))
         test_circuit.add(gates.M(_i))
-        
+
     counts = control_circuit(nshots=int(1e3)).frequencies()
     probs = {}
     for bitstring, count in counts.items():
-        probs[bitstring] = count/sum(counts.values())
+        probs[bitstring] = count / sum(counts.values())
     test_counts = test_circuit(nshots=int(1e3)).frequencies()
     test_probs = {}
     for bitstring, count in test_counts.items():
-        test_probs[bitstring] = count/sum(test_counts.values())
+        test_probs[bitstring] = count / sum(test_counts.values())
     # assert keys match
     assert probs.keys() == test_probs.keys()
     # assert values
@@ -273,15 +273,15 @@ def test_givens_excitation_ansatz_embedding_noise_model():
     for _i in range(control_circuit.nqubits):
         control_circuit.add(gates.M(_i))
         test_circuit.add(gates.M(_i))
-        
+
     counts = control_circuit(nshots=int(1e3)).frequencies()
     probs = {}
     for bitstring, count in counts.items():
-        probs[bitstring] = count/sum(counts.values())
+        probs[bitstring] = count / sum(counts.values())
     test_counts = test_circuit(nshots=int(1e3)).frequencies()
     test_probs = {}
     for bitstring, count in test_counts.items():
-        test_probs[bitstring] = count/sum(test_counts.values())
+        test_probs[bitstring] = count / sum(test_counts.values())
     # assert keys match
     assert probs.keys() == test_probs.keys()
     # assert values
@@ -341,15 +341,15 @@ def test_ucc_ansatz_excitations_noise_model():
     for _i in range(control_circuit.nqubits):
         control_circuit.add(gates.M(_i))
         test_circuit.add(gates.M(_i))
-        
+
     counts = control_circuit(nshots=int(1e3)).frequencies()
     probs = {}
     for bitstring, count in counts.items():
-        probs[bitstring] = count/sum(counts.values())
+        probs[bitstring] = count / sum(counts.values())
     test_counts = test_circuit(nshots=int(1e3)).frequencies()
     test_probs = {}
     for bitstring, count in test_counts.items():
-        test_probs[bitstring] = count/sum(test_counts.values())
+        test_probs[bitstring] = count / sum(test_counts.values())
     # assert keys match
     assert probs.keys() == test_probs.keys()
     # assert values

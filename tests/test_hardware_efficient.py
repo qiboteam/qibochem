@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from qibo import Circuit, gates
-from qibo.optimizers import optimize
+from qibo import gates
 from qibo.noise import DepolarizingError, NoiseModel
+from qibo.optimizers import optimize
 
 from qibochem.ansatz import he_circuit
 from qibochem.driver import Molecule
@@ -48,14 +48,14 @@ def test_he_circuit_noise_model():
 
     for _i in range(test_circuit.nqubits):
         test_circuit.add(gates.M(_i))
-    
+
     counts = test_circuit(nshots=int(1e3)).frequencies()
     probs = {}
     probs = {}
     for bitstring, count in counts.items():
-        probs[bitstring] = count/sum(counts.values())
+        probs[bitstring] = count / sum(counts.values())
 
-    ground_truth = {format(i, f'0{n_qubits}b'): 1/2**n_qubits for i in range(2**n_qubits)}
+    ground_truth = {format(i, f"0{n_qubits}b"): 1 / 2**n_qubits for i in range(2**n_qubits)}
     # assert keys match
     assert probs.keys() == ground_truth.keys()
     # assert values
