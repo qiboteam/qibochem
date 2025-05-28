@@ -83,13 +83,14 @@ def a_gate_indices(n_qubits, n_electrons, x_gates):
 
 
 # Main function
-def symm_preserving_circuit(n_qubits, n_electrons):
+def symm_preserving_circuit(n_qubits, n_electrons, noise_model=None):
     """
     Symmetry-preserving circuit ansatz from Gard et al.
 
     Args:
         n_qubits (int): Number of qubits in the quantum circuit
         n_electrons (int): Number of electrons in the molecular system
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the symmetry-preserving ansatz
@@ -107,4 +108,6 @@ def symm_preserving_circuit(n_qubits, n_electrons):
     a_gates = [a_gate(qubit1, qubit2) for qubit1, qubit2 in a_gate_qubits]
     # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
     circuit.add(_gates for _a_gate in a_gates for _gates in _a_gate)
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit
