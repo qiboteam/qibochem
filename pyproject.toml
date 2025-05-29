@@ -15,11 +15,12 @@ classifiers = [
 packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-qibo = ">=0.2.16"
-openfermion = "^1.6"
+python = ">=3.10,<3.14"
+qibo = ">=0.2.18"
+openfermion = "^1.7"
 pyscf = "^2.7.0"
-scipy = "^1.13"
+scipy = "^1.15.2"
+numpy = "^2.0.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -39,17 +40,11 @@ nbsphinx = "^0.9.1"
 ipython = "^8.12.0"
 sphinx-copybutton = "^0.5.1"
 
-[tool.poetry.group.analysis]
-optional = true
-
-[tool.poetry.group.analysis.dependencies]
-pylint = ">=2.16.0"
-
 [tool.poetry.group.tests]
 optional = true
 
 [tool.poetry.group.tests.dependencies]
-pytest = ">=7.2.0"
+pytest = ">=7.2.1"
 pytest-cov = ">=4.0.0"
 pytest-env = ">=0.8.1"
 
@@ -60,6 +55,9 @@ lint-warnings = "pylint src --exit-zero"
 docs = "make -C doc html"
 docs-clean = "make -C doc clean"
 test-docs = "make -C doc doctest"
+
+[tool.pylint.reports]
+output-format = "colorized"
 
 [tool.pytest.ini_options]
 testpaths = ['tests/']
