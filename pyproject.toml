@@ -17,8 +17,8 @@ packages = [{ include = "qibochem", from = "src" }]
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
 qibo = ">=0.2.18"
-openfermion = "^1.7"
-pyscf = "^2.7.0"
+openfermion = ">=1.5,<1.7"
+pyscf = "^2.9.0"
 scipy = "^1.15.2"
 numpy = "^2.0.0"
 
