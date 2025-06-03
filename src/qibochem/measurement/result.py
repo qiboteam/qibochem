@@ -128,7 +128,7 @@ def expectation_from_samples(
     return total
 
 
-def sample_statistics(circuit, grouped_terms, n_shots=1000, grouping=None):
+def sample_statistics(circuit, grouped_terms, n_shots=100, grouping=None):
     """
     An alternative to `expectation_from_samples` to be used when both the expectation values and sample variances are of
     interest. Unlike `expectation_from_samples`, this function does not have the flexibility of allocating shots
@@ -141,9 +141,9 @@ def sample_statistics(circuit, grouped_terms, n_shots=1000, grouping=None):
             (:class:`sympy.Expr`), and the second is a list of measurement gates (:class:`qibo.gates.M`) that can be
             used to get the expectation value for the corresponding expression
         n_shots (int): Number of times the circuit is run for each Hamiltonian term (group). Default: ``1000``
-        grouping (str): Whether or not to group Hamiltonian terms together to reduce the measurement
-            cost. Available options: ``None``: (Default) No grouping of Hamiltonian terms, and
-            ``"qwc"``: Terms that commute qubitwise are grouped together
+        grouping (str): Whether or not to group Hamiltonian terms together to reduce the measurement cost. Available
+            options: ``None``: (Default) No grouping of Hamiltonian terms, and ``"qwc"``: Terms that commute qubitwise
+            are grouped together
 
     Returns:
         list: Sample expectation values for each Hamiltonian term (group) with respect to the given circuit
@@ -165,19 +165,6 @@ def sample_statistics(circuit, grouped_terms, n_shots=1000, grouping=None):
         expectation_values.append(sample_mean)
         expectation_variances.append(sample_variance)
     return expectation_values, expectation_variances
-
-
-def expectation_variance(circuit, hamiltonian, n_trial_shots, grouping):
-    """
-    Calculate the variance in the expectation value of a single Hamiltonian term group
-    """
-    # TODO: This is ugly...!!! How to improve upon it?
-    sample_results = [
-        expectation_from_samples(circuit, hamiltonian, n_shots=1, grouping=grouping) for _ in range(n_trial_shots)
-    ]
-    sample_mean = sum(sample_results) / n_trial_shots
-    sample_variance = sum((_x - sample_mean) ** 2 for _x in sample_results) / (n_trial_shots - 1)
-    return sample_mean, sample_variance
 
 
 def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
@@ -215,13 +202,7 @@ def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, m
         n_trial_shots * len(grouped_terms) <= n_shots
     ), f"n(Trial shots = {n_trial_shots}) * n(Term groups = {len(grouped_terms)}) > n(Total shots = {n_shots})"
     # Sample means and variances for each term group, using n_trial_shots
-    # sample_results = [
-    #     expectation_variance(circuit, SymbolicHamiltonian(expression), n_trial_shots, grouping=grouping)
-    #     for expression, _ in grouped_terms
-    # ]
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots, grouping=grouping)
-    # sample_means = [result[0] for result in sample_results]
-    # sample_variances = [result[1] for result in sample_results]
     # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
     remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
