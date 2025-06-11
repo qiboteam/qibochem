@@ -130,10 +130,10 @@ def expectation_from_samples(
 
 def sample_statistics(circuit, grouped_terms, n_shots=100):
     """
-    An alternative to `expectation_from_samples` to be used when both the expectation values and sample variances are of
-    interest. Unlike `expectation_from_samples`, this function does not have the flexibility of allocating shots
-    specifically to each term (group) in the Hamiltonian; a fixed number of shots (`n_shots`) will be allocated to each
-    term (group) instead.
+    An alternative to the :ref:`expectation_from_samples<expectation-samples>` function when both the expectation values
+    and sample variances are of interest. Unlike :ref:`expectation_from_samples<expectation-samples>`, this function
+    does not have the flexibility of allocating shots specifically to each term (group) in the Hamiltonian; a fixed
+    number of shots will be allocated to each term (group) instead.
 
     Args:
         circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
@@ -143,8 +143,8 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
         n_shots (int): Number of times the circuit is run for each Hamiltonian term (group). Default: ``1000``
 
     Returns:
-        list: Sample expectation values for each Hamiltonian term (group) with respect to the given circuit
-        list: Sample variances for each Hamiltonian term (group) with respect to the given circuit
+        tuple: A two-tuple of lists, corresponding to the sample means (expectation values) and variances for each
+        Hamiltonian term (group) with respect to the given circuit.
     """
     expectation_values, expectation_variances = [], []
     for expression, measurement_gates in grouped_terms:
@@ -166,12 +166,15 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
 
 def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
     """
-    Loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated according to the
-    Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches suggested in the
-    reference paper (see below). Essentially, a uniform number of trial shots are first used to find the sample variance
-    for each term in the Hamiltonian. For the VMSA method, all the remaining shots after allocated after obtaining the
-    sample variance of each Hamiltonian term (group), while for the VPSR method, a sufficient number of shots are
-    allocated to each term (group) to keep their variance below a certain threshold, i.e. not all shots are allocated.
+    An alternative loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated
+    according to the Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches
+    suggested in the reference paper (given below).
+
+    Essentially, a uniform number of trial shots are first used to find the sample variance for each term (group) in the
+    Hamiltonian. For the VMSA method, the remaining shots are all allocated to minimise the total variance (calculated
+    as the sum of the variances), while for the VPSR method, a sufficient number of shots are allocated to each term
+    (group) to keep their variance - and by extension, the total variance - below a certain threshold. Unlike in the
+    VMSA method, the VPSR method does not allocate all of the remaining shots.
 
     Args:
         circuit (:class:`qibo.models.Circuit`): Circuit ansatz for running VQE
