@@ -1,6 +1,7 @@
 """
 Hardware efficient ansatz, e.g. Kandala et al. (https://doi.org/10.1038/nature23879)
 """
+
 from typing import List, Optional
 
 from qibo import Circuit, gates
