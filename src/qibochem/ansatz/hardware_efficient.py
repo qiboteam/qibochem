@@ -24,7 +24,8 @@ def he_circuit(
         n_qubits (int): Number of qubits in the quantum circuit
         n_layers (int): Number of layers of rotation and entangling gates
         parameter_gates (list): Iterable of single-qubit rotation gates to be used in the ansatz. The gates should be
-            given as strings representing valid one-qubit gates. Default: ``["RY", "RZ"]``
+            given either as strings representing valid one-qubit gates, or as :class:`qibo.gates.Gate` directly.
+            Default: ``["RY", "RZ"]``
         entangling_gate (str or :qibo.gates.Gate:, optional): String representing the two-qubit entangling gate to be
             used in the ansatz; should be a valid two-qubit gate. Default: ``"CNOT"``
         architecture (str, optional): Architecture of the entangling layer, with the possible options: ``"diagonal"``,
@@ -41,10 +42,12 @@ def he_circuit(
     # Default variables
     if parameter_gates is None:
         parameter_gates = ["RY", "RZ"]
+    parameter_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in parameter_gates]
+
     circuit = Circuit(n_qubits, **kwargs)
     for _ in range(n_layers):
         # Rotation gates
-        circuit.add(getattr(gates, rgate)(qubit, theta=0.0) for qubit in range(n_qubits) for rgate in parameter_gates)
+        circuit.add(rgate(qubit, theta=0.0) for qubit in range(n_qubits) for rgate in parameter_gates)
         # Entangling gates
         circuit += entangling_layer(n_qubits, architecture, entangling_gate, closed_boundary, **kwargs)
     return circuit

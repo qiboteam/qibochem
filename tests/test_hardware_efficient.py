@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 from qibo import gates
 from qibo.optimizers import optimize
@@ -22,14 +21,14 @@ def test_he_circuit():
         # Entanglement gates
         gate_list += [getattr(gates, entanglement_gate)(_i, _i + 1) for _i in range(n_qubits - 1)]
     # Test function
-    test_circuit = he_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
+    test_circuit = he_circuit(n_qubits, n_layers, [gates.RX], gates.CNOT)
 
     # Check gates are correct
     assert all(
         control.name == test.name and control.target_qubits == test.target_qubits
         for control, test in zip(gate_list, list(test_circuit.queue))
     )
-    # Check that only two parametrised gates
+    # Check that only four parametrised gates
     assert len(test_circuit.get_parameters()) == n_layers * n_qubits * len(rotation_gates)
 
 
@@ -45,9 +44,9 @@ def test_vqe_he_ansatz():
 
     n_layers = 2
     n_qubits = mol.nso
-    rotation_gates = None
-    entanglement_gate = "CNOT"
-    circuit = he_circuit(n_qubits, n_layers, rotation_gates, entanglement_gate)
+    parameter_gates = None
+    entangling_gate = "CNOT"
+    circuit = he_circuit(n_qubits, n_layers, parameter_gates, entangling_gate)
 
     n_parameters = len(circuit.get_parameters())
     thetas = np.full(n_parameters, 0.25 * np.pi)
