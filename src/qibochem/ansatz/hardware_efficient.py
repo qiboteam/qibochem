@@ -9,12 +9,12 @@ from qibo.models.encodings import entangling_layer
 
 
 def he_circuit(
-    n_qubits,
-    n_layers,
-    parameter_gates=None,
-    entangling_gate="CNOT",
-    architecture="diagonal",
-    closed_boundary=True,
+    nqubits: int,
+    nlayers: int,
+    parameter_gates: Optional[List[str]] = None,
+    entangling_gate: str = "CNOT",
+    architecture: str = "diagonal",
+    closed_boundary: bool = True,
     **kwargs
 ):
     """
