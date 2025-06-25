@@ -23,8 +23,8 @@ def he_circuit(
     :class:`qibo.models.encodings.entangling_layer`.
 
     Args:
-        n_qubits (int): Number of qubits in the quantum circuit
-        n_layers (int): Number of layers of rotation and entangling gates
+        nqubits (int): Number of qubits in the quantum circuit.
+        nlayers (int): Number of layers of rotation and entangling gates.
         parameter_gates (list): Iterable of single-qubit rotation gates to be used in the ansatz. The gates should be
             given either as strings representing valid one-qubit gates, or as :class:`qibo.gates.Gate` directly.
             Default: ``["RY", "RZ"]``
