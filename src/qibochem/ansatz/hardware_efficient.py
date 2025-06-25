@@ -46,8 +46,8 @@ def he_circuit(
         parameter_gates = ["RY", "RZ"]
     parameter_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in parameter_gates]
 
-    circuit = Circuit(n_qubits, **kwargs)
-    for _ in range(n_layers):
+    circuit = Circuit(nqubits, **kwargs)
+    for _ in range(nlayers):
         # Rotation gates
         circuit.add(
             rgate(qubit, theta=0.0)  # pylint: disable=not-callable
