@@ -47,7 +47,11 @@ def he_circuit(
     circuit = Circuit(n_qubits, **kwargs)
     for _ in range(n_layers):
         # Rotation gates
-        circuit.add(rgate(qubit, theta=0.0) for qubit in range(n_qubits) for rgate in parameter_gates)
+        circuit.add(
+            rgate(qubit, theta=0.0)  # pylint: disable=not-callable
+            for qubit in range(n_qubits)
+            for rgate in parameter_gates
+        )
         # Entangling gates
         circuit += entangling_layer(n_qubits, architecture, entangling_gate, closed_boundary, **kwargs)
     return circuit
