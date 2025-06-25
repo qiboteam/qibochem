@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from qibo import gates
 from qibo.optimizers import optimize
