@@ -159,8 +159,8 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
 
     Returns:
         list: List of two-tuples; the first item in the tuple is a group of Pauli terms (:class:`sympy.Expr`), and the
-            second is a list of measurement gates (:class:`qibo.gates.M`) that can be used to get the expectation value
-            for the corresponding expression.
+        second is a list of measurement gates (:class:`qibo.gates.M`) that can be used to get the expectation value
+        for the corresponding expression.
     """
     result = []
     if grouping is None:
