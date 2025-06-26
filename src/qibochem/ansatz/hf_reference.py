@@ -50,7 +50,7 @@ def _bk_matrix(n: int):
 
 
 # Main function
-def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None, **kwargs):
+def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: Optional[str] = None, **kwargs):
     """Circuit to prepare a Hartree-Fock state
 
     Args:
