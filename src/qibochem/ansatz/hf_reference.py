@@ -7,25 +7,32 @@ from qibo.models.encodings import comp_basis_encoder
 
 
 # Helper functions for the Brayvi-Kitaev mapping
-def _bk_matrix_power2(n: int):
-    """Build the Brayvi-Kitaev matrix of dimension n (= power of 2) recursively
+def _bk_matrix_power2(dims: int):
+    """Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively.
 
     Args:
-        n: Size of BK matrix
+        dims (int): Size of Bravyi-Kitaev matrix.
+
+    Returns:
+        ndarray: Bravyi-Kitaev matrix of size ``dims x dims``.
     """
-    assert n > 0, "Dimension of BK matrix must be at least 1"
+    assert dims > 0, "Dimension of BK matrix must be at least 1"
     # Base case
     if n == 1:
         return np.ones((1, 1), dtype=np.int8)
+
     # Recursive definition
     smaller_bk_matrix = _bk_matrix_power2(n - 1)
-    top_right = np.zeros((2 ** (n - 2), 2 ** (n - 2)), dtype=np.int8)
+    top_right = np.zeros((2 ** (dims - 2), 2 ** (dims - 2)), dtype=np.int8)
     top_half = np.concatenate((smaller_bk_matrix, top_right), axis=1)
 
     bottom_left = np.concatenate(
-        (np.zeros(((2 ** (n - 2)) - 1, 2 ** (n - 2)), dtype=np.int8), np.ones((1, 2 ** (n - 2)), dtype=np.int8)), axis=0
+        (np.zeros(((2 ** (dims - 2)) - 1, 2 ** (dims - 2)), dtype=np.int8), 
+        np.ones((1, 2 ** (dims - 2)), dtype=np.int8)), 
+        axis=0
     )
     bottom_half = np.concatenate((bottom_left, smaller_bk_matrix), axis=1)
+    
     # Combine top and bottom half
     return np.concatenate((top_half, bottom_half), axis=0)
 
