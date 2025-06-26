@@ -27,12 +27,14 @@ def _bk_matrix_power2(dims: int):
     top_half = np.concatenate((smaller_bk_matrix, top_right), axis=1)
 
     bottom_left = np.concatenate(
-        (np.zeros(((2 ** (dims - 2)) - 1, 2 ** (dims - 2)), dtype=np.int8), 
-        np.ones((1, 2 ** (dims - 2)), dtype=np.int8)), 
-        axis=0
+        (
+            np.zeros(((2 ** (dims - 2)) - 1, 2 ** (dims - 2)), dtype=np.int8),
+            np.ones((1, 2 ** (dims - 2)), dtype=np.int8),
+        ),
+        axis=0,
     )
     bottom_half = np.concatenate((bottom_left, smaller_bk_matrix), axis=1)
-    
+
     # Combine top and bottom half
     return np.concatenate((top_half, bottom_half), axis=0)
 
