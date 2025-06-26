@@ -2,6 +2,8 @@
 Circuit representing a Hartree-Fock reference wave function
 """
 
+from typing import List, Optional
+
 import numpy as np
 from qibo.models.encodings import comp_basis_encoder
 
@@ -18,11 +20,11 @@ def _bk_matrix_power2(dims: int):
     """
     assert dims > 0, "Dimension of BK matrix must be at least 1"
     # Base case
-    if n == 1:
+    if dims == 1:
         return np.ones((1, 1), dtype=np.int8)
 
     # Recursive definition
-    smaller_bk_matrix = _bk_matrix_power2(n - 1)
+    smaller_bk_matrix = _bk_matrix_power2(dims - 1)
     top_right = np.zeros((2 ** (dims - 2), 2 ** (dims - 2)), dtype=np.int8)
     top_half = np.concatenate((smaller_bk_matrix, top_right), axis=1)
 
@@ -63,8 +65,8 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: Optional[str] = No
     """Circuit to prepare a Hartree-Fock state
 
     Args:
-        n_qubits (int): Number of qubits in the quantum circuit
-        n_electrons (int): Number of electrons in the molecular system
+        nqubits (int): Number of qubits in the quantum circuit
+        nelectrons (int): Number of electrons in the molecular system
         ferm_qubit_map (str, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or Brayvi-Kitaev
             (``"bk"``). Default value is ``"jw"``.
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
@@ -81,10 +83,10 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: Optional[str] = No
 
     # Occupation number of SOs
     mapped_occ_n = None
-    occ_n = np.concatenate((np.ones(n_electrons, dtype=np.int8), np.zeros(n_qubits - n_electrons, dtype=np.int8)))
+    occ_n = np.concatenate((np.ones(nelectrons, dtype=np.int8), np.zeros(nqubits - nelectrons, dtype=np.int8)))
     if ferm_qubit_map == "jw":
         mapped_occ_n = occ_n
     elif ferm_qubit_map == "bk":
-        mapped_occ_n = (_bk_matrix(n_qubits) @ occ_n) % 2
+        mapped_occ_n = (_bk_matrix(nqubits) @ occ_n) % 2
     # Convert the array to a list, then build/return the final circuit
-    return comp_basis_encoder(mapped_occ_n.tolist(), nqubits=n_qubits, **kwargs)
+    return comp_basis_encoder(mapped_occ_n.tolist(), nqubits=nqubits, **kwargs)

@@ -9,7 +9,7 @@ from qibochem.measurement import expectation
 
 
 def test_he_circuit():
-    n_qubits = 4
+    nqubits = 4
     n_layers = 1
     rotation_gates = ["RX"]
     entanglement_gate = "CNOT"
@@ -17,12 +17,12 @@ def test_he_circuit():
     for _ in range(n_layers):
         # Rotation gates
         gate_list += [
-            getattr(gates, rotation_gate)(_i, 0.0) for rotation_gate in rotation_gates for _i in range(n_qubits)
+            getattr(gates, rotation_gate)(_i, 0.0) for rotation_gate in rotation_gates for _i in range(nqubits)
         ]
         # Entanglement gates
-        gate_list += [getattr(gates, entanglement_gate)(_i, _i + 1) for _i in range(n_qubits - 1)]
+        gate_list += [getattr(gates, entanglement_gate)(_i, _i + 1) for _i in range(nqubits - 1)]
     # Test function
-    test_circuit = he_circuit(n_qubits, n_layers, [gates.RX], gates.CNOT)
+    test_circuit = he_circuit(nqubits, n_layers, [gates.RX], gates.CNOT)
 
     # Check gates are correct
     assert all(
@@ -30,7 +30,7 @@ def test_he_circuit():
         for control, test in zip(gate_list, list(test_circuit.queue))
     )
     # Check that only four parametrised gates
-    assert len(test_circuit.get_parameters()) == n_layers * n_qubits * len(rotation_gates)
+    assert len(test_circuit.get_parameters()) == n_layers * nqubits * len(rotation_gates)
 
 
 def test_vqe_he_ansatz():
@@ -44,10 +44,10 @@ def test_vqe_he_ansatz():
     hamiltonian = mol.hamiltonian()
 
     n_layers = 2
-    n_qubits = mol.nso
+    nqubits = mol.nso
     parameter_gates = None
     entangling_gate = "CNOT"
-    circuit = he_circuit(n_qubits, n_layers, parameter_gates, entangling_gate)
+    circuit = he_circuit(nqubits, n_layers, parameter_gates, entangling_gate)
 
     n_parameters = len(circuit.get_parameters())
     thetas = np.full(n_parameters, 0.25 * np.pi)
