@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import openfermion
+import pyscf
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
@@ -50,18 +51,18 @@ class Molecule:
     )  #: Two-electron integrals, order follows the second quantization notation
 
     hcore: np.ndarray = field(default=None, init=False)
+    aoeri: np.ndarray = field(default=None, init=False)
     ca: np.ndarray = field(default=None, init=False)
-    pa: np.ndarray = field(default=None, init=False)
-    da: np.ndarray = field(default=None, init=False)
+    # pa: np.ndarray = field(default=None, init=False)
+    # da: np.ndarray = field(default=None, init=False)
     nalpha: int = field(default=None, init=False)
     nbeta: int = field(default=None, init=False)
     e_nuc: float = field(default=None, init=False)
     overlap: np.ndarray = field(default=None, init=False)
     eps: np.ndarray = field(default=None, init=False)
-    fa: np.ndarray = field(default=None, init=False)
+    # fa: np.ndarray = field(default=None, init=False)
     ja: np.ndarray = field(default=None, init=False)
     ka: np.ndarray = field(default=None, init=False)
-    aoeri: np.ndarray = field(default=None, init=False)
 
     # For HF embedding
     active: list = None  #: Iterable of molecular orbitals included in the active space
@@ -113,9 +114,15 @@ class Molecule:
         self.geometry = _geometry
 
     def _calc_oei(self, mo_coeff):
-        _oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff)
-        _oei = np.einsum("ab,ac->bc", mo_coeff, _oei)
-        return _oei
+        oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff)
+        oei = np.einsum("ab,ac->bc", mo_coeff, oei)
+        return oei
+
+    def _calc_tei(self, mo_coeff):
+        tei = pyscf.ao2mo.kernel(self.aoeri, mo_coeff)
+        tei = np.einsum("pqrs->prsq", tei)
+        # tei = np.asarray(pyscf_mol.intor('int2e'))  # Alternative using PySCF mol directly
+        return tei
 
     @property
     def ca(self):
@@ -124,9 +131,26 @@ class Molecule:
     @ca.setter
     def ca(self, new_ca):
         # Update molecular integrals when MO coefficients are updated and hcore exists
-        if new_ca is not None and self.hcore is not None:
-            self.oei = self._calc_oei(new_ca)
+        if new_ca is not None:
+            if self.hcore is not None:
+                self.oei = self._calc_oei(new_ca)
+            if self.aoeri is not None:
+                self.tei = self._calc_tei(new_ca)
         self._ca = new_ca
+
+    @property
+    def pa(self):
+        ca_occ = self.ca[:, : self.nalpha]
+        return ca_occ @ ca_occ.T
+
+    @property
+    def da(self):
+        ca_occ = self.ca[:, : self.nalpha]
+        return self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+
+    #     ca_occ = self.ca[:, 0 : self.nalpha]
+    #     self.pa = ca_occ @ ca_occ.T
+    #     self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
     def run_pyscf(self, max_scf_cycles=50):
         """
@@ -135,8 +159,6 @@ class Molecule:
         Args:
             max_scf_cycles (int): Maximum number of SCF cycles in PySCF
         """
-        import pyscf  # pylint: disable=C0415
-
         # Set up and run PySCF calculation
         geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1]) for _atom in self.geometry)
         spin = self.multiplicity - 1  # PySCF spin is 2S
@@ -152,34 +174,35 @@ class Molecule:
         self.nelec = sum(pyscf_mol.nelec)
         self.e_hf = pyscf_job.e_tot  # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
-        self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
-        self.eps = np.asarray(pyscf_job.mo_energy)
-        self.fa = pyscf_job.get_fock()
-        self.hcore = pyscf_job.get_hcore()
+        # Alternative: hcore = np.asarray(pyscf_mol.intor("int1e_kin")) + np.asarray(pyscf_mol.intor("int1e_nuc"))
+        self.hcore = pyscf_job.get_hcore()  # 'Core' (potential + kinetic) integrals
+        self.aoeri = np.asarray(pyscf_mol.intor("int2e"))
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.norb = self.ca.shape[1]
         self.nso = 2 * self.norb
+
+        self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
+        self.eps = np.asarray(pyscf_job.mo_energy)
         self.ja = pyscf_job.get_j()
         self.ka = pyscf_job.get_k()
-        self.aoeri = np.asarray(pyscf_mol.intor("int2e"))
+        # self.fa = pyscf_job.get_fock()
 
-        ca_occ = self.ca[:, 0 : self.nalpha]
-        self.pa = ca_occ @ ca_occ.T
-        self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
+        # ca_occ = self.ca[:, 0 : self.nalpha]
+        # self.pa = ca_occ @ ca_occ.T
+        # self.da = self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
         # 1-electron integrals
-        oei = np.asarray(pyscf_mol.intor("int1e_kin")) + np.asarray(pyscf_mol.intor("int1e_nuc"))
-        # oei = np.asarray(pyscf_mol.get_hcore())
-        oei = np.einsum("ab,bc->ac", oei, self.ca)
-        oei = np.einsum("ab,ac->bc", self.ca, oei)
-        self.oei = oei
+        # oei =
+        # # oei = np.asarray(pyscf_mol.get_hcore())
+        # oei = np.einsum("ab,bc->ac", oei, self.ca)
+        # oei = np.einsum("ab,ac->bc", self.ca, oei)
+        # self.oei = oei
 
         # Two electron integrals
-        # tei = np.asarray(pyscf_mol.intor('int2e'))
-        eri = pyscf.ao2mo.kernel(pyscf_mol, self.ca)
-        eri4 = pyscf.ao2mo.restore("s1", eri, self.norb)
-        tei = np.einsum("pqrs->prsq", eri4)
-        self.tei = tei
+        # eri = pyscf.ao2mo.kernel(pyscf_mol, self.ca)
+        # eri4 = pyscf.ao2mo.restore("s1", eri, self.norb)
+        # tei = np.einsum("pqrs->prsq", eri4)
+        # self.tei = tei
 
     # def run_psi4(self, output=None):
     #     """
@@ -215,40 +238,37 @@ class Molecule:
 
     #     # Run HF calculation with PSI4
     #     psi4_mol = psi4.geometry(mol_string)
-    #     ehf, wavefn = psi4.energy("hf", return_wfn=True)
+    #     e_hf, wavefn = psi4.energy("hf", return_wfn=True)
+    #     mints = psi4.core.MintsHelper(wavefn.basisset())
+
+    #     # Fill in the class attributes
+    #     self.nalpha = wavefn.nalpha()
+    #     self.nbeta = wavefn.nbeta()
+    #     self.nelec = sum(wavefn.nalpha(), wavefn.nbeta())
+    #     self.e_hf = e_hf
+    #     self.e_nuc = psi4_mol.nuclear_repulsion_energy()
+    #     self.hcore = np.asarray(wavefn.H())
+    #     self.aoeri = np.asarray(mints.ao_eri())
+    #     self.ca = np.asarray(wavefn.Ca())  # MO coefficients
+    #     self.norb = wavefn.nmo()
+    #     self.nso = 2 * self.norb
+
+    #     self.overlap = np.asarray(wavefn.S())
+    #     self.eps = np.asarray(wavefn.epsilon_a())
+    #     self.ja = np.asarray(wavefn.jk().J()[0])
+    #     self.ka = np.asarray(wavefn.jk().K()[0])
+    #     self.fa = np.asarray(wavefn.Fa())
 
     #     # Save 1- and 2-body integrals
-    #     ca = wavefn.Ca()  # MO coefficients
-    #     self.ca = np.asarray(ca)
+    #     oei = wavefn.H()  #
     #     # 1- electron integrals
-    #     oei = wavefn.H()  # 'Core' (potential + kinetic) integrals
     #     # Convert from AO->MO basis
     #     oei = np.einsum("ab,bc->ac", oei, self.ca)
     #     oei = np.einsum("ab,ac->bc", self.ca, oei)
 
     #     # 2- electron integrals
-    #     mints = psi4.core.MintsHelper(wavefn.basisset())
     #     tei = np.asarray(mints.mo_eri(ca, ca, ca, ca))  # Need original C_a array, not a np.array
     #     tei = np.einsum("pqrs->prsq", tei)
-
-    #     # Fill in the class attributes
-    #     self.nelec = sum(wavefn.nalpha(), wavefn.nbeta())
-    #     self.nalpha = wavefn.nalpha()
-    #     self.nbeta = wavefn.nbeta()
-    #     self.e_hf = ehf
-    #     self.e_nuc = psi4_mol.nuclear_repulsion_energy()
-    #     self.norb = wavefn.nmo()
-    #     self.nso = 2 * self.norb
-    #     self.oei = oei
-    #     self.tei = tei
-    #     self.aoeri = np.asarray(mints.ao_eri())
-    #     self.overlap = np.asarray(wavefn.S())
-    #     self.eps = np.asarray(wavefn.epsilon_a())
-    #     self.fa = np.asarray(wavefn.Fa())
-    #     self.hcore = np.asarray(wavefn.H())
-
-    #     self.ja = np.asarray(wavefn.jk().J()[0])
-    #     self.ka = np.asarray(wavefn.jk().K()[0])
 
     #     ca_occ = self.ca[:, 0 : self.nalpha]
     #     self.pa = ca_occ @ ca_occ.T
