@@ -11,8 +11,8 @@ from qibochem.driver import Molecule
 from qibochem.measurement import expectation, expectation_from_samples, v_expectation
 from qibochem.measurement.optimization import measurement_basis_rotations
 from qibochem.measurement.result import (
-    expectation_variance,
     pauli_term_measurement_expectation,
+    sample_statistics,
 )
 
 
@@ -138,21 +138,22 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
 
 
 @pytest.mark.parametrize(
-    "hamiltonian,grouping,expected_variance",
+    "hamiltonian,grouping,expected_means,expected_variances",
     [
-        (SymbolicHamiltonian(X(0), nqubits=2), None, 0.0),
-        (SymbolicHamiltonian(X(0) + Z(0), nqubits=2), None, 1.0),
-        (SymbolicHamiltonian(Z(0) + X(0) * Z(1), nqubits=2), "qwc", 1.0),
+        (SymbolicHamiltonian(X(0), nqubits=2), None, [1.0], [0.0]),
+        (SymbolicHamiltonian(X(0) + Z(0), nqubits=2), None, [1.0, 0.0], [0.0, 0.0]),
+        (SymbolicHamiltonian(Z(0) + X(0) * Z(1), nqubits=2), "qwc", [-1.0, 0.0], [0.0, 0.0]),
     ],
 )
-def test_expectation_variance(hamiltonian, grouping, expected_variance):
+def test_sample_statistics(hamiltonian, grouping, expected_means, expected_variances):
     circuit = Circuit(2)
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
-    n_trial_shots = 100
-    sample_mean, sample_variance = expectation_variance(circuit, hamiltonian, n_trial_shots, grouping)
-    assert sample_mean == pytest.approx(expectation(circuit, hamiltonian), abs=0.4)
-    assert sample_variance == pytest.approx(expected_variance, abs=0.5)
+    n_trial_shots = 1000
+    grouped_terms = measurement_basis_rotations(hamiltonian, grouping)
+    sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
+    assert sample_means == pytest.approx(expected_means, abs=0.08)
+    assert sample_variances == pytest.approx(expected_variances, abs=0.1)
 
 
 @pytest.mark.parametrize(
@@ -172,7 +173,7 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 1000
+    n_shots = 3000
     n_trial_shots = 100
     test = v_expectation(
         circuit,
@@ -181,4 +182,4 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
         n_shots=n_shots,
         grouping=grouping,
     )
-    assert test == pytest.approx(expected, abs=0.5)
+    assert test == pytest.approx(expected, abs=0.08)
