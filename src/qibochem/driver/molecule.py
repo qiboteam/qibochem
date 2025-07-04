@@ -49,6 +49,7 @@ class Molecule:
         default=None, init=False
     )  #: Two-electron integrals, order follows the second quantization notation
 
+    hcore: np.ndarray = field(default=None, init=False)
     ca: np.ndarray = field(default=None, init=False)
     pa: np.ndarray = field(default=None, init=False)
     da: np.ndarray = field(default=None, init=False)
@@ -58,7 +59,6 @@ class Molecule:
     overlap: np.ndarray = field(default=None, init=False)
     eps: np.ndarray = field(default=None, init=False)
     fa: np.ndarray = field(default=None, init=False)
-    hcore: np.ndarray = field(default=None, init=False)
     ja: np.ndarray = field(default=None, init=False)
     ka: np.ndarray = field(default=None, init=False)
     aoeri: np.ndarray = field(default=None, init=False)
@@ -112,6 +112,22 @@ class Molecule:
                 _geometry.append(tuple(atom_xyz))
         self.geometry = _geometry
 
+    def _calc_oei(self, mo_coeff):
+        _oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff)
+        _oei = np.einsum("ab,ac->bc", mo_coeff, _oei)
+        return _oei
+
+    @property
+    def ca(self):
+        return self._ca
+
+    @ca.setter
+    def ca(self, new_ca):
+        # Update molecular integrals when MO coefficients are updated and hcore exists
+        if new_ca is not None and self.hcore is not None:
+            self.oei = self._calc_oei(new_ca)
+        self._ca = new_ca
+
     def run_pyscf(self, max_scf_cycles=50):
         """
         Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and molecular integrals
@@ -131,18 +147,18 @@ class Molecule:
         pyscf_job.run()
 
         # Save results from HF calculation
-        self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.nalpha = pyscf_mol.nelec[0]
         self.nbeta = pyscf_mol.nelec[1]
         self.nelec = sum(pyscf_mol.nelec)
         self.e_hf = pyscf_job.e_tot  # HF energy
         self.e_nuc = pyscf_mol.energy_nuc()
-        self.norb = self.ca.shape[1]
-        self.nso = 2 * self.norb
         self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
         self.eps = np.asarray(pyscf_job.mo_energy)
         self.fa = pyscf_job.get_fock()
         self.hcore = pyscf_job.get_hcore()
+        self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
+        self.norb = self.ca.shape[1]
+        self.nso = 2 * self.norb
         self.ja = pyscf_job.get_j()
         self.ka = pyscf_job.get_k()
         self.aoeri = np.asarray(pyscf_mol.intor("int2e"))
