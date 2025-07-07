@@ -95,7 +95,7 @@ def expectation_from_samples(
         n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
             Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
             to get the expectation value for each term (group of terms) in the Hamiltonian.
-        shot_allocation: Iterable containing the number of shots to be allocated to each term (or group of terms) in the
+        shot_allocation (list): Iterable containing the number of shots to be allocated to each term (or group of terms) in the
             Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``; shots are
             allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
 
@@ -115,41 +115,66 @@ def expectation_from_samples(
 
     total = constant_term(hamiltonian)
     for _i, (expression, measurement_gates) in enumerate(grouped_terms):
-        if measurement_gates:
-            _circuit = circuit.copy()
-            _circuit.add(measurement_gates)
+        _circuit = circuit.copy()
+        _circuit.add(measurement_gates)
 
-            # Number of shots used to run the circuit depends on n_shots_per_pauli_term
-            result = _circuit(nshots=n_shots if n_shots_per_pauli_term else shot_allocation[_i])
+        # Number of shots used to run the circuit depends on n_shots_per_pauli_term
+        result = _circuit(nshots=n_shots if n_shots_per_pauli_term else shot_allocation[_i])
 
-            frequencies = result.frequencies(binary=True)
+        frequencies = result.frequencies(binary=True)
+        if frequencies:  # Needed because might have cases whereby no shots allocated to a group
             qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
-            if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-                total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
+            total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
 
 
-def expectation_variance(circuit, hamiltonian, n_trial_shots, grouping):
+def sample_statistics(circuit, grouped_terms, n_shots=100):
     """
-    Calculate the variance in the expectation value of a single Hamiltonian term group
+    An alternative to the :ref:`expectation_from_samples<expectation-samples>` function when both the expectation values
+    and sample variances are of interest. Unlike :ref:`expectation_from_samples<expectation-samples>`, this function
+    does not have the flexibility of allocating shots specifically to each term (group) in the Hamiltonian; a fixed
+    number of shots will be allocated to each term (group) instead.
+
+    Args:
+        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
+        grouped_terms (list): List of two-tuples; the first item in the tuple is a group of Pauli terms
+            (:class:`sympy.Expr`), and the second is a list of measurement gates (:class:`qibo.gates.M`) that can be
+            used to get the expectation value for the corresponding expression
+        n_shots (int): Number of times the circuit is run for each Hamiltonian term (group). Default: ``1000``
+
+    Returns:
+        tuple: A two-tuple of lists, corresponding to the sample means (expectation values) and variances for each
+        Hamiltonian term (group) with respect to the given circuit.
     """
-    # TODO: This is ugly...!!! How to improve upon it?
-    sample_results = [
-        expectation_from_samples(circuit, hamiltonian, n_shots=1, grouping=grouping) for _ in range(n_trial_shots)
-    ]
-    sample_mean = sum(sample_results) / n_trial_shots
-    sample_variance = sum((_x - sample_mean) ** 2 for _x in sample_results) / (n_trial_shots - 1)
-    return sample_mean, sample_variance
+    expectation_values, expectation_variances = [], []
+    for expression, measurement_gates in grouped_terms:
+        _circuit = circuit.copy()
+        _circuit.add(measurement_gates)
+        result = _circuit(nshots=n_shots)
+        frequencies = result.frequencies(binary=True)
+        qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
+        # Calculate sample mean first, then iterate through the obtained result frequencies to get the sample variance
+        sample_mean = pauli_term_measurement_expectation(expression, frequencies, qubit_map)
+        sample_variance = sum(
+            (pauli_term_measurement_expectation(expression, {freq: count}, qubit_map) - sample_mean) ** 2
+            for freq, count in frequencies.items()
+        ) / (n_shots - 1)
+        expectation_values.append(sample_mean)
+        expectation_variances.append(sample_variance)
+    return expectation_values, expectation_variances
 
 
 def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
     """
-    Loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated according to the
-    Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches suggested in the
-    reference paper (see below). Essentially, a uniform number of trial shots are first used to find the sample variance
-    for each term in the Hamiltonian. For the VMSA method, all the remaining shots after allocated after obtaining the
-    sample variance of each Hamiltonian term (group), while for the VPSR method, a sufficient number of shots are
-    allocated to each term (group) to keep their variance below a certain threshold, i.e. not all shots are allocated.
+    An alternative loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated
+    according to the Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches
+    suggested in the reference paper (given below).
+
+    Essentially, a uniform number of trial shots are first used to find the sample variance for each term (group) in the
+    Hamiltonian. For the VMSA method, the remaining shots are all allocated to minimise the total variance (calculated
+    as the sum of the variances), while for the VPSR method, a sufficient number of shots are allocated to each term
+    (group) to keep their variance - and by extension, the total variance - below a certain threshold. Unlike in the
+    VMSA method, the VPSR method does not allocate all of the remaining shots.
 
     Args:
         circuit (:class:`qibo.models.Circuit`): Circuit ansatz for running VQE
@@ -177,12 +202,7 @@ def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, m
         n_trial_shots * len(grouped_terms) <= n_shots
     ), f"n(Trial shots = {n_trial_shots}) * n(Term groups = {len(grouped_terms)}) > n(Total shots = {n_shots})"
     # Sample means and variances for each term group, using n_trial_shots
-    sample_results = [
-        expectation_variance(circuit, SymbolicHamiltonian(expression), n_trial_shots, grouping=grouping)
-        for expression, _ in grouped_terms
-    ]
-    sample_means = [result[0] for result in sample_results]
-    sample_variances = [result[1] for result in sample_results]
+    sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
     remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
