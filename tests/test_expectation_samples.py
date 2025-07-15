@@ -149,7 +149,7 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
     circuit = Circuit(2)
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
-    n_trial_shots = 1000
+    n_trial_shots = 5000
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping)
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
