@@ -114,14 +114,17 @@ class Molecule:
         self.geometry = _geometry
 
     def _calc_oei(self, mo_coeff):
-        oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff)
-        oei = np.einsum("ab,ac->bc", mo_coeff, oei)
+        oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff, optimize=True)
+        oei = np.einsum("ab,ac->bc", mo_coeff, oei, optimize=True)
         return oei
 
     def _calc_tei(self, mo_coeff):
         tei = pyscf.ao2mo.kernel(self.aoeri, mo_coeff)
-        tei = np.einsum("pqrs->prsq", tei)
+        tei = np.einsum("pqrs->prsq", tei, optimize=True)
         # tei = np.asarray(pyscf_mol.intor('int2e'))  # Alternative using PySCF mol directly
+        # tei = np.einsum(
+        #     "up, vq, uvkl, kr, ls -> prsq", mo_coeff, mo_coeff, self.aoeri, mo_coeff, mo_coeff, optimize=True
+        # )  # NumPy alternative. From https://pycrawfordprogproj.readthedocs.io/en/latest/Project_04/Project_04.html
         return tei
 
     @property
@@ -160,6 +163,7 @@ class Molecule:
         geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1]) for _atom in self.geometry)
         spin = self.multiplicity - 1  # PySCF spin is 2S
         pyscf_mol = pyscf.gto.M(charge=self.charge, spin=spin, atom=geom_string, basis=self.basis, symmetry="C1")
+        pyscf_mol.verbose = 0
 
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
         pyscf_job.max_cycle = max_scf_cycles
@@ -178,9 +182,9 @@ class Molecule:
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.norb = self.ca.shape[1]
         self.nso = 2 * self.norb
+        self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
 
         # Currently unused properties?
-        # self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
         # self.ja = pyscf_job.get_j()
         # self.ka = pyscf_job.get_k()
         # self.fa = pyscf_job.get_fock()
@@ -234,8 +238,8 @@ class Molecule:
     #     self.ca = np.asarray(wavefn.Ca())  # MO coefficients
     #     self.norb = wavefn.nmo()
     #     self.nso = 2 * self.norb
-
     #     self.overlap = np.asarray(wavefn.S())
+
     #     self.ja = np.asarray(wavefn.jk().J()[0])
     #     self.ka = np.asarray(wavefn.jk().K()[0])
     #     self.fa = np.asarray(wavefn.Fa())
