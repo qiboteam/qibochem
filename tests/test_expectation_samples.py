@@ -173,8 +173,8 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 3000
-    n_trial_shots = 100
+    n_shots = 5000
+    n_trial_shots = 200
     test = v_expectation(
         circuit,
         hamiltonian,
