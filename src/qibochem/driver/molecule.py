@@ -357,6 +357,13 @@ class Molecule:
         self.n_active_orbs = 2 * len(self.active)
         self.n_active_e = self.nelec - 2 * len(self.frozen)
 
+    @staticmethod
+    def _filter_array(array, threshold):
+        """Helper function to filter out v. small values from an array"""
+        cp_array = np.copy(array)
+        cp_array[np.abs(array) < threshold] = 0.0
+        return cp_array
+
     def hamiltonian(
         self,
         ham_type=None,
@@ -364,6 +371,7 @@ class Molecule:
         tei=None,
         constant=None,
         ferm_qubit_map=None,
+        threshold=1e-12,
     ):
         """
         Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
@@ -385,6 +393,8 @@ class Molecule:
                 exists and is not ``None``, then ``inactive_energy`` is used.
             ferm_qubit_map (str): Which fermion to qubit transformation to use. Must be either ``"jw"`` (Default)
                 or ``"bk"``
+            threshold (float): Threshold at which the elements of ``oei``/``tei`` are ignored, i.e. set to 0.0.
+                Default: ``1e-12``
 
         Returns:
             :class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator`
@@ -403,6 +413,10 @@ class Molecule:
             ferm_qubit_map = "jw"
 
         constant += self.e_nuc  # Add nuclear repulsion energy
+
+        # Filter out v. small values
+        oei = self._filter_array(oei, threshold)
+        tei = self._filter_array(tei, threshold)
 
         # Start with an InteractionOperator
         ham = _fermionic_hamiltonian(oei, tei, constant)
