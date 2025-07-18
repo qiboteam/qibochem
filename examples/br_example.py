@@ -1,6 +1,6 @@
 """
 Example of the basis rotation circuit with H3+ molecule. Starts with the guess wave function from the core Hamiltonian,
-    and runs the VQE to obtain the HF energy.
+and runs the VQE to obtain the HF energy.
 """
 
 import numpy as np
@@ -25,20 +25,16 @@ F_p = A.dot(mol.hcore).dot(A)
 # Diagonalize F_p for eigenvalues and eigenvectors
 _e, C_p = np.linalg.eigh(F_p)
 # Transform C_p back into AO basis
-C = A.dot(C_p)
-# Form OEI/TEI with the (guess) MO coefficients
-oei = np.einsum("pQ, pP -> PQ", np.einsum("pq, qQ -> pQ", mol.hcore, C, optimize=True), C, optimize=True)
-# TEI code from https://pycrawfordprogproj.readthedocs.io/en/latest/Project_04/Project_04.html
-tei = np.einsum("up, vq, uvkl, kr, ls -> prsq", C, C, mol.aoeri, C, C, optimize=True)
+mo_coeff = A.dot(C_p)  # MO coefficients using a H_core guess
+mol.ca = mo_coeff  # Set the MOs in mol to the guess wave function
 
 # Molecular Hamiltonian with the guess OEI/TEI
-hamiltonian = mol.hamiltonian(oei=oei, tei=tei)
+hamiltonian = mol.hamiltonian()
 
 # Check that the hamiltonian with a HF reference ansatz doesn't yield the correct HF energy
 circuit = hf_circuit(mol.nso, mol.nelec)
-print(
-    f"\nElectronic energy: {expectation(circuit, hamiltonian):.8f} (From the H_core guess, should be > actual HF energy)"
-)
+print(f"Electronic energy: {expectation(circuit, hamiltonian):.8f} (From the H_core guess)")
+print(f"        HF energy: {mol.e_hf:.8f} (Hartree-Fock energy from PySCF)")
 
 
 def basis_rotation_circuit(mol, parameters=0.0):
@@ -63,7 +59,6 @@ br_circuit, qubit_parameters = basis_rotation_circuit(mol, parameters=0.1)
 vqe = VQE(br_circuit, hamiltonian)
 vqe_result = vqe.minimize(qubit_parameters)
 
-print(f" HF energy: {mol.e_hf:.8f}")
 print(f"VQE energy: {vqe_result[0]:.8f} (Basis rotation ansatz)")
 print()
 print("Optimized qubit parameters:\n", vqe_result[1])
