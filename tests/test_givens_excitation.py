@@ -4,7 +4,7 @@ Tests for the symmetry preserving ansatz from Gard et al. (DOI: https://doi.org/
 
 import numpy as np
 import pytest
-from qibo import Circuit, gates
+from qibo import gates
 
 from qibochem.ansatz import hf_circuit
 from qibochem.ansatz.givens_excitation import (
@@ -101,7 +101,7 @@ def test_givens_excitation_circuit(excitation, expected):
 def test_givens_excitation_errors():
     """Input excitations are single or double?"""
     with pytest.raises(NotImplementedError):
-        test_circuit = givens_excitation_circuit(4, list(range(6)))
+        _test_circuit = givens_excitation_circuit(4, list(range(6)))
 
 
 def test_givens_excitation_ansatz_h2():
