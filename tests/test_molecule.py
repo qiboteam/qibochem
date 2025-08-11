@@ -9,7 +9,7 @@ import openfermion
 import pytest
 from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import Z
+from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation
@@ -159,6 +159,18 @@ def test_expectation_value():
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert h2_ref_energy == pytest.approx(hf_energy)
+
+
+def test_fs_hamiltonian():
+    """Test folded spectrum Hamiltonian method"""
+    mol = Molecule([("H", (0.0, 0.0, 0.0))])  # Dummy molecule
+    hamiltonian = SymbolicHamiltonian(0.5 * Z(0) + 0.3 * X(1), nqubits=2)
+    omega = 1.1
+    folded = mol.fs_hamiltonian(omega, hamiltonian)
+    # Check matrix of the folded Hamiltonian (H - omega*I)^2
+    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(np.eye(2), X(1).matrix)
+    folded_matrix = (original_ham - omega * np.eye(4)) @ (original_ham - omega * np.eye(4))
+    assert np.allclose(folded.matrix, folded_matrix)
 
 
 @pytest.mark.parametrize(
