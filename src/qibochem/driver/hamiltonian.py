@@ -78,7 +78,7 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
 #         sympy expression representing the identity operator on nqubits
 #     """
 #     from qibo.symbols import I
-# 
+#
 #     op = 1
 #     for q in range(nqubits):
 #         op *= I(q)
@@ -87,11 +87,11 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
 # def fs_hamiltonian(hamiltonian, lambda_shift):
 #     """
 #     Constructs the folded spectrum Hamiltonian :math:`(H - \\lambda)^2`
-# 
+#
 #     Args:
 #         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Original Hamiltonian to be `folded'
 #         lambda_shift (float): Scalar value to `fold' the Hamiltonian about.
-# 
+#
 #     Returns:
 #         :class:`qibo.hamiltonians.SymbolicHamiltonian`: Folded spectrum Hamiltonian :math:`(H - \\lambda)^2`
 #     """

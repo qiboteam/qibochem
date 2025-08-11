@@ -437,12 +437,12 @@ class Molecule:
     def fs_hamiltonian(self, lambda_shift, hamiltonian=None):
         """
         Constructs the folded spectrum Hamiltonian :math:`(H - \\lambda)^2`
-    
+
         Args:
             lambda_shift (float): Scalar value to `fold' the Hamiltonian about.
             hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian to be `folded'. Defaults to
                 the molecular Hamiltonian (``Molecule.hamiltonian()``) if not given
-    
+
         Returns:
             :class:`qibo.hamiltonians.SymbolicHamiltonian`: Folded spectrum Hamiltonian :math:`(H - \\lambda)^2`
         """
