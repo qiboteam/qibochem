@@ -439,8 +439,8 @@ class Molecule:
         Constructs the folded spectrum Hamiltonian :math:`(H - \\omega)^2`
 
         Args:
-            omega (float): Scalar value to `fold' the Hamiltonian about.
-            hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian to be `folded'. Defaults to
+            omega (float): Scalar value to 'fold' the Hamiltonian about.
+            hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian to be 'folded'. Defaults to
                 the molecular Hamiltonian (``Molecule.hamiltonian()``) if not given
 
         Returns:
