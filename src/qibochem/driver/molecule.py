@@ -434,6 +434,22 @@ class Molecule:
             return _qubit_to_symbolic_hamiltonian(ham)
         raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
 
+    def fs_hamiltonian(self, omega, hamiltonian=None):
+        """
+        Constructs the folded spectrum Hamiltonian :math:`(H - \\omega)^2`
+
+        Args:
+            omega (float): Scalar value to 'fold' the Hamiltonian about.
+            hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian to be 'folded'. Defaults to
+                the molecular Hamiltonian (``Molecule.hamiltonian()``) if not given
+
+        Returns:
+            :class:`qibo.hamiltonians.SymbolicHamiltonian`: Folded spectrum Hamiltonian :math:`(H - \\omega)^2`
+        """
+        if hamiltonian is None:
+            hamiltonian = self.hamiltonian()
+        return (hamiltonian - omega) @ (hamiltonian - omega)
+
     @staticmethod
     def eigenvalues(hamiltonian):
         """
