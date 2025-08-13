@@ -1,7 +1,7 @@
 from qibo import Circuit, gates
 
 
-def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
+def qeb_circuit(n_qubits, excitation, theta=0.0, noise_model=None) -> Circuit:
     r"""
     Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation.
     This circuit ansatz is only valid for the Jordan-Wigner fermion to qubit mapping.
@@ -13,6 +13,7 @@ def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
         theta (float): UCC parameter. Defaults to 0.0
         trotter_steps (int): Number of Trotter steps; i.e. number of times this ansatz is applied
             with :math:`\theta = \theta` / ``trotter_steps``. Default: 1
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
@@ -44,4 +45,6 @@ def qeb_circuit(n_qubits, excitation, theta=0.0) -> Circuit:
     ry_angle = 2.0 * theta
     circuit.add(gates.RY(a_array[-1], ry_angle).controlled_by(*mcry_controls))
     circuit.add(gate for gate in fwd_gates[::-1])
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit

@@ -5,7 +5,7 @@ Hardware efficient ansatz, e.g. Kandala et al. (https://doi.org/10.1038/nature23
 from qibo import Circuit, gates
 
 
-def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
+def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ", noise_model=None):
     """
     Builds the generalized hardware-efficient ansatz, in which the rotation and entangling gates used can be
     chosen by the user
@@ -17,6 +17,7 @@ def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
             strings representing valid one-qubit gates. Default: ``["RY", "RZ"]``
         coupling_gates (str): String representing the two-qubit entangling gate to be used in the ansatz; should be a
             valid two-qubit gate. Default: ``"CZ"``
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the hardware-efficient ansatz
@@ -34,5 +35,8 @@ def he_circuit(n_qubits, n_layers, parameter_gates=None, coupling_gates="CZ"):
         # Entanglement gates
         circuit.add(getattr(gates, coupling_gates)(qubit, qubit + 1) for qubit in range(n_qubits - 1))
         circuit.add(getattr(gates, coupling_gates)(n_qubits - 1, 0))
+
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
 
     return circuit
