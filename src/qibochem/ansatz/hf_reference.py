@@ -2,7 +2,7 @@
 Circuit representing a Hartree-Fock reference wave function
 """
 
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 from qibo.models.encodings import comp_basis_encoder
