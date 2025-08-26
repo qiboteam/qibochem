@@ -13,3 +13,4 @@ This section provides examples of how to use Qibochem.
     ansatz
     measurement
     adaptive
+    excited_states
