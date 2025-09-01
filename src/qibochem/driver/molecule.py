@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-import scipy
 import openfermion
 import pyscf
+import scipy
 from pyscf import mp
 from qibo.hamiltonians import SymbolicHamiltonian
 
@@ -66,7 +66,7 @@ class Molecule:
     # ka: np.ndarray = field(default=None, init=False)  #: Exchange interaction between electrons
     # fa: np.ndarray = field(default=None, init=False)  #: Fock matrix
 
-    #MP2 attributes
+    # MP2 attributes
     mp2_E: float = field(default=None, init=False)
     mp2_t2: np.ndarray = field(default=None, init=False)
     mp2_rdm1: np.ndarray = field(default=None, init=False)
@@ -198,27 +198,27 @@ class Molecule:
         # self.ja = pyscf_job.get_j()
         # self.ka = pyscf_job.get_k()
 
-        if do_mp2==True:
-            
+        if do_mp2 == True:
+
             mp2 = mp.MP2(pyscf_job)
             self.mp2_E, self.mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
-            self.mp2_rdm1 = mp2.make_rdm1() # One body density matrix
-            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(self.mp2_rdm1[self.nalpha:, self.nalpha:])
+            self.mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
+            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(self.mp2_rdm1[self.nalpha :, self.nalpha :])
             self.mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
-            self.mp2_virtual_no = mp2_virtual_no[:,::-1]
+            self.mp2_virtual_no = mp2_virtual_no[:, ::-1]
             # Cast the natural orbitals in AO basis
-            v_ao = self.ca[:,self.nalpha:] @ self.mp2_virtual_no.transpose()
+            v_ao = self.ca[:, self.nalpha :] @ self.mp2_virtual_no.transpose()
             # Transform virtual-virtual block Fock matrix
-            f_tilde = (v_ao.transpose() @ self.fa @ v_ao)
+            f_tilde = v_ao.transpose() @ self.fa @ v_ao
             # Diagnolization of fock matrix in the NO basis
             new_v_e, w_no = scipy.linalg.eigh(f_tilde)
-            
+
             mp2_no_ca = np.zeros(self.ca.shape)
-            mp2_no_ca[:,:self.nalpha] = self.ca[:,:self.nalpha]
-            mp2_no_ca[:,self.nalpha:] = v_ao @ w_no
+            mp2_no_ca[:, : self.nalpha] = self.ca[:, : self.nalpha]
+            mp2_no_ca[:, self.nalpha :] = v_ao @ w_no
             self.ca = mp2_no_ca
-            
-            self.eps = np.append(self.eps[:self.nalpha], new_v_e)
+
+            self.eps = np.append(self.eps[: self.nalpha], new_v_e)
             self.oei = self._calc_oei(mp2_no_ca)
             self.tei = self._calc_tei(mp2_no_ca)
 
