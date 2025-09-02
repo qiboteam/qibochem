@@ -198,7 +198,7 @@ class Molecule:
         # self.ja = pyscf_job.get_j()
         # self.ka = pyscf_job.get_k()
 
-        if do_mp2 == True:
+        if do_mp2:
 
             mp2 = mp.MP2(pyscf_job)
             self.mp2_E, self.mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
