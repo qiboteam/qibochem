@@ -219,8 +219,6 @@ class Molecule:
             self.ca = mp2_no_ca
 
             self.eps = np.append(self.eps[: self.nalpha], new_v_e)
-            self.oei = self._calc_oei(mp2_no_ca)
-            self.tei = self._calc_tei(mp2_no_ca)
 
     # def run_psi4(self, output=None):
     #     """
