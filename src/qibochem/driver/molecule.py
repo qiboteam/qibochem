@@ -9,6 +9,7 @@ import numpy as np
 import openfermion
 import pyscf
 import scipy
+from pyscf import mp
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
@@ -199,7 +200,7 @@ class Molecule:
 
         if do_mp2:
 
-            mp2 = pyscf.mp.MP2(pyscf_job)
+            mp2 = mp.MP2(pyscf_job)
             self.mp2_E, self.mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
             self.mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
             mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(self.mp2_rdm1[self.nalpha :, self.nalpha :])
