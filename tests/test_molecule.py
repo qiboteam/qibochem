@@ -115,7 +115,7 @@ def test_mp2_natorbs():
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))], basis="def2-SVPD")
     mol.run_pyscf(do_mp2=True)
     # Check that the number of frozen natural orbitals are right
-    assert len(mol.mp2_virtual_no_occ) == mol.nso - mol.nelec
+    assert len(mol.mp2_virtual_no_occ) == (mol.nso - mol.nelec) / 2
     # Check that length of eps is right
     assert len(mol.eps) == 16
 
