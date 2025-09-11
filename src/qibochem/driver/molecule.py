@@ -206,7 +206,7 @@ class Molecule:
             self.mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
             self.mp2_virtual_no = mp2_virtual_no[:, ::-1]
             # Cast the natural orbitals in AO basis
-            v_ao = self.ca[:, self.nalpha :] @ self.mp2_virtual_no.transpose()
+            v_ao = self.ca[:, self.nalpha :] @ self.mp2_virtual_no
             # Transform virtual-virtual block Fock matrix
             f_tilde = v_ao.transpose() @ self.fa @ v_ao
             # Diagnolization of fock matrix in the NO basis
