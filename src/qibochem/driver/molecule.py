@@ -68,10 +68,10 @@ class Molecule:
 
     # MP2 attributes
     mp2_E: float = field(default=None, init=False)
-    mp2_t2: np.ndarray = field(default=None, init=False)
-    mp2_rdm1: np.ndarray = field(default=None, init=False)
-    mp2_virtual_no: np.ndarray = field(default=None, init=False)
-    mp2_virtual_no_occ: np.ndarray = field(default=None, init=False)
+    # mp2_t2: np.ndarray = field(default=None, init=False)
+    # mp2_rdm1: np.ndarray = field(default=None, init=False)
+    # mp2_virtual_no: np.ndarray = field(default=None, init=False)
+    # mp2_virtual_no_occ: np.ndarray = field(default=None, init=False)
 
     # For HF embedding
     active: list = None  #: Iterable of molecular orbitals included in the active space
@@ -201,13 +201,13 @@ class Molecule:
         if do_mp2:
 
             mp2 = mp.MP2(pyscf_job)
-            self.mp2_E, self.mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
-            self.mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
-            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(self.mp2_rdm1[self.nalpha :, self.nalpha :])
-            self.mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
-            self.mp2_virtual_no = mp2_virtual_no[:, ::-1]
+            self.mp2_E, mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
+            mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
+            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(mp2_rdm1[self.nalpha :, self.nalpha :])
+            mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
+            mp2_virtual_no = mp2_virtual_no[:, ::-1]
             # Cast the natural orbitals in AO basis
-            v_ao = self.ca[:, self.nalpha :] @ self.mp2_virtual_no
+            v_ao = self.ca[:, self.nalpha :] @ mp2_virtual_no
             # Transform virtual-virtual block Fock matrix
             f_tilde = v_ao.transpose() @ self.fa @ v_ao
             # Diagnolization of fock matrix in the NO basis
