@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from openfermion import QubitOperator, get_sparse_operator
-from qibo import models, gates
+from qibo import gates, models
 
 from qibochem.selected_ci.qsci import QSCI, QSCIConfig, _project_hamiltonian_subspace
 
