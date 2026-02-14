@@ -10,7 +10,7 @@ from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
 
 
-def expi_pauli(n_qubits, pauli_string, theta):
+def expi_pauli(n_qubits, pauli_string, theta, noise_model=None):
     """
     Build circuit representing exp(i*theta*pauli_string)
 
@@ -18,6 +18,7 @@ def expi_pauli(n_qubits, pauli_string, theta):
         n_qubits: No. of qubits in the quantum circuit
         pauli_string: String in the format: ``"X0 Z1 Y3 X11"``
         theta: Real number
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations
 
     Returns:
         circuit: Qibo Circuit object representing exp(i*theta*pauli_string)
@@ -49,10 +50,12 @@ def expi_pauli(n_qubits, pauli_string, theta):
     circuit.add(gates.CNOT(pauli_ops[_i + 1][0], pauli_ops[_i][0]) for _i in range(n_pauli_ops - 1))
     # 3. Change back to the Z basis
     circuit.add(_gate.dagger() for _gate in reversed(basis_changes))
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit
 
 
-def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None):
+def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map=None, noise_model=None):
     r"""
     Circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
@@ -64,6 +67,7 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
         trotter_steps (int): Number of Trotter steps; i.e. number of times the UCC ansatz is applied
             with :math:`\theta = \theta` / ``trotter_steps``. Default: 1
         ferm_qubit_map (str): Fermion-to-qubit transformation. Default is Jordan-Wigner (``"jw"``).
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
@@ -107,6 +111,8 @@ def ucc_circuit(n_qubits, excitation, theta=0.0, trotter_steps=1, ferm_qubit_map
                 n_qubits, pauli_string, -1.0j * coeff * theta / trotter_steps
             )  # Divide imag. coeff by 1.0j
             circuit += _circuit
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit
 
 
@@ -119,6 +125,7 @@ def ucc_ansatz(
     ferm_qubit_map=None,
     include_hf=True,
     use_mp2_guess=True,
+    noise_model=None,
 ):
     r"""
     Convenience function for buildng a circuit corresponding to the UCC ansatz with multiple excitations for a
@@ -138,6 +145,7 @@ def ucc_ansatz(
         include_hf (bool): Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
         use_mp2_guess (bool): Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter.
             Default: ``True``, will use the MP2 amplitudes as the initial guess parameters
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to an UCC ansatz
@@ -190,4 +198,6 @@ def ucc_ansatz(
         circuit = Circuit(n_orbs)
     for excitation, theta in zip(excitations, thetas):
         circuit += ucc_circuit(n_orbs, excitation, theta, trotter_steps=trotter_steps, ferm_qubit_map=ferm_qubit_map)
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit

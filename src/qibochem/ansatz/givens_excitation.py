@@ -76,7 +76,7 @@ def double_excitation_gate(sorted_orbitals, theta):
 
 
 # Main function
-def givens_excitation_circuit(n_qubits, excitation, theta=None):
+def givens_excitation_circuit(n_qubits, excitation, theta=None, noise_model=None):
     """
     Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al.
 
@@ -84,7 +84,8 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
         n_qubits (int): Number of qubits in the circuit
         excitation (list): Iterable of orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
-        theta (float): Rotation angle. Default: 0.0
+        theta (float, optional): Rotation angle. Default: 0.0
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit ansatz for a single Givens excitation
@@ -108,6 +109,8 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
         circuit.add(double_excitation_gate(sorted_orbitals, theta))
     else:
         raise NotImplementedError("Can only handle single and double excitations!")
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit
 
 
@@ -116,6 +119,7 @@ def givens_excitation_ansatz(
     excitations=None,
     include_hf=True,
     use_mp2_guess=True,
+    noise_model=None,
 ):
     """
     Convenience function for buildng a circuit corresponding to the Givens excitation ansatz with multiple excitations
@@ -129,6 +133,7 @@ def givens_excitation_ansatz(
         include_hf (bool): Whether or not to start the circuit with a Hartree-Fock circuit. Default: ``True``
         use_mp2_guess (bool): Whether to use MP2 amplitudes or a numpy zero array as the initial guess parameter.
             Default: ``True``, uses the MP2 amplitudes as the initial guess parameters
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.Circuit`: Circuit corresponding to a Givens excitation circuit ansatz
@@ -156,4 +161,6 @@ def givens_excitation_ansatz(
     for excitation in excitations:
         theta = mp2_amplitude(excitation, molecule.eps, molecule.tei) if use_mp2_guess else None
         circuit += givens_excitation_circuit(n_orbs, excitation, theta)
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit

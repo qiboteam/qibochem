@@ -50,7 +50,7 @@ def bk_matrix(n: int):
 
 
 # Main function
-def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
+def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None, noise_model=None):
     """Circuit to prepare a Hartree-Fock state
 
     Args:
@@ -58,6 +58,7 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
         n_electrons (int): Number of electrons in the molecular system
         ferm_qubit_map (str): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or Brayvi-Kitaev (``"bk"``).
             Default value is ``"jw"``.
+        noise_model (:class:`qibo.noise.NoiseModel`, optional): noise model applied to simulate noisy computations.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit initialized in a HF reference state
@@ -80,4 +81,6 @@ def hf_circuit(n_qubits, n_electrons, ferm_qubit_map=None):
     # Build the circuit using the mapped vector
     circuit = models.Circuit(n_qubits)
     circuit.add(gates.X(int(_i)) for _i, _mo in enumerate(mapped_occ_n) if _mo == 1)
+    if noise_model is not None:
+        circuit = noise_model.apply(circuit)
     return circuit
