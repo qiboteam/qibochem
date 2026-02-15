@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import openfermion
 import pyscf
+import scipy
+from pyscf import mp
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
@@ -63,6 +65,13 @@ class Molecule:
     # ja: np.ndarray = field(default=None, init=False)  #: Coulomb repulsion between electrons
     # ka: np.ndarray = field(default=None, init=False)  #: Exchange interaction between electrons
     # fa: np.ndarray = field(default=None, init=False)  #: Fock matrix
+
+    # MP2 attributes
+    mp2_E: float = field(default=None, init=False)
+    # mp2_t2: np.ndarray = field(default=None, init=False)
+    # mp2_rdm1: np.ndarray = field(default=None, init=False)
+    # mp2_virtual_no: np.ndarray = field(default=None, init=False)
+    # mp2_virtual_no_occ: np.ndarray = field(default=None, init=False)
 
     # For HF embedding
     active: list = None  #: Iterable of molecular orbitals included in the active space
@@ -152,7 +161,7 @@ class Molecule:
     #     ca_occ = self.ca[:, : self.nalpha]
     #     return self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
-    def run_pyscf(self, max_scf_cycles=50):
+    def run_pyscf(self, max_scf_cycles=50, do_mp2=False):
         """
         Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and molecular integrals
 
@@ -182,12 +191,34 @@ class Molecule:
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.norb = self.ca.shape[1]
         self.nso = 2 * self.norb
+        self.fa = pyscf_job.get_fock()
         self.overlap = np.asarray(pyscf_mol.intor("int1e_ovlp"))
 
         # Currently unused properties?
         # self.ja = pyscf_job.get_j()
         # self.ka = pyscf_job.get_k()
-        # self.fa = pyscf_job.get_fock()
+
+        if do_mp2:
+
+            mp2 = mp.MP2(pyscf_job)
+            self.mp2_E, mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
+            mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
+            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(mp2_rdm1[self.nalpha :, self.nalpha :])
+            mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
+            mp2_virtual_no = mp2_virtual_no[:, ::-1]
+            # Cast the natural orbitals in AO basis
+            v_ao = self.ca[:, self.nalpha :] @ mp2_virtual_no
+            # Transform virtual-virtual block Fock matrix
+            f_tilde = v_ao.transpose() @ self.fa @ v_ao
+            # Diagnolization of fock matrix in the NO basis
+            new_v_e, w_no = scipy.linalg.eigh(f_tilde)
+
+            mp2_no_ca = np.zeros(self.ca.shape)
+            mp2_no_ca[:, : self.nalpha] = self.ca[:, : self.nalpha]
+            mp2_no_ca[:, self.nalpha :] = v_ao @ w_no
+            self.ca = mp2_no_ca
+
+            self.eps = np.append(self.eps[: self.nalpha], new_v_e)
 
     # def run_psi4(self, output=None):
     #     """
