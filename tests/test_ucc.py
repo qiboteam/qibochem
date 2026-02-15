@@ -26,21 +26,21 @@ from qibochem.driver import Molecule
     ],
 )
 def test_expi_pauli(pauli_string):
-    n_qubits = 2
+    nqubits = 2
     theta = 0.1
 
     # Build using exp(-i*theta*SymbolicHamiltonian)
     pauli_ops = sorted(((int(_op[1]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
-    control_circuit = Circuit(n_qubits)
+    control_circuit = Circuit(nqubits)
     pauli_term = SymbolicHamiltonian(
-        symbols.I(n_qubits - 1)
+        symbols.I(nqubits - 1)
         * reduce(lambda x, y: x * y, (getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops))
     )
     control_circuit += pauli_term.circuit(-theta)
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
 
-    test_circuit = expi_pauli(n_qubits, pauli_string, theta)
+    test_circuit = expi_pauli(nqubits, pauli_string, theta)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
 
@@ -72,22 +72,22 @@ def test_expi_pauli(pauli_string):
 def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
     """Build a UCC circuit with only one excitation"""
     theta = 0.1
-    n_qubits = 4
+    nqubits = 4
 
     # Build the control array using SymbolicHamiltonian.circuit
     # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
-    control_circuit = Circuit(n_qubits)
+    control_circuit = Circuit(nqubits)
     for coeff, basis_rotation in zip(coeffs, basis_rotations):
         n_terms = len(basis_rotation)
         pauli_term = SymbolicHamiltonian(
-            symbols.I(n_qubits - 1)
+            symbols.I(nqubits - 1)
             * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
         )
         control_circuit += pauli_term.circuit(-coeff * theta)
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
     # Test the ucc_circuit function
-    test_circuit = ucc_circuit(n_qubits, excitation, theta=theta, ferm_qubit_map=mapping)
+    test_circuit = ucc_circuit(nqubits, excitation, theta=theta, ferm_qubit_map=mapping)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
     assert np.allclose(control_state, test_state)
@@ -120,22 +120,22 @@ def test_ucc_circuit(excitation, mapping, basis_rotations, coeffs):
 def test_qeb_circuit(excitation, mapping, basis_rotations, coeffs):
     """Build QEB circuit"""
     theta = 0.1
-    n_qubits = 4
+    nqubits = 4
 
     # Build the control array using SymbolicHamiltonian.circuit
     # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
-    control_circuit = Circuit(n_qubits)
+    control_circuit = Circuit(nqubits)
     for coeff, basis_rotation in zip(coeffs, basis_rotations):
         n_terms = len(basis_rotation)
         pauli_term = SymbolicHamiltonian(
-            symbols.I(n_qubits - 1)
+            symbols.I(nqubits - 1)
             * reduce(lambda x, y: x * y, (getattr(symbols, _op)(int(qubit)) for _op, qubit in basis_rotation.split()))
         )
         control_circuit += pauli_term.circuit(-coeff * theta)
     control_result = control_circuit(nshots=1)
     control_state = control_result.state(True)
 
-    test_circuit = qeb_circuit(n_qubits, excitation, theta=theta)
+    test_circuit = qeb_circuit(nqubits, excitation, theta=theta)
     test_result = test_circuit(nshots=1)
     test_state = test_result.state(True)
     assert np.allclose(control_state, test_state)

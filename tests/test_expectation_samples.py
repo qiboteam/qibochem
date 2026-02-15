@@ -92,11 +92,11 @@ def test_expectation_invalid_shot_allocation():
 )
 def test_qwc_functionality(hamiltonian):
     """Small scale tests of QWC functionality"""
-    n_qubits = 3
-    circuit = Circuit(n_qubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    nqubits = 3
+    circuit = Circuit(nqubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(nqubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(nqubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(nqubits))
     expected = expectation(circuit, hamiltonian)
     n_shots = 10000
     test = expectation_from_samples(
@@ -167,11 +167,11 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
 )
 def test_v_expectation_vmsa(hamiltonian, grouping):
     """Small scale tests of variance-based expectation value evaluation"""
-    n_qubits = 3
-    circuit = Circuit(n_qubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    nqubits = 3
+    circuit = Circuit(nqubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(nqubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(nqubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(nqubits))
     expected = expectation(circuit, hamiltonian)
     n_shots = 5000
     n_trial_shots = 200
