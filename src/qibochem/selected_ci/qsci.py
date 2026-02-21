@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
-import warnings
 
 import numpy as np
 from openfermion import QubitOperator
 from qibo import gates
-
 
 DEFAULT_HERMITICITY_TOL = 1e-10
 
@@ -227,9 +226,7 @@ def _count_samples(samples: list[str], n_qubits: int) -> dict[str, int]:
     return _validate_and_copy_counts(dict(counts), n_qubits)
 
 
-def _validate_and_copy_counts(
-    counts: dict[str, int], n_qubits: int, allow_truncation: bool = False
-) -> dict[str, int]:
+def _validate_and_copy_counts(counts: dict[str, int], n_qubits: int, allow_truncation: bool = False) -> dict[str, int]:
     validated = {}
     warned_truncation = False
     for bitstring, count in counts.items():
@@ -239,10 +236,7 @@ def _validate_and_copy_counts(
         if allow_truncation and len(bitstring) > n_qubits:
             if not warned_truncation:
                 warnings.warn(
-                    (
-                        "Measured bitstrings are longer than `n_qubits`; "
-                        "truncating to the first `n_qubits` bits."
-                    ),
+                    ("Measured bitstrings are longer than `n_qubits`; " "truncating to the first `n_qubits` bits."),
                     UserWarning,
                     stacklevel=2,
                 )
