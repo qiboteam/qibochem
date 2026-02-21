@@ -5,10 +5,14 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
+import warnings
 
 import numpy as np
 from openfermion import QubitOperator
 from qibo import gates
+
+
+DEFAULT_HERMITICITY_TOL = 1e-10
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,23 @@ class QSCI:
             raise ValueError("`n_shots` must be provided either in config or method call.")
 
         sampled_circuit = circuit.copy()
+        circuit_nqubits = getattr(sampled_circuit, "nqubits", None)
+        if circuit_nqubits is not None:
+            if circuit_nqubits < self.n_qubits:
+                raise ValueError(
+                    f"Circuit has fewer qubits than required by QSCI: "
+                    f"circuit.nqubits={circuit_nqubits}, n_qubits={self.n_qubits}."
+                )
+            if circuit_nqubits > self.n_qubits:
+                warnings.warn(
+                    (
+                        "Circuit has more qubits than `n_qubits`; "
+                        "QSCI will use only the first `n_qubits` measured bits."
+                    ),
+                    UserWarning,
+                    stacklevel=2,
+                )
+
         if not sampled_circuit.measurements:
             sampled_circuit.add(gates.M(*range(self.n_qubits)))
 
@@ -141,7 +162,7 @@ class QSCI:
         else:
             frequencies = sampled_circuit(nshots=nshots).frequencies(binary=True)
 
-        counts = _validate_and_copy_counts(dict(frequencies), self.n_qubits)
+        counts = _validate_and_copy_counts(dict(frequencies), self.n_qubits, allow_truncation=True)
         return self._run_from_counts(counts, n_shots_used=nshots)
 
     def _run_from_counts(self, counts: dict[str, int], n_shots_used: int) -> QSCIResult:
@@ -206,13 +227,32 @@ def _count_samples(samples: list[str], n_qubits: int) -> dict[str, int]:
     return _validate_and_copy_counts(dict(counts), n_qubits)
 
 
-def _validate_and_copy_counts(counts: dict[str, int], n_qubits: int) -> dict[str, int]:
+def _validate_and_copy_counts(
+    counts: dict[str, int], n_qubits: int, allow_truncation: bool = False
+) -> dict[str, int]:
     validated = {}
+    warned_truncation = False
     for bitstring, count in counts.items():
         if count <= 0:
             continue
+
+        if allow_truncation and len(bitstring) > n_qubits:
+            if not warned_truncation:
+                warnings.warn(
+                    (
+                        "Measured bitstrings are longer than `n_qubits`; "
+                        "truncating to the first `n_qubits` bits."
+                    ),
+                    UserWarning,
+                    stacklevel=2,
+                )
+                warned_truncation = True
+            bitstring = bitstring[:n_qubits]
+
         _validate_bitstring(bitstring, n_qubits)
-        validated[bitstring] = int(count)
+
+        # Truncation can map multiple strings to the same key; aggregate counts.
+        validated[bitstring] = validated.get(bitstring, 0) + int(count)
     return validated
 
 
@@ -265,6 +305,18 @@ def _project_hamiltonian_subspace(qubit_hamiltonian: QubitOperator, basis_bitstr
             row = basis_index.get(bra)
             if row is not None:
                 matrix[row, col] += coeff * phase
+
+    hermitian_deviation = np.max(np.abs(matrix - matrix.conj().T)) if matrix.size else 0.0
+    if hermitian_deviation > DEFAULT_HERMITICITY_TOL:
+        warnings.warn(
+            (
+                "Projected Hamiltonian is not Hermitian within tolerance "
+                f"({DEFAULT_HERMITICITY_TOL:.1e}); "
+                "symmetrizing before diagonalization."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
 
     matrix = 0.5 * (matrix + matrix.conj().T)
     if np.allclose(matrix.imag, 0.0, atol=1e-12):
