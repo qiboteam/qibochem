@@ -47,6 +47,7 @@ class QSEResult:
     excitation_operators: List[openfermion.FermionOperator]
     subspace_dimension: int
     projected_subspace_dimension: int
+    total_circuit_runs: int = 0
 
 
 class QSE:
@@ -71,10 +72,13 @@ class QSE:
                          it is automatically computed via circuit().state().
 
         Returns:
-            QSEResult containing the energies and eigenvectors in the subspace.
+            QSEResult containing the energies and eigenvectors in the subspace,
+            plus measurement-cost metadata when sampling is used.
         """
         if statevector is None and self.config.n_shots is None:
             statevector = circuit().state()
+
+        total_circuit_runs = 0
             
         # Determine number of active spin-orbitals (use active space if specified)
         n_active_orbs = self.molecule.n_active_orbs if self.molecule.n_active_orbs is not None else self.molecule.nso
@@ -94,7 +98,13 @@ class QSE:
                 pauli_strings_Saa.update(S_aa_q.terms.keys())
                 
         if self.config.n_shots is not None:
-            Saa_exp_vals = self._measure_pauli_strings(pauli_strings_Saa, circuit, self.config.n_shots)
+            Saa_exp_vals, saa_runs = self._measure_pauli_strings(
+                pauli_strings_Saa,
+                circuit,
+                self.config.n_shots,
+                return_metadata=True,
+            )
+            total_circuit_runs += saa_runs
             
         # Filter out operators that annihilate the state to avoid singular overlap matrix
         valid_operators = []
@@ -140,7 +150,13 @@ class QSE:
                     pauli_strings_main.update(H_ab_q.terms.keys())
                     
         if self.config.n_shots is not None:
-            main_exp_vals = self._measure_pauli_strings(pauli_strings_main, circuit, self.config.n_shots)
+            main_exp_vals, main_runs = self._measure_pauli_strings(
+                pauli_strings_main,
+                circuit,
+                self.config.n_shots,
+                return_metadata=True,
+            )
+            total_circuit_runs += main_runs
             
         for a in range(dim):
             for b in range(dim):
@@ -193,7 +209,8 @@ class QSE:
             eigenvectors=eigenvectors,
             excitation_operators=operators,
             subspace_dimension=dim,
-            projected_subspace_dimension=len(s_evals)
+            projected_subspace_dimension=len(s_evals),
+            total_circuit_runs=total_circuit_runs,
         )
 
     def _fermion_to_qubit(self, ferm_op: openfermion.FermionOperator) -> openfermion.QubitOperator:
@@ -207,8 +224,8 @@ class QSE:
         qubit_op.compress()
         return qubit_op
 
-    def _measure_pauli_strings(self, pauli_strings: set, circuit, n_shots: int) -> dict:
-        """Measure expectation values of a set of Pauli strings by grouping them."""
+    def _measure_pauli_strings(self, pauli_strings: set, circuit, n_shots: int, return_metadata: bool = False):
+        """Measure expectation values of Pauli strings and optionally return measurement metadata."""
         from functools import reduce
         from qibo.symbols import X, Y, Z
         from qibochem.measurement.optimization import group_commuting_terms, qwc_measurement_gates
@@ -225,6 +242,7 @@ class QSE:
             
         term_groups = group_commuting_terms(pauli_qibo, qubitwise=True)
         exp_vals = {}
+        circuit_runs = 0
         
         for term_group in term_groups:
             group_exprs = []
@@ -238,6 +256,8 @@ class QSE:
                     elif op == 'Z': factors.append(Z(idx))
                 expr = reduce(lambda x,y: x*y, factors, 1) if factors else 1
                 group_exprs.append((q_str, expr))
+
+            circuit_runs += 1
                 
             sum_expr = sum(expr for _, expr in group_exprs)
             meas_gates = qwc_measurement_gates(sum_expr)
@@ -259,6 +279,8 @@ class QSE:
         for term in pauli_strings:
             if term:
                 final_dict[term] = exp_vals[pauli_mapping[term]]
+        if return_metadata:
+            return final_dict, circuit_runs
         return final_dict
 
     def _expectation_value_qubit(self, qubit_op: openfermion.QubitOperator, statevector, n_qubits: int) -> complex:
