@@ -273,7 +273,7 @@ class QSE:
         sparse_mat = openfermion.get_sparse_operator(qubit_op, n_qubits=n_qubits)
         return np.vdot(statevector, sparse_mat.dot(statevector))
 
-    def _generate_excitation_operators(self, nso: int) -> List[openfermion.FermionOperator]:
+    def _generate_excitation_operators(self, nso: int, to_qubit_op: bool = False) -> List[openfermion.FermionOperator | openfermion.QubitOperator]:
         """Generate one-body excitation operators + the identity."""
         operators = [openfermion.FermionOperator("")]
         for i in range(nso):
@@ -281,6 +281,8 @@ class QSE:
                 if self.config.conserve_spin and (i % 2) != (j % 2):
                     continue
                 operators.append(openfermion.FermionOperator(f"{i}^ {j}"))
+        if to_qubit_op:
+            operators = [self._fermion_to_qubit(op) for op in operators]
         return operators
 
 
