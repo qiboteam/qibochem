@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from qibo import models
 
-from qibochem.driver import Molecule
 from qibochem.ansatz import hf_circuit
+from qibochem.driver import Molecule
 from qibochem.selected_ci.qse import QSE, QSEConfig, qse
 
 
@@ -30,7 +30,7 @@ def test_qse_h2_hf_reference():
     assert result.energies[0] <= h2.e_hf + 1e-8
 
     # Ensure it returns the expected number of eigenpairs.
-    # For H2 (4 spin-orbitals) starting from HF, we expect a subspace dimension 
+    # For H2 (4 spin-orbitals) starting from HF, we expect a subspace dimension
     # capturing the ground state and single excitations.
     assert result.subspace_dimension > 0
     assert result.projected_subspace_dimension <= result.subspace_dimension
@@ -61,6 +61,7 @@ def test_qse_operator_generation():
     runner_no_spin = QSE(h2, config_no_spin)
     ops_no_spin = runner_no_spin._generate_excitation_operators(4)
     assert len(ops_no_spin) == 17
+
 
 def test_qse_h2_measured():
     """Test QSE on H2 molecule using hardware-viable measurements."""
