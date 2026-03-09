@@ -62,19 +62,13 @@ class QSE:
         """
         self.molecule = molecule
         self.config = config or QSEConfig()
+        operators = None  # List of excitation operators
+        self.S = None
+        self.H = None
 
-    def run(self, circuit, statevector=None) -> QSEResult:
+    def calculate_hs_matrices(self, circuit, statevector=None):
         """
-        Run the QSE protocol using the given circuit.
-
-        Args:
-            circuit: Qibo circuit used to prepare the reference state (e.g. from VQE).
-            statevector: Optional exact statevector. If None and n_shots is None,
-                         it is automatically computed via circuit().state().
-
-        Returns:
-            QSEResult containing the energies and eigenvectors in the subspace,
-            plus measurement-cost metadata when sampling is used.
+        Calculates the H and S matrices
         """
         if statevector is None and self.config.n_shots is None:
             statevector = circuit().state()
@@ -86,6 +80,9 @@ class QSE:
 
         # Generate excitation operators
         operators = self._generate_excitation_operators(n_active_orbs)
+
+        self.operators = operators
+
         operators_qubit = [self._fermion_to_qubit(op) for op in operators]
 
         # Collect S_aa terms for filtering
@@ -121,6 +118,7 @@ class QSE:
                 valid_operators_qubit.append(op_q)
 
         operators = valid_operators
+        self.operators = valid_operators  # Update operators
         operators_qubit = valid_operators_qubit
 
         dim = len(operators)
@@ -178,9 +176,30 @@ class QSE:
                     S_LR[b, a] = np.conj(S_ab_val)
                     H_LR[b, a] = np.conj(H_ab_val)
 
+        self.dim = dim
+        self.S = np.array(S_LR)
+        self.H = np.array(H_LR)
+        self.total_circuit_runs = total_circuit_runs
+
+    def run(self, circuit, statevector=None) -> QSEResult:
+        """
+        Run the QSE protocol using the given circuit.
+
+        Args:
+            circuit: Qibo circuit used to prepare the reference state (e.g. from VQE).
+            statevector: Optional exact statevector. If None and n_shots is None,
+                         it is automatically computed via circuit().state().
+
+        Returns:
+            QSEResult containing the energies and eigenvectors in the subspace,
+            plus measurement-cost metadata when sampling is used.
+        """
+        # Construct H and S matrices
+        self.calculate_hs_matrices(circuit, statevector)
+
         # Solve generalized eigenvalue problem: H_LR C = S_LR C E
         # Since S_LR can still be ill-conditioned, we diagonalize S_LR first
-        s_evals, s_evecs = np.linalg.eigh(S_LR)
+        s_evals, s_evecs = np.linalg.eigh(self.S)
 
         # Keep only eigenvectors of S where eigenvalue is > threshold
         valid_idx = s_evals > self.config.eigenvalue_threshold
@@ -198,7 +217,7 @@ class QSE:
         S_inv_half = s_evecs @ np.diag(1.0 / np.sqrt(s_evals))
 
         # Form the orthogonalized Hamiltonian H' = S^{-1/2}^T H S^{-1/2}
-        H_prime = S_inv_half.T.conj() @ H_LR @ S_inv_half
+        H_prime = S_inv_half.T.conj() @ self.H @ S_inv_half
 
         eigenvalues, C_prime = np.linalg.eigh(H_prime)
 
@@ -208,10 +227,10 @@ class QSE:
         return QSEResult(
             energies=eigenvalues,
             eigenvectors=eigenvectors,
-            excitation_operators=operators,
-            subspace_dimension=dim,
+            excitation_operators=self.operators,
+            subspace_dimension=self.dim,
             projected_subspace_dimension=len(s_evals),
-            total_circuit_runs=total_circuit_runs,
+            total_circuit_runs=self.total_circuit_runs,
         )
 
     def _fermion_to_qubit(self, ferm_op: openfermion.FermionOperator) -> openfermion.QubitOperator:
