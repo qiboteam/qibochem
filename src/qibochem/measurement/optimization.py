@@ -108,7 +108,7 @@ def qwc_measurement_gates(expression):
             _m_gates = {
                 pauli_op.target_qubit: gates.M(pauli_op.target_qubit, basis=type(pauli_op.gate))
                 for pauli_op in term.args
-                if m_gates.get(pauli_op.target_qubit) is None
+                if hasattr(pauli_op, "target_qubit") and m_gates.get(pauli_op.target_qubit) is None
             }
         m_gates = {**m_gates, **_m_gates}
     return list(m_gates.values())

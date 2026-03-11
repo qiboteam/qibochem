@@ -48,7 +48,7 @@ def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     return q_hamiltonian
 
 
-def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
+def _qubit_to_symbolic_hamiltonian(q_hamiltonian, n_qubits=None):
     """
     Converts a OpenFermion QubitOperator to a Qibo SymbolicHamiltonian
 
@@ -65,4 +65,4 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
         # .terms gives one operator as a single-item dictionary, e.g. {((1: "X"), (2: "Y")): 0.33}
         for pauli_string, coeff in operator.terms.items()
     )
-    return SymbolicHamiltonian(symbolic_ham)
+    return SymbolicHamiltonian(symbolic_ham, nqubits=n_qubits)
