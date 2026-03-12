@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import prod
 
 import numpy as np
 import openfermion
+from qibo.hamiltonians import SymbolicHamiltonian
+from sympy import expand
 
 from qibochem.driver.hamiltonian import (
     _qubit_hamiltonian,
@@ -55,11 +58,11 @@ class QSEResult:
     excitation_operators: list[openfermion.FermionOperator]
     subspace_dimension: int
     projected_subspace_dimension: int
-    total_circuit_runs: int = 0
+    # total_circuit_runs: int = 0
 
 
 class QSE:
-    def __init__(self, molecule, config=None):
+    def __init__(self, molecule, n_shots=None, config=None):
         """
         Quantum Subspace Expansion (QSE) manager.
 
@@ -68,9 +71,13 @@ class QSE:
             config: Configuration for QSE.
         """
         self.molecule = molecule
-        self.mol_hamiltonian = molecule.hamiltonian("f")
+        self.mol_hamiltonian = molecule.hamiltonian("f")  # Molecular Hamiltonian as FermionOperator
         self.config = config or QSEConfig()
+        self.n_shots = n_shots
         operators = None  # List of fermion excitation operators
+        self.dim = None
+        self.s_data = None
+        self.h_data = None
         self.S = None
         self.H = None
         self.term_exp_values = {}  # Expectation values for all terms
@@ -95,263 +102,153 @@ class QSE:
             operators = [self._fermion_to_qubit(op) for op in operators]
         return operators
 
-    def _measure_pauli_strings(self, pauli_strings: set, circuit, n_shots: int, return_metadata: bool = False):
-        """Measure expectation values of Pauli strings and optionally return measurement metadata."""
-        from functools import reduce
-
-        from qibo.symbols import X, Y, Z
-
-        from qibochem.measurement.optimization import (
-            group_commuting_terms,
-            qwc_measurement_gates,
-        )
-        from qibochem.measurement.result import pauli_term_measurement_expectation
-
-        pauli_qibo = []
-        pauli_mapping = {}
-        for term in pauli_strings:
-            if not term:
-                continue
-            qibo_str = " ".join(f"{op}{idx}" for idx, op in term)
-            pauli_qibo.append(qibo_str)
-            pauli_mapping[term] = qibo_str
-
-        term_groups = group_commuting_terms(pauli_qibo, qubitwise=True)
-        exp_vals = {}
-        circuit_runs = 0
-
-        for term_group in term_groups:
-            group_exprs = []
-            for q_str in term_group:
-                factors = []
-                for factor_str in q_str.split():
-                    op = factor_str[0]
-                    idx = int(factor_str[1:])
-                    if op == "X":
-                        factors.append(X(idx))
-                    elif op == "Y":
-                        factors.append(Y(idx))
-                    elif op == "Z":
-                        factors.append(Z(idx))
-                expr = reduce(lambda x, y: x * y, factors, 1) if factors else 1
-                group_exprs.append((q_str, expr))
-
-            circuit_runs += 1
-
-            sum_expr = sum(expr for _, expr in group_exprs)
-            meas_gates = qwc_measurement_gates(sum_expr)
-
-            _circuit = circuit.copy()
-            _circuit.add(meas_gates)
-            result = _circuit(nshots=n_shots)
-            freqs = result.frequencies(binary=True)
-            qubit_map = sorted(qubit for gate in meas_gates for qubit in gate.target_qubits)
-
-            for q_str, expr in group_exprs:
-                if not freqs:
-                    val = 0.0
-                else:
-                    val = pauli_term_measurement_expectation(expr, freqs, qubit_map)
-                exp_vals[q_str] = val
-
-        final_dict = {(): 1.0}
-        for term in pauli_strings:
-            if term:
-                final_dict[term] = exp_vals[pauli_mapping[term]]
-        if return_metadata:
-            return final_dict, circuit_runs
-        return final_dict
-
-    def _expectation_value_qubit(self, qubit_op: openfermion.QubitOperator, statevector, n_qubits: int) -> complex:
-        """Helper function to calculate the expectation value of a QubitOperator on a statevector."""
-        if not qubit_op.terms:
-            return 0.0
-
-        keys = list(qubit_op.terms.keys())
-        if keys == [()]:
-            return qubit_op.terms[()]
-
-        sparse_mat = openfermion.get_sparse_operator(qubit_op, n_qubits=n_qubits)
-        return np.vdot(statevector, sparse_mat.dot(statevector))
-
-    def calculate_hs_matrices(self, circuit, statevector=None):
-        """
-        Calculates the H and S matrices
-        """
-        if statevector is None and self.config.n_shots is None:
-            statevector = circuit().state()
-
-        total_circuit_runs = 0
-
+    def collate_hs_matrix_info(self):
+        """Constructs the Hamiltonian and terms for each of the S/H matrix elements"""
         # Determine number of active spin-orbitals (use active space if specified)
         n_active_orbs = self.molecule.n_active_orbs if self.molecule.n_active_orbs is not None else self.molecule.nso
 
         # Generate excitation operators
         self.operators = self._generate_excitation_operators(n_active_orbs)
+        self.dim = len(self.operators)  # Subspace dimension
 
         # Store information about H/S in two dictionaries first
-        subspace_dim = len(self.operators)
-        s_data = {(_i, _j): {"value": None} for _i in range(subspace_dim) for _j in range(subspace_dim) if _i <= _j}
-        h_data = {(_i, _j): {"value": None} for _i in range(subspace_dim) for _j in range(subspace_dim) if _i <= _j}
+        self.s_data = {(_i, _j): dict() for _i in range(self.dim) for _j in range(self.dim) if _i <= _j}
+        self.h_data = {(_i, _j): dict() for _i in range(self.dim) for _j in range(self.dim) if _i <= _j}
         # _qubit_to_symbolic_hamiltonian
 
-        # Populate the S/H dictionaries. TODO: Just build directly using generators?
-        for _i in range(subspace_dim):
-            for _j in range(subspace_dim):
-                if _i > _j:
-                    continue
-                s_data[(_i, _j)]["ham"] = _qubit_to_symbolic_hamiltonian(
+        # Populate the Hamiltonians corresponding to each matrix element in S/H
+        for mat_data, operator in zip((self.s_data, self.h_data), (1.0, self.mol_hamiltonian)):
+            for element in mat_data.keys():
+                mat_data[element]["ham"] = _qubit_to_symbolic_hamiltonian(
                     _qubit_hamiltonian(
-                        openfermion.hermitian_conjugated(self.operators[_i]) * self.operators[_j],
+                        openfermion.hermitian_conjugated(self.operators[element[0]])
+                        * operator
+                        * self.operators[element[1]],
                         self.config.ferm_qubit_map,
                     ),
-                    subspace_dim,
+                    self.dim,
                 )
-                s_data[(_i, _j)]["terms"] = {
+                mat_data[element]["terms"] = {
                     "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits)): coeff.real
-                    for coeff, strings, qubits in zip(*s_data[(_i, _j)]["ham"].simple_terms)
+                    for coeff, strings, qubits in zip(*mat_data[element]["ham"].simple_terms)
                 }
 
-                h_data[(_i, _j)]["ham"] = _qubit_to_symbolic_hamiltonian(
-                    _qubit_hamiltonian(
-                        openfermion.hermitian_conjugated(self.operators[_i])
-                        * self.mol_hamiltonian
-                        * self.operators[_j],
-                        self.config.ferm_qubit_map,
-                    ),
-                    subspace_dim,
-                )
+    def _measure_term_group_shots(self, pauli_group, circuit, m_gates, n_shots):  # , return_metadata: bool = False):
+        """Measure expectation values of a group of Pauli strings and optionally return measurement metadata."""
+        from qibo.symbols import Z  # Why cannot use top-level import???
 
+        _circuit = circuit.copy()
+        _circuit.add(m_gates)
+        result = _circuit(nshots=n_shots)
+        frequencies = result.frequencies(binary=True)
+        qubit_map = sorted(qubit for gate in m_gates for qubit in gate.target_qubits)
+        if frequencies:  # Needed to handle n_shots = 0
+            # Calculate expectation value for each term in the combined expression
+            # Working with SymbolicHamiltonian directly at the moment, probably need to refactor old code (TODO)
+            hamiltonian = SymbolicHamiltonian(pauli_group, nqubits=circuit.nqubits)
+            # print(hamiltonian)
+            for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
+                term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
+                # print(term)
+                z_ham = SymbolicHamiltonian(prod(Z(qubit) for qubit in qubits), nqubits=circuit.nqubits)
+                # print(z_ham)
+                # print()
+                self.term_exp_values[term] = z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
+
+    def calculate_hs_matrices(self, circuit, uniform_shot_allocation):
+        """
+        Calculates the H and S matrices
+        """
+        self.collate_hs_matrix_info()
         # print("s_data")
         # for entry, data in s_data.items():
         #     print(entry)
         #     print(data["ham"])
+        #     print(data["ham"].expectation(circuit))
         #     print(data["terms"])
         #     print()
 
-        #     break
+        # Now populate S/H matrices
+        self.S = np.zeros((self.dim, self.dim), dtype=complex)
+        self.H = np.zeros((self.dim, self.dim), dtype=complex)
 
-        # return
-
-        # Combine all terms into a single Hamiltonian for shot allocation
-        combined_ham = sum(
-            data["ham"] if _i == _j else 2 * data["ham"]  # Off-diagonal terms should be double counted
-            for matrix in (s_data, h_data)
-            for (_i, _j), data in matrix.items()
-        )
-        # print(combined_ham)
-        # return
-
-        # Shot allocation based on the total magnitude of the coefficients in each group of terms ("qwc")
-        n_shots = 10000
-
-        grouped_terms = measurement_basis_rotations(combined_ham, grouping="qwc")
-        shot_allocation = allocate_shots(grouped_terms, n_shots, method="c")
-        print(f"{shot_allocation = }")
-
-        # Get the expectation value for every term (without coefficients) based on the given shot allocation
-
-        # Calculate H/S based on the Hamiltonian terms associated to each matrix element
-
-        return
-
-        # Collect S_aa terms for filtering
-        S_aa_qs = []
-        pauli_strings_Saa = set()
-        for op_q in operators_qubit:
-            op_q_dag = openfermion.hermitian_conjugated(op_q)
-            S_aa_q = op_q_dag * op_q
-            S_aa_qs.append(S_aa_q)
-            if self.config.n_shots is not None:
-                pauli_strings_Saa.update(S_aa_q.terms.keys())
-
-        if self.config.n_shots is not None:
-            Saa_exp_vals, saa_runs = self._measure_pauli_strings(
-                pauli_strings_Saa,
-                circuit,
-                self.config.n_shots,
-                return_metadata=True,
+        if self.n_shots is not None:
+            # Combine all terms into a single Hamiltonian for shot allocation
+            combined_ham = sum(
+                (
+                    data["ham"] if _i == _j else SymbolicHamiltonian(expand(2 * data["ham"].form))
+                )  # Off-diagonal terms should be double counted
+                for matrix in (self.s_data, self.h_data)
+                for (_i, _j), data in matrix.items()
             )
-            total_circuit_runs += saa_runs
+            # print(combined_ham)
+            # return
 
-        # Filter out operators that annihilate the state to avoid singular overlap matrix
-        valid_operators = []
-        valid_operators_qubit = []
-        for op, op_q, S_aa_q in zip(operators, operators_qubit, S_aa_qs):
-            if self.config.n_shots is not None:
-                norm_sq = np.real(sum(coeff * Saa_exp_vals[pauli] for pauli, coeff in S_aa_q.terms.items()))
+            grouped_terms = measurement_basis_rotations(combined_ham, grouping="qwc")
+
+            if uniform_shot_allocation:
+                # Get the expectation value for every term (without coefficients) based on the given shot allocation
+                for pauli_group, m_gates in grouped_terms:
+                    self._measure_term_group_shots(pauli_group, circuit, m_gates, self.n_shots)
             else:
-                norm_sq = np.real(self._expectation_value_qubit(S_aa_q, statevector, n_active_orbs))
+                # Shot allocation based on the total magnitude of the coefficients in each group of terms ("qwc")
+                shot_allocation = allocate_shots(grouped_terms, self.n_shots, method="c")
+                # print(f"{shot_allocation = }")
+                # Get the expectation value for every term (without coefficients) based on the given shot allocation
+                for (pauli_group, m_gates), shots in zip(grouped_terms, shot_allocation):
+                    self._measure_term_group_shots(pauli_group, circuit, m_gates, shots)
 
-            if norm_sq > self.config.excitation_threshold:
-                valid_operators.append(op)
-                valid_operators_qubit.append(op_q)
+            # print(f"{self.term_exp_values = }")
 
-        operators = valid_operators
-        self.operators = valid_operators  # Update operators
-        operators_qubit = valid_operators_qubit
+            # Calculate H/S based on the Hamiltonian terms associated to each matrix element
+            for _i in range(self.dim):
+                for _j in range(self.dim):
+                    if _i > _j:
+                        # Populate with (_j, _i)
+                        self.S[_i, _j] = np.conj(self.S[_j, _i])
+                        self.H[_i, _j] = np.conj(self.H[_j, _i])
+                        continue
+                    self.S[_i, _j] = sum(
+                        coeff * self.term_exp_values[term] for term, coeff in self.s_data[(_i, _j)]["terms"].items()
+                    )
+                    self.H[_i, _j] = sum(
+                        coeff * self.term_exp_values[term] for term, coeff in self.h_data[(_i, _j)]["terms"].items()
+                    )
 
-        dim = len(operators)
-        H_LR = np.zeros((dim, dim), dtype=complex)
-        S_LR = np.zeros((dim, dim), dtype=complex)
+        else:
+            # Populate directly using the Hamiltonian for each matrix element
+            for _i in range(self.dim):
+                for _j in range(self.dim):
+                    if _i > _j:
+                        # Populate with (_j, _i)
+                        self.S[_i, _j] = np.conj(self.S[_j, _i])
+                        self.H[_i, _j] = np.conj(self.H[_j, _i])
+                        continue
+                    # print(_i, _j)
+                    self.S[_i, _j] = self.s_data[(_i, _j)]["ham"].expectation(circuit)
+                    self.H[_i, _j] = self.h_data[(_i, _j)]["ham"].expectation(circuit)
 
-        ferm_hamiltonian = self.molecule.hamiltonian(ham_type="f", ferm_qubit_map=self.config.ferm_qubit_map)
-        H_qubit = self._fermion_to_qubit(ferm_hamiltonian)
+        # TODO: Can/Want to merge into existing code?
+        # # Filter out operators that annihilate the state to avoid singular overlap matrix
+        # valid_operators = []
+        # valid_operators_qubit = []
+        # for op, op_q, S_aa_q in zip(operators, operators_qubit, S_aa_qs):
+        #     if self.config.n_shots is not None:
+        #         norm_sq = np.real(sum(coeff * Saa_exp_vals[pauli] for pauli, coeff in S_aa_q.terms.items()))
+        #     else:
+        #         norm_sq = np.real(self._expectation_value_qubit(S_aa_q, statevector, n_active_orbs))
 
-        S_ab_qs = {}
-        H_ab_qs = {}
-        pauli_strings_main = set()
+        #     if norm_sq > self.config.excitation_threshold:
+        #         valid_operators.append(op)
+        #         valid_operators_qubit.append(op_q)
 
-        for a, E_a_q in enumerate(operators_qubit):
-            E_a_q_dag = openfermion.hermitian_conjugated(E_a_q)
-            for b, E_b_q in enumerate(operators_qubit):
-                if a > b:
-                    continue
+        # operators = valid_operators
+        # self.operators = valid_operators  # Update operators
+        # operators_qubit = valid_operators_qubit
 
-                S_ab_q = E_a_q_dag * E_b_q
-                H_ab_q = E_a_q_dag * H_qubit * E_b_q
+        # self.total_circuit_runs = total_circuit_runs
 
-                S_ab_qs[(a, b)] = S_ab_q
-                H_ab_qs[(a, b)] = H_ab_q
-
-                if self.config.n_shots is not None:
-                    pauli_strings_main.update(S_ab_q.terms.keys())
-                    pauli_strings_main.update(H_ab_q.terms.keys())
-
-        if self.config.n_shots is not None:
-            main_exp_vals, main_runs = self._measure_pauli_strings(
-                pauli_strings_main,
-                circuit,
-                self.config.n_shots,
-                return_metadata=True,
-            )
-            total_circuit_runs += main_runs
-
-        for a in range(dim):
-            for b in range(dim):
-                if a > b:
-                    continue
-
-                if self.config.n_shots is not None:
-                    S_ab_val = sum(coeff * main_exp_vals[pauli] for pauli, coeff in S_ab_qs[(a, b)].terms.items())
-                    H_ab_val = sum(coeff * main_exp_vals[pauli] for pauli, coeff in H_ab_qs[(a, b)].terms.items())
-                else:
-                    S_ab_val = self._expectation_value_qubit(S_ab_qs[(a, b)], statevector, n_active_orbs)
-                    H_ab_val = self._expectation_value_qubit(H_ab_qs[(a, b)], statevector, n_active_orbs)
-
-                S_LR[a, b] = S_ab_val
-                H_LR[a, b] = H_ab_val
-
-                if a != b:
-                    S_LR[b, a] = np.conj(S_ab_val)
-                    H_LR[b, a] = np.conj(H_ab_val)
-
-        self.dim = dim
-        self.S = np.array(S_LR)
-        self.H = np.array(H_LR)
-        self.total_circuit_runs = total_circuit_runs
-
-    def run(self, circuit, statevector=None) -> QSEResult:
+    def run(self, circuit, uniform_shot_allocation=True) -> QSEResult:
         """
         Run the QSE protocol using the given circuit.
 
@@ -365,7 +262,7 @@ class QSE:
             plus measurement-cost metadata when sampling is used.
         """
         # Construct H and S matrices
-        self.calculate_hs_matrices(circuit, statevector)
+        self.calculate_hs_matrices(circuit, uniform_shot_allocation)
 
         # Solve generalized eigenvalue problem: H_LR C = S_LR C E
         # Since S_LR can still be ill-conditioned, we diagonalize S_LR first
@@ -400,7 +297,7 @@ class QSE:
             excitation_operators=self.operators,
             subspace_dimension=self.dim,
             projected_subspace_dimension=len(s_evals),
-            total_circuit_runs=self.total_circuit_runs,
+            # total_circuit_runs=self.total_circuit_runs,
         )
 
 
