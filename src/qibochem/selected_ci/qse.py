@@ -14,7 +14,9 @@ from qibochem.driver.hamiltonian import (
     _qubit_hamiltonian,
     _qubit_to_symbolic_hamiltonian,
 )
+from qibochem.measurement import expectation_from_samples
 from qibochem.measurement.optimization import measurement_basis_rotations
+from qibochem.measurement.result import constant_term
 from qibochem.measurement.shot_allocation import allocate_shots
 
 
@@ -82,6 +84,8 @@ class QSE:
         self.H = None
         self.term_exp_values = {}  # Expectation values for all terms
 
+        self.exact_term_exp_values = {}  # For debugging
+
     def _generate_excitation_operators(
         self, nso: int, to_qubit_op: bool = False
     ) -> list[openfermion.FermionOperator | openfermion.QubitOperator]:
@@ -128,20 +132,43 @@ class QSE:
                     ),
                     self.dim,
                 )
+                mat_data[element]["constant"] = constant_term(mat_data[element]["ham"])
                 mat_data[element]["terms"] = {
-                    "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits)): coeff.real
+                    "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits)): coeff  # .real
                     for coeff, strings, qubits in zip(*mat_data[element]["ham"].simple_terms)
                 }
 
+    def _measure_term_group(self, pauli_group, circuit):
+        from qibo import symbols
+
+        hamiltonian = SymbolicHamiltonian(pauli_group, nqubits=circuit.nqubits)
+        # print(hamiltonian)
+        for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
+            term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
+            exact_ham = SymbolicHamiltonian(
+                prod(
+                    (getattr(symbols, string)(qubit) for string, qubit in zip(strings, qubits)),
+                ),
+                nqubits=circuit.nqubits,
+            )
+            # print(exact_ham)
+            # print()
+            # print(z_ham)
+            # print()
+            self.exact_term_exp_values[term] = exact_ham.expectation(circuit)
+
     def _measure_term_group_shots(self, pauli_group, circuit, m_gates, n_shots):  # , return_metadata: bool = False):
         """Measure expectation values of a group of Pauli strings and optionally return measurement metadata."""
+        from qibo import symbols
         from qibo.symbols import Z  # Why cannot use top-level import???
 
         _circuit = circuit.copy()
         _circuit.add(m_gates)
         result = _circuit(nshots=n_shots)
         frequencies = result.frequencies(binary=True)
+        print(f"{frequencies = }")
         qubit_map = sorted(qubit for gate in m_gates for qubit in gate.target_qubits)
+        print(f"{qubit_map = }")
         if frequencies:  # Needed to handle n_shots = 0
             # Calculate expectation value for each term in the combined expression
             # Working with SymbolicHamiltonian directly at the moment, probably need to refactor old code (TODO)
@@ -149,21 +176,31 @@ class QSE:
             # print(hamiltonian)
             for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
                 term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
-                # print(term)
+                print(_coeff, term)
                 z_ham = SymbolicHamiltonian(prod(Z(qubit) for qubit in qubits), nqubits=circuit.nqubits)
-                # print(z_ham)
-                # print()
+                print(z_ham)
                 self.term_exp_values[term] = z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
+                print("Z ham result:", z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map))
+
+                exact_ham = SymbolicHamiltonian(
+                    prod(
+                        (getattr(symbols, string)(qubit) for string, qubit in zip(strings, qubits)),
+                    ),
+                    nqubits=circuit.nqubits,
+                )
+                print("Exact:", exact_ham.expectation(circuit))
+                print("ZC from samples:", expectation_from_samples(circuit, exact_ham, n_shots=n_shots))
+                print()
 
     def calculate_hs_matrices(self, circuit, uniform_shot_allocation):
         """
         Calculates the H and S matrices
         """
         self.collate_hs_matrix_info()
-        # print("s_data")
-        # for entry, data in s_data.items():
+        # for entry, data in self.s_data.items():
         #     print(entry)
         #     print(data["ham"])
+        #     print(data["constant"])
         #     print(data["ham"].expectation(circuit))
         #     print(data["terms"])
         #     print()
@@ -190,6 +227,7 @@ class QSE:
                 # Get the expectation value for every term (without coefficients) based on the given shot allocation
                 for pauli_group, m_gates in grouped_terms:
                     self._measure_term_group_shots(pauli_group, circuit, m_gates, self.n_shots)
+                    self._measure_term_group(pauli_group, circuit)
             else:
                 # Shot allocation based on the total magnitude of the coefficients in each group of terms ("qwc")
                 shot_allocation = allocate_shots(grouped_terms, self.n_shots, method="c")
@@ -208,10 +246,11 @@ class QSE:
                         self.S[_i, _j] = np.conj(self.S[_j, _i])
                         self.H[_i, _j] = np.conj(self.H[_j, _i])
                         continue
-                    self.S[_i, _j] = sum(
+
+                    self.S[_i, _j] = self.s_data[(_i, _j)]["constant"] + sum(
                         coeff * self.term_exp_values[term] for term, coeff in self.s_data[(_i, _j)]["terms"].items()
                     )
-                    self.H[_i, _j] = sum(
+                    self.H[_i, _j] = self.h_data[(_i, _j)]["constant"] + sum(
                         coeff * self.term_exp_values[term] for term, coeff in self.h_data[(_i, _j)]["terms"].items()
                     )
 
