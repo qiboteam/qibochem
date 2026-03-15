@@ -111,6 +111,33 @@ def test_hf_embedding():
     assert np.allclose(mol.embed_tei, mol.tei[:dim, :dim, :dim, :dim])
 
 
+def test_mp2_natorbs():
+    reference_eps = [
+        -0.59193188,
+        0.15640376,
+        0.24284549,
+        0.24284549,
+        0.29490387,
+        0.38721998,
+        0.38721998,
+        0.4537677,
+        0.62540995,
+        1.25163459,
+        1.64696417,
+        1.64696417,
+        2.13602309,
+        2.34539023,
+        2.34539023,
+        3.79150695,
+    ]
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD")
+    mol.run_pyscf(do_mp2=True)
+    # Check that eps tally
+    assert np.allclose(mol.eps, reference_eps)
+    # Check that length of eps is right
+    assert len(mol.eps) == 16
+
+
 @pytest.mark.parametrize(
     "option,expected",
     [
