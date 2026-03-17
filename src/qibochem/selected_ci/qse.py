@@ -81,10 +81,8 @@ class QSE:
         self.h_data = None
         self.S = None
         self.H = None
-        self.term_exp_values = {}  # Expectation values for all terms
+        self.term_exp_values = {}  # Expectation values for all terms, calculated using shots
         self.total_circuit_runs = 0
-
-        # self.exact_term_exp_values = {}  # For debugging
 
     @staticmethod
     def _generate_excitation_operators(nso) -> list[openfermion.FermionOperator]:
@@ -134,6 +132,22 @@ class QSE:
                     for coeff, strings, qubits in zip(*mat_data[element]["ham"].simple_terms)
                 }
 
+    def _measure_term_group(self, pauli_group, circuit):
+        """Calculate exact value of each Hamiltonian term"""
+        from qibo import symbols
+
+        self.guess_term_exp_values = {}  # Expectation values for all terms, calculated using state vector simulations
+        hamiltonian = SymbolicHamiltonian(pauli_group, nqubits=circuit.nqubits)
+        for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
+            term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
+            exact_ham = SymbolicHamiltonian(
+                prod(
+                    (getattr(symbols, string)(qubit) for string, qubit in zip(strings, qubits)),
+                ),
+                nqubits=circuit.nqubits,
+            )
+            self.guess_term_exp_values[term] = exact_ham.expectation(circuit)
+
     def _measure_term_group_shots(self, pauli_group, circuit, m_gates, n_shots):
         """Measure expectation values of a group of Pauli strings and optionally return measurement metadata."""
         from qibo.symbols import Z  # Why cannot use top-level import???
@@ -154,76 +168,64 @@ class QSE:
                 self.term_exp_values[term] = z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
                 # print("Z ham result:", z_ham.expectation_from_samples(frequencies, qubit_map=qubit_map))
 
-    def _measure_term_group(self, pauli_group, circuit):
-        """(For debugging): Calculate exact value of each H term"""
-        from qibo import symbols
-
-        self.exact_term_exp_values = dict()
-        hamiltonian = SymbolicHamiltonian(pauli_group, nqubits=circuit.nqubits)
-        # print(hamiltonian)
-        for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
-            term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
-            exact_ham = SymbolicHamiltonian(
-                prod(
-                    (getattr(symbols, string)(qubit) for string, qubit in zip(strings, qubits)),
-                ),
-                nqubits=circuit.nqubits,
-            )
-            self.exact_term_exp_values[term] = exact_ham.expectation(circuit)  # For debugging
-
-    def calculate_hs_matrices(self, circuit, uniform_shot_allocation):
+    def calculate_hs_matrices(self, circuit, n_shots, uniform_shot_allocation=True):
         """
-        Calculates the H and S matrices
+        Calculates and returns the H and S matrices
         """
         # Get the Hamiltonian terms corresponding to each matrix element first
         if not all(data for data in (self.s_data, self.h_data)):
             self.collate_hs_matrix_info()
 
-        # Now populate S/H matrices
-        self.S = np.zeros((self.dim, self.dim), dtype=complex)
-        self.H = np.zeros((self.dim, self.dim), dtype=complex)
-
-        if self.n_shots is not None:  # Run with shots
+        if n_shots is not None:  # Run with shots
             # Combine all terms into a single Hamiltonian for shot allocation
             combined_ham = sum(
-                (
-                    data["ham"] if _i == _j else SymbolicHamiltonian(expand(2 * data["ham"].form))
+                data.get("coeff", 1.0)
+                * (
+                    data["ham"]
+                    if _i == _j
+                    else SymbolicHamiltonian(expand(2 * data["ham"].form), nqubits=circuit.nqubits)
                 )  # Off-diagonal terms should be double counted
                 for matrix in (self.s_data, self.h_data)
                 for (_i, _j), data in matrix.items()
             )
+            combined_ham = SymbolicHamiltonian(expand(combined_ham.form))
 
             grouped_terms = measurement_basis_rotations(combined_ham, grouping="qwc")  # TODO: Currently hardcoded
 
             if uniform_shot_allocation:
                 # Get the expectation value for every term (without coefficients) based on the given shot allocation
                 for pauli_group, m_gates in grouped_terms:
-                    self._measure_term_group_shots(pauli_group, circuit, m_gates, self.n_shots)
+                    self._measure_term_group_shots(pauli_group, circuit, m_gates, n_shots)
                     # self._measure_term_group(pauli_group, circuit)
-                self.total_circuit_runs = len(grouped_terms) * self.n_shots
+                self.total_circuit_runs += len(grouped_terms) * n_shots
             else:
                 # Shot allocation based on the total magnitude of the coefficients in each group of terms ("qwc")
-                shot_allocation = allocate_shots(grouped_terms, self.n_shots, method="c")
+                shot_allocation = allocate_shots(grouped_terms, n_shots, method="c")
                 # print(f"{shot_allocation = }")
                 # Get the expectation value for every term (without coefficients) based on the given shot allocation
                 for (pauli_group, m_gates), shots in zip(grouped_terms, shot_allocation):
-                    self._measure_term_group_shots(pauli_group, circuit, m_gates, shots)
-                self.total_circuit_runs = self.n_shots
+                    if shots:
+                        self._measure_term_group_shots(pauli_group, circuit, m_gates, shots)
+                self.total_circuit_runs += n_shots
 
         # Calculate H/S based on the Hamiltonian terms associated to each matrix element
+        S = np.zeros((self.dim, self.dim), dtype=complex)
+        H = np.zeros((self.dim, self.dim), dtype=complex)
+
         for _i in range(self.dim):
             for _j in range(self.dim):
                 if _i > _j:
                     # Populate with (_j, _i)
-                    self.S[_i, _j] = np.conj(self.S[_j, _i])
-                    self.H[_i, _j] = np.conj(self.H[_j, _i])
+                    S[_i, _j] = np.conj(S[_j, _i])
+                    H[_i, _j] = np.conj(H[_j, _i])
                     continue
-                for matrix, data in zip((self.S, self.H), (self.s_data, self.h_data)):
-                    if self.n_shots is None:
+                for matrix, data in zip((S, H), (self.s_data, self.h_data)):
+                    if n_shots is None:
                         matrix[_i, _j] = data[(_i, _j)]["ham"].expectation(circuit)
                     else:
                         matrix[_i, _j] = data[(_i, _j)]["constant"] + sum(
-                            coeff * self.term_exp_values[term] for term, coeff in data[(_i, _j)]["terms"].items()
+                            coeff * self.term_exp_values.get(term, 0.0)
+                            for term, coeff in data[(_i, _j)]["terms"].items()
                         )
 
         # TODO: Can/Want to merge into existing code?
@@ -240,31 +242,20 @@ class QSE:
         #         valid_operators.append(op)
         #         valid_operators_qubit.append(op_q)
 
-        # self.operators = valid_operators  # Update operators
+        return S, H
 
-    def run(self, circuit, uniform_shot_allocation=True) -> QSEResult:
+    def solve_generalised_eigeneqn(self, S, H):
         """
-        Run the QSE protocol using the given circuit.
-
-        Args:
-            circuit: Qibo circuit used to prepare the reference state (e.g. from VQE).
-            statevector: Optional exact statevector. If None and n_shots is None,
-                         it is automatically computed via circuit().state().
-
-        Returns:
-            QSEResult containing the energies and eigenvectors in the subspace,
-            plus measurement-cost metadata when sampling is used.
+        Performs a single run of the QSE protocol
         """
-        # Construct H and S matrices
-        self.calculate_hs_matrices(circuit, uniform_shot_allocation)
-
         # Solve generalized eigenvalue problem: H_LR C = S_LR C E
         # Since S_LR can still be ill-conditioned, we diagonalize S_LR first
-        s_evals, s_evecs = np.linalg.eigh(self.S)
+        s_evals, s_evecs = np.linalg.eigh(S)
 
         # Keep only eigenvectors of S where eigenvalue is > threshold
         valid_idx = s_evals > self.config.eigenvalue_threshold
         if not np.any(valid_idx):
+            # TODO: Make error message nicer
             raise ValueError(
                 "No valid QSE subspace found after overlap matrix diagonalization. "
                 "The excitation_threshold or eigenvalue_threshold might be too strict, "
@@ -278,19 +269,76 @@ class QSE:
         s_inv_half = s_evecs @ np.diag(1.0 / np.sqrt(s_evals))
 
         # Form the orthogonalized Hamiltonian H' = S^{-1/2}^T H S^{-1/2}
-        h_prime = s_inv_half.T.conj() @ self.H @ s_inv_half
+        h_prime = s_inv_half.T.conj() @ H @ s_inv_half
 
         eigenvalues, c_prime = np.linalg.eigh(h_prime)
 
         # Transform back to original basis C = S^{-1/2} C'
         eigenvectors = s_inv_half @ c_prime
 
+        return eigenvalues, eigenvectors, len(s_evals)
+
+    def run(self, circuit, n_shots, uniform_shot_allocation=True, adaptive=False, guess_circuit=None) -> QSEResult:
+        """
+        Run the QSE protocol using the given circuit.
+
+        Args:
+            circuit: Qibo circuit used to prepare the reference state (e.g. from VQE).
+            statevector: Optional exact statevector. If None and n_shots is None,
+                         it is automatically computed via circuit().state().
+
+        Returns:
+            QSEResult containing the energies and eigenvectors in the subspace,
+            plus measurement-cost metadata when sampling is used.
+        """
+        uniform_shot_allocation = False if adaptive else uniform_shot_allocation  # Ignore arg if adaptive given
+        S, H = None, None
+        current_s1 = None
+        count = 0
+        while True:
+            # Construct S/H matrices. Uses a guess circuit if adaptive strategy adopted
+            if adaptive and S is None and H is None:
+                # Construct the guess S/H matrices first
+                S, H = self.calculate_hs_matrices(
+                    circuit.copy() if guess_circuit is None else guess_circuit, n_shots=None
+                )
+            else:
+                S, H = self.calculate_hs_matrices(circuit, n_shots, uniform_shot_allocation)
+
+            eigenvalues, eigenvectors, proj_sub_dimension = self.solve_generalised_eigeneqn(S, H)
+            # print(f"S1: {27.211*(eigenvalues[1] - eigenvalues[0])}")
+
+            if not adaptive:
+                break
+
+            # Update current results if S0 and S1 eigenvalues are close
+            if current_s1 is not None and 27.211 * (eigenvalues[1] - eigenvalues[0]) < 0.5:  # TODO: Breaking threshold?
+                break
+            else:
+                current_s1 = eigenvalues[1] - eigenvalues[0]
+
+            # Update the Hamiltonian terms for each S/H matrix element
+            coeffs = eigenvectors @ eigenvectors.T
+            for mat_data in (self.s_data, self.h_data):
+                for element in mat_data.keys():
+                    mat_data[element]["coeff"] = 0.0 if np.isclose(coeffs[element], 0.0) else coeffs[element]
+
+            count += 1
+            if count > 10:
+                break
+
+        # Store the final S/H matrices
+        self.S = S
+        self.H = H
+
+        # eigenvalues, eigenvectors, proj_sub_dimension = self.solve_generalised_eigeneqn(S, H)
+
         return QSEResult(
             energies=eigenvalues,
             eigenvectors=eigenvectors,
             excitation_operators=self.operators,
             subspace_dimension=self.dim,
-            projected_subspace_dimension=len(s_evals),
+            projected_subspace_dimension=proj_sub_dimension,
             total_circuit_runs=self.total_circuit_runs,
         )
 
