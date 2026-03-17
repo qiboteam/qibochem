@@ -72,7 +72,6 @@ class QSE:
             config: Configuration for QSE.
         """
         self.molecule = molecule
-        self.mol_hamiltonian = molecule.hamiltonian("f")  # Molecular Hamiltonian as FermionOperator
         self.config = config or QSEConfig()
         self.n_shots = n_shots
         self.operators = None  # List of fermion excitation operators
@@ -115,7 +114,7 @@ class QSE:
         self.h_data = {(_i, _j): dict() for _i in range(self.dim) for _j in range(self.dim) if _i <= _j}
 
         # Populate the Hamiltonians corresponding to each matrix element in S/H
-        for mat_data, operator in zip((self.s_data, self.h_data), (1.0, self.mol_hamiltonian)):
+        for mat_data, operator in zip((self.s_data, self.h_data), (1.0, self.molecule.hamiltonian("f"))):
             for element in mat_data.keys():
                 mat_data[element]["ham"] = _qubit_to_symbolic_hamiltonian(
                     _qubit_hamiltonian(
@@ -124,7 +123,7 @@ class QSE:
                         * self.operators[element[1]],
                         self.config.ferm_qubit_map,
                     ),
-                    self.dim,
+                    n_active_orbs,
                 )
                 mat_data[element]["constant"] = constant_term(mat_data[element]["ham"])
                 mat_data[element]["terms"] = {
@@ -188,7 +187,7 @@ class QSE:
                 for matrix in (self.s_data, self.h_data)
                 for (_i, _j), data in matrix.items()
             )
-            combined_ham = SymbolicHamiltonian(expand(combined_ham.form))
+            combined_ham = SymbolicHamiltonian(expand(combined_ham.form), nqubits=circuit.nqubits)
 
             grouped_terms = measurement_basis_rotations(combined_ham, grouping="qwc")  # TODO: Currently hardcoded
 
@@ -347,4 +346,4 @@ def qse(molecule, circuit, config=None) -> QSEResult:
     """Convenience wrapper for Quantum Subspace Expansion."""
     runner = QSE(molecule, config=config)
     # Runner handles computing the expectation values using either exact statevectors or circuit samples
-    return runner.run(circuit)
+    return runner.run(circuit, config.n_shots, uniform_shot_allocation=True, adaptive=False, guess_circuit=None)
