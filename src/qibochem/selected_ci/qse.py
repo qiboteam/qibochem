@@ -87,6 +87,7 @@ class QSE:
     def _generate_excitation_operators(nso) -> list[openfermion.FermionOperator]:
         """Generate one-body excitation operators + the identity."""
         # ZC NOTE: Edited to match inquanto's singlet excitations (I think)
+        # TODO: Use a `state` argument to narrow down the excitation operators
         operators = [
             openfermion.FermionOperator(f"{2*_i}^ {2*_j}") + openfermion.FermionOperator(f"{2*_i+1}^ {2*_j+1}")
             for _i in range(nso // 2)
@@ -132,11 +133,11 @@ class QSE:
                 }
 
     def _measure_term_group(self, pauli_group, circuit):
-        """Calculate exact value of each Hamiltonian term"""
+        """Calculates and returns exact value of each Hamiltonian term"""
         from qibo import symbols
 
-        self.guess_term_exp_values = {}  # Expectation values for all terms, calculated using state vector simulations
         hamiltonian = SymbolicHamiltonian(pauli_group, nqubits=circuit.nqubits)
+        result = {}
         for _coeff, strings, qubits in zip(*hamiltonian.simple_terms):
             term = "".join(f"{string}{qubit}" for string, qubit in zip(strings, qubits))
             exact_ham = SymbolicHamiltonian(
@@ -145,7 +146,8 @@ class QSE:
                 ),
                 nqubits=circuit.nqubits,
             )
-            self.guess_term_exp_values[term] = exact_ham.expectation(circuit)
+            result[term] = exact_ham.expectation(circuit)
+        return result
 
     def _measure_term_group_shots(self, pauli_group, circuit, m_gates, n_shots):
         """Measure expectation values of a group of Pauli strings and optionally return measurement metadata."""
