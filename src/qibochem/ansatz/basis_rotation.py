@@ -14,18 +14,18 @@ from qibochem.driver import hamiltonian
 
 def unitary(occ_orbitals, virt_orbitals, parameters=None):
     r"""
-    Returns the unitary rotation matrix :math: `U = \exp(\kappa)` mixing the occupied and virtual orbitals.
-    Orbitals are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as [0a, 0b, 1a, 1b]
-    Dimension for the array of rotation parameters is len(occ_orbitals_a)*len(virt_orbitals_a) + len(occ_orbitals_b)*len(virt_orbitals_b)
-    The current implementation of this function only accommodates systems with all electrons paired, number of alpha and beta spin electrons are equal
+    Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied and virtual orbitals. Orbitals
+    are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as
+    [0a, 0b, 1a, 1b]. The current implementation of this function only accommodates systems with all electrons paired,
+    and an equal number of alpha and beta spin electrons.
+
     Args:
         occ_orbitals: Iterable of occupied orbitals
         virt_orbitals: Iterable of virtual orbitals
-        parameters: List/array of rotation parameters
-            dimension = len(occ_orbitals)*len(virt_orbitals)
+        parameters: List/array of rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)` elements
+
     Returns:
-        exp(k): Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric
-                kappa matrix
+        exp(k): Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
     """
 
     # conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
@@ -35,16 +35,12 @@ def unitary(occ_orbitals, virt_orbitals, parameters=None):
     # print('ov_pairs sorted ', ov_pairs)
     n_theta = len(ov_pairs)
     if parameters is None:
-        print("basis rotation: parameters not specified")
-        print("basis rotation: using default occ-virt rotation parameter value = 0.0")
         parameters = np.zeros(n_theta)
     elif isinstance(parameters, float):
-        print("basis rotation: using uniform value of", parameters, "for each parameter value")
         parameters = np.full(n_theta, parameters)
     else:
         if len(parameters) != n_theta:
-            raise IndexError("parameter array specified has bad size or type")
-        print("basis rotation: loading parameters from input")
+            raise IndexError("parameter argument specified has bad size or type")
 
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
     kappa = np.zeros((n_orbitals, n_orbitals))
@@ -245,38 +241,28 @@ def basis_rotation_layout(N):
 
 
 def basis_rotation_gates(A, z_array, parameters):
-    r"""
-    places the basis rotation gates on circuit in the order of Clements scheme QR decomposition
+    """
+    Obtains the basis rotation gates in the order of the Clements scheme QR decomposition
 
     Args:
-        A:
-            NxN matrix, with -1 being null, 0 is the control and integers
-            1 or greater being the index for angles in clements QR decomposition of
-            the unitary matrix representing the unitary transforms that
-            rotate the basis
-        z_array:
-            array of givens rotation angles in order of traversal from
-            QR decomposition
-        parameters:
-            array of parameters in order of traversal from QR decomposition
-    Outputs:
-        gate_list:
-            list of gates which implement the basis rotation using Clements scheme QR decomposition
-        ordered_angles:
-            list of angles ordered by sequence of singles excitation gates added to circuit
+        A (ndarray): Matrix with dimensions :math:`(N, N)`, with -1 being null, 0 is the control and integers 1 or
+            greater being the index for angles in Clements QR decomposition of the unitary matrix representing the
+            unitary transformation that rotate the basis
+        z_array (ndarray): Array of Givens rotation angles in order of traversal from the QR decomposition
+        parameters (ndarray): Array of parameters in order of traversal from the QR decomposition
 
+    Returns:
+        (list, list): Two separate lists of single excitation gates and their corresponding parameters to implement the
+        basis rotation using the Clements scheme QR decomposition
     """
     N = len(A[0])
     gate_list = []
     ordered_angles = []
-    #
+
     for j in range(N):
         for i in range(N):
             if A[i][j] == 0:
-                # gate_list.append(gates.CNOT(i + 1, i))
-                # gate_list.append(gates.CRY(i, i + 1, z_array[A[i + 1][j] - 1]))
                 gate_list.append(gates.GIVENS(i + 1, i, z_array[A[i + 1][j] - 1]))
                 ordered_angles.append(z_array[A[i + 1][j] - 1])
-                # gate_list.append(gates.CNOT(i + 1, i))
 
     return gate_list, ordered_angles

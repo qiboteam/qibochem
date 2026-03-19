@@ -1,5 +1,5 @@
 """
-Functions for obtaining and transforming the molecular Hamiltonian
+Helper functions for obtaining and transforming the molecular Hamiltonian
 """
 
 from functools import reduce
@@ -9,7 +9,7 @@ from qibo import symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 
-def fermionic_hamiltonian(oei, tei, constant):
+def _fermionic_hamiltonian(oei, tei, constant):
     """
     Build molecular Hamiltonian as an InteractionOperator using the 1-/2- electron integrals
 
@@ -26,7 +26,7 @@ def fermionic_hamiltonian(oei, tei, constant):
     return openfermion.InteractionOperator(constant, oei_so, tei_so)
 
 
-def qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
+def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     """
     Converts the molecular Hamiltonian to a QubitOperator
 
@@ -48,7 +48,7 @@ def qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     return q_hamiltonian
 
 
-def qubit_to_symbolic_hamiltonian(q_hamiltonian):
+def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
     """
     Converts a OpenFermion QubitOperator to a Qibo SymbolicHamiltonian
 

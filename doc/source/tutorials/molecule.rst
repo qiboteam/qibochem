@@ -6,9 +6,9 @@ The molecular geometry is the main requirement for initialising a ``Molecule``, 
 
 An example for a H\ :sub:`2`\  molecule with H-H distance of 0.74804 Angstroms:
 
-.. code-block::
+.. code-block:: python
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
 
     # Inline definition
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
@@ -39,7 +39,7 @@ Qibochem offers the functionality to interface with `PySCF <https://pyscf.org/>`
 
 .. code-block:: python
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
 
     # Inline definition of H2
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])
@@ -72,7 +72,7 @@ An example of how to apply this using Qibochem for the LiH molecule is given bel
 
 .. code-block:: python
 
-    from qibochem.driver.molecule import Molecule
+    from qibochem.driver import Molecule
 
     # Inline definition of H2
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.74804))])

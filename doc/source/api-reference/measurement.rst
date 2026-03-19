@@ -14,12 +14,19 @@ Expectation value of Hamiltonian
 
 .. autofunction:: qibochem.measurement.result.expectation_from_samples
 
+.. autofunction:: qibochem.measurement.result.v_expectation
+
 Measurement cost reduction
 --------------------------
 
 The following functions are used for reducing and optimising the measurement cost of obtaining the Hamiltonian
-expectation value when sample measurements are used.
+expectation value using sample measurements instead of a state vector simulation.
 
 .. autofunction:: qibochem.measurement.optimization.measurement_basis_rotations
 
-.. autofunction:: qibochem.measurement.optimization.allocate_shots
+.. autofunction:: qibochem.measurement.shot_allocation.allocate_shots
+
+Utility functions
+-----------------
+
+.. autofunction:: qibochem.measurement.result.sample_statistics

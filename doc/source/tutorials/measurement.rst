@@ -175,7 +175,7 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
     circuit.add(gates.M(0, basis=type(X(0).gate))) # H gate
     circuit.add(gates.M(1, basis=type(Y(1).gate))) # RX(0.5*pi) gate
     circuit.add(gates.M(2, basis=type(Z(2).gate))) # Computational basis remains unchanged
-    print(circuit.draw())
+    circuit.draw()
 
     # Now run the circuit to get the circuit measurements
     result = circuit(nshots=10000)
@@ -196,9 +196,9 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
 
 .. code-block:: output
 
-    q0: ─RX─RZ─o───RX─RZ─H─M─
-    q1: ─RX─RZ─X─o─RX─RZ─U─M─
-    q2: ─RX─RZ───X─RX─RZ─M───
+    0: ─RX─RZ─o───RX─RZ─H─M─
+    1: ─RX─RZ─X─o─RX─RZ─U─M─
+    2: ─RX─RZ───X─RX─RZ─M───
 
     XIZ:
     Exact result: 0.02847
