@@ -200,12 +200,12 @@ def langrangian_subspace(vector_space):
     cp_vector_space = np.array(vector_space)
     # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
     while True:
-        anticommuting_vector_dict = {}
+        # anticommuting_vector_dict = {}
         anticommuting_vector_indices = None
         # Find a pair of anti-commuting vectors in vector_space
         for _i1, _v1 in enumerate(cp_vector_space):
             for _i2, _v2 in enumerate(cp_vector_space):
-                if _i2 > _i1 and inner_product(_v1, _v2) == 1:
+                if _i2 > _i1 and symplectic_inner_product(_v1, _v2) == 1:
                     anticommuting_vector_indices = [_i1, _i2]
                     anticommuting_vectors = cp_vector_space[anticommuting_vector_indices]
                     break
@@ -218,7 +218,7 @@ def langrangian_subspace(vector_space):
         for _i1, vector in enumerate(space_to_orthogonalize):
             for _i2, anticommuting_vector in enumerate(anticommuting_vectors):
                 space_to_orthogonalize[_i1] += (
-                    inner_product(vector, anticommuting_vectors[1 - _i2]) * anticommuting_vector
+                    symplectic_inner_product(vector, anticommuting_vectors[1 - _i2]) * anticommuting_vector
                 )
                 space_to_orthogonalize = space_to_orthogonalize % 2
 
@@ -239,7 +239,7 @@ def sort_tau_terms(v_basis):
         list: Sorted list of basis vectors that can be used for finding sigma_i directly
     """
     # Convert the basis set to strings for easier sorting
-    pauli_terms = [symplectic_vector_to_pauli_term(vector) for vector in v_basis]
+    pauli_terms = [symplectic_to_pauli(vector) for vector in v_basis]
     dim = len(pauli_terms)
     sorted_terms = []
     for _i in range(dim):
@@ -247,7 +247,7 @@ def sort_tau_terms(v_basis):
         possible_terms = [term for term in pauli_terms if any(int(_op[1:]) == _i for _op in term)]
         sorted_terms.append(pauli_terms.pop(pauli_terms.index(min(possible_terms, key=lambda x: len(x)))))
     # Convert the strings back to symplectic vectors and return the whole array
-    return np.array([pauli_to_symplectic_vector(pauli_term, dim) for pauli_term in sorted_terms])
+    return np.array([pauli_to_symplectic(pauli_term, dim) for pauli_term in sorted_terms])
 
 
 def get_sigma_terms(tau_terms):
@@ -279,8 +279,8 @@ def get_sigma_terms(tau_terms):
             [
                 # Not sure if need _j != _i or if _j > _i is good enough?
                 # Paper says do _j > _i, but then will have some non-commuting tau/sigma's...?
-                inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
-                # inner_product(new_tau_terms[_j], sigma_i)*tau_i if _j > _i else np.zeros(2*dim)
+                symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
+                # symplectic_inner_product(new_tau_terms[_j], sigma_i)*tau_i if _j > _i else np.zeros(2*dim)
                 for _j in range(dim)
             ]
         ).astype(int)
@@ -361,31 +361,3 @@ def phase_factor(tau_k_terms):
             current_pauli_op = (current_pauli_op + pauli_op) % 2
         coefficient *= coeff
     return int(np.real_if_close(coefficient))
-
-
-def u_circuit(tau_terms, sigma_terms, n_qubits):
-    """
-    Obtain the ciruit representing the unitary transformation to be applied on top of the original circuit ansatz
-    to allow the expectation value of a group of Pauli terms (that commute) to be obtained using qubit-wise commuting
-    measurements
-    TODO: Make nice the docstring
-
-    Args:
-        tau_terms, sigma_terms: Lists of strings representing the decomposition of the group of Pauli terms
-
-    Returns:
-        Qibo Circuit
-    """
-    circuit = Circuit(n_qubits)
-    for _tau, _sigma in zip(tau_terms, sigma_terms):
-        # Convert the strings to QubitOperators
-        tau_i = " ".join(_tau)
-        sigma_i = " ".join(_sigma)
-
-        theta = 0.25 * np.pi
-        # Build up the circuit
-        circuit += expi_pauli(n_qubits, sigma_i, theta)
-        circuit += expi_pauli(n_qubits, tau_i, theta)
-        circuit += expi_pauli(n_qubits, sigma_i, theta)
-
-    return circuit
