@@ -129,3 +129,263 @@ def symplectic_inner_product(u, v):
         0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute"""
     dim = u.shape[0] // 2
     return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
+
+
+def binary_gaussian_elimination(vector_space):
+    """
+    Carries out Gaussian elimination on a binary (!) vector_space to obtain a basis for vector_space.
+    Reduces vector_space to its (unique) reduced row echelon form, and removes any zero rows as well
+
+    Args:
+        vector_space (np.array, dtype=int): Binary vector space
+
+    Returns:
+        np.array: Basis set for vector_space
+    """
+    cp_vector_space = np.array(vector_space)
+    # Get a list of non-zero columns
+    # nonzero_cols = np.nonzero(np.any(cp_vector_space, axis=0))[0]
+
+    dim = vector_space.shape[0]
+    # Swap the rows in the vector space to get its row echelon form
+    for _i in range(dim):
+        subspace_to_sort = cp_vector_space[_i:, :]
+        if not np.any(subspace_to_sort):
+            break
+
+        nonzero_cols = np.nonzero(np.any(subspace_to_sort, axis=0))[0]
+        # Always take the first nonzero column to sort
+        _col = nonzero_cols[0]
+
+        # col_indices = cp_vector_space[_i:, _col].argsort()[::-1]
+        col_indices = subspace_to_sort[:, _col].argsort()[::-1]
+        subspace_to_sort[:, :] = subspace_to_sort[col_indices]
+
+        # Other than row _i, find which rows have 1 in column _i
+        rows_to_reduce = [_j for _j, _row in enumerate(cp_vector_space) if _j != _i and cp_vector_space[_j, _col] == 1]
+
+        # Add row _i to each of the rows with 1 in the same column
+        cp_vector_space[[rows_to_reduce]] += cp_vector_space[_i]
+        cp_vector_space %= 2
+
+    # Remove all zero rows from the obtained basis
+    zero_vector_indices = np.all(cp_vector_space == 0, axis=1)
+    # print(f"zero_vector_indices:\n{zero_vector_indices}")
+    cp_vector_space = cp_vector_space[~zero_vector_indices]
+    return cp_vector_space
+
+
+def binary_nullspace(binary_matrix):
+    """
+    Finds the nullspace of a binary_matrix, i.e. Ax = 0
+
+    Returns:
+        np.array: Nullspace of binary matrix
+    """
+    dim = binary_matrix.shape[0]
+    # Form the augmented matrix
+    aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1])), axis=1)
+    rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
+    nullspace = rref_aug_matrix[dim:, dim:]
+    return nullspace.astype(int)
+
+
+def langrangian_subspace(vector_space):
+    """
+    Find the Lagrangian subspace of some vector space. (The symplectic nullspace in this context)
+
+    Returns:
+        np.array: Basis vectors of vector_space. Shape of the array should be (N, 2N)
+    """
+    cp_vector_space = np.array(vector_space)
+    # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
+    while True:
+        anticommuting_vector_dict = {}
+        anticommuting_vector_indices = None
+        # Find a pair of anti-commuting vectors in vector_space
+        for _i1, _v1 in enumerate(cp_vector_space):
+            for _i2, _v2 in enumerate(cp_vector_space):
+                if _i2 > _i1 and inner_product(_v1, _v2) == 1:
+                    anticommuting_vector_indices = [_i1, _i2]
+                    anticommuting_vectors = cp_vector_space[anticommuting_vector_indices]
+                    break
+
+        if cp_vector_space.shape[0] == (cp_vector_space.shape[1] // 2):
+            break
+
+        # Remove the two anti-commuting vectors from the basis
+        space_to_orthogonalize = np.delete(cp_vector_space, anticommuting_vector_indices, axis=0)
+        for _i1, vector in enumerate(space_to_orthogonalize):
+            for _i2, anticommuting_vector in enumerate(anticommuting_vectors):
+                space_to_orthogonalize[_i1] += (
+                    inner_product(vector, anticommuting_vectors[1 - _i2]) * anticommuting_vector
+                )
+                space_to_orthogonalize = space_to_orthogonalize % 2
+
+        cp_vector_space = np.append([anticommuting_vectors[0]], space_to_orthogonalize, axis=0)
+        cp_vector_space = binary_gaussian_elimination(cp_vector_space)
+
+    return cp_vector_space
+
+
+def sort_tau_terms(v_basis):
+    """
+    Sorts the individual vectors in v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
+    [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
+    will return
+    [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
+
+    Returns:
+        list: Sorted list of basis vectors that can be used for finding sigma_i directly
+    """
+    # Convert the basis set to strings for easier sorting
+    pauli_terms = [symplectic_vector_to_pauli_term(vector) for vector in v_basis]
+    dim = len(pauli_terms)
+    sorted_terms = []
+    for _i in range(dim):
+        # Get all terms that are not I in qubit _i
+        possible_terms = [term for term in pauli_terms if any(int(_op[1:]) == _i for _op in term)]
+        sorted_terms.append(pauli_terms.pop(pauli_terms.index(min(possible_terms, key=lambda x: len(x)))))
+    # Convert the strings back to symplectic vectors and return the whole array
+    return np.array([pauli_to_symplectic_vector(pauli_term, dim) for pauli_term in sorted_terms])
+
+
+def get_sigma_terms(tau_terms):
+    """
+    Find the set of sigma terms for a given array of tau terms's, with (sigma_i|tau_j) = 1 if i == j else 0, and
+    (sigma_i|sigma_j) == 0 if i != j, i.e. all sigma_i's must correspond to different qubits. Note that tau_terms must
+    also be re-orthogonalised to follow the first relation given above in the process.
+
+    Args:
+        tau_terms: Basis set of the V subspace
+
+    Returns:
+        np.array, np.array: The new (re-orthogonalized) tau_i terms, and the sigma_i terms
+    """
+    sigma_terms = []
+    dim = tau_terms[0].shape[0] // 2
+    # Make a copy of the original basis set for orthogonalization
+    new_tau_terms = np.array(tau_terms)
+    # Iterate over the original tau_i to make changes to new_tau_i
+    for _i in range(dim):
+        tau_i = new_tau_terms[_i]
+        # Let sigma_i be x_i if z_i is in tau_i, otherwise let sigma_i be z_i
+        _sigma_i = (0, 1) if tuple(tau_i[[_i, _i + dim]].tolist()) != (0, 1) else (1, 0)
+        # Convert and broadcast _sigma_i back to the correct size using I's
+        sigma_i = np.ravel(np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T)
+        sigma_terms.append(sigma_i)
+        # Orthogonalise the non-i^th terms:
+        new_tau_terms += np.array(
+            [
+                # Not sure if need _j != _i or if _j > _i is good enough?
+                # Paper says do _j > _i, but then will have some non-commuting tau/sigma's...?
+                inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
+                # inner_product(new_tau_terms[_j], sigma_i)*tau_i if _j > _i else np.zeros(2*dim)
+                for _j in range(dim)
+            ]
+        ).astype(int)
+        new_tau_terms = new_tau_terms % 2
+
+    return new_tau_terms, np.array(sigma_terms)
+
+
+def solve_linear_system_single_vector(A, b):
+    """
+    Solve the (binary) linear system Ax = b, where b is a single row vector
+
+    Returns:
+        list: Each item in the list corresponds to the respective vectors in b.
+    """
+    # Form the augmented matrix
+    aug_matrix = np.concatenate((A.T, b[:, None]), axis=1)
+    rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
+    # Find the non-zero entries in each column on the RHS of rref_aug_matrix, which is the solution for respective vector in b
+    return np.nonzero(rref_aug_matrix[:, A.shape[0]])[0].tolist()
+
+
+def solve_linear_system(A, b):
+    """
+    Solve the (binary) linear system Ax = b
+
+    Returns:
+        list: Each item in the list corresponds to the respective vectors in b.
+    """
+    # Form the augmented matrix
+    aug_matrix = np.concatenate((A, b), axis=0).T
+    rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
+    # Find the non-zero entries in each column on the RHS of rref_aug_matrix, which is the solution for respective vector in b
+    return [np.nonzero(rref_aug_matrix[:, A.shape[0] + _i])[0].tolist() for _i in range(b.shape[0])]
+
+
+def phase_factor(tau_k_terms):
+    r"""
+    Calculate the phase factor (p) in the decomposition of a Pauli string in the original Hamiltonian into a
+    product of k mutually commuting Pauli terms, i.e. P_I =  p \prod_{K} \tau_k
+
+    Args:
+        tau_k_terms: Iterable of mutually commuting Pauli products, given in the form of symplectic vectors.
+            Note: Each tau_k term is a 1D array.
+
+    Returns:
+        int: 1 or -1
+    """
+    # print(f"tau_k_terms:\n{tau_k_terms}")
+    dim = tau_k_terms[0].shape[0] // 2
+    # Singleton case is trivial: 1
+    if len(tau_k_terms) == 1:
+        return 1
+    # >1 terms: Need to take the product of every Pauli operator of every term in tau_k_terms
+    phases = (1.0, 1.0j, -1.0j)
+    symplectic_vectors = [[0, 0], [1, 0], [1, 1], [0, 1]]  # I, X, Y, Z
+
+    # Split up the vectors by imdividual qubits, then take the product for each qubit
+    split_vectors_by_qubit = [[tau_k[[_i, _i + dim]] for _i in range(dim)] for tau_k in tau_k_terms]
+
+    coefficient = 1.0
+    for qubit in range(dim):
+        # Get all Pauli operators for a particular qubit
+        pauli_ops = [vector[qubit] for vector in split_vectors_by_qubit]
+        # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
+        coeff, current_pauli_op = 1.0, np.zeros(2)
+        for pauli_op in pauli_ops:
+            # To handle I cases
+            if symplectic_vectors.index(current_pauli_op.tolist()) == 0:
+                current_pauli_op = pauli_op
+                continue
+            if symplectic_vectors.index(pauli_op.tolist()) == 0:
+                continue
+            # Multiply by some phase factor depending on what Pauli operators are involved
+            coeff *= phases[
+                symplectic_vectors.index(pauli_op.tolist()) - symplectic_vectors.index(current_pauli_op.tolist())
+            ]
+            current_pauli_op = (current_pauli_op + pauli_op) % 2
+        coefficient *= coeff
+    return int(np.real_if_close(coefficient))
+
+
+def u_circuit(tau_terms, sigma_terms, n_qubits):
+    """
+    Obtain the ciruit representing the unitary transformation to be applied on top of the original circuit ansatz
+    to allow the expectation value of a group of Pauli terms (that commute) to be obtained using qubit-wise commuting
+    measurements
+    TODO: Make nice the docstring
+
+    Args:
+        tau_terms, sigma_terms: Lists of strings representing the decomposition of the group of Pauli terms
+
+    Returns:
+        Qibo Circuit
+    """
+    circuit = Circuit(n_qubits)
+    for _tau, _sigma in zip(tau_terms, sigma_terms):
+        # Convert the strings to QubitOperators
+        tau_i = " ".join(_tau)
+        sigma_i = " ".join(_sigma)
+
+        theta = 0.25 * np.pi
+        # Build up the circuit
+        circuit += expi_pauli(n_qubits, sigma_i, theta)
+        circuit += expi_pauli(n_qubits, tau_i, theta)
+        circuit += expi_pauli(n_qubits, sigma_i, theta)
+
+    return circuit
