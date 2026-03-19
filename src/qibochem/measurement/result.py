@@ -119,12 +119,13 @@ def expectation_from_samples(
         _circuit.add(measurement_gates)
 
         # Number of shots used to run the circuit depends on n_shots_per_pauli_term
-        result = _circuit(nshots=n_shots if n_shots_per_pauli_term else shot_allocation[_i])
-
-        frequencies = result.frequencies(binary=True)
-        if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-            qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
-            total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
+        nshots = n_shots if n_shots_per_pauli_term else shot_allocation[_i]
+        if nshots:
+            result = _circuit(nshots=nshots)
+            frequencies = result.frequencies(binary=True)
+            if frequencies:  # Needed because might have cases whereby no shots allocated to a group
+                qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
+                total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
 
 

@@ -137,10 +137,10 @@ def gc_measurement_mapping(expression, nqubits):
     """
     # Single Pauli operator
     if not expression.args:
-        return {expression: expression}, [gates.M(expression.target_qubit, basis=type(expression.gate))]
+        return {term_to_string(expression): expression}, [gates.M(expression.target_qubit, basis=type(expression.gate))]
     # Work on the entire expression
-    term_list = [pauli_to_symplectic(term_to_string(term).split(), nqubits) for term in expression.args]
-    v_subspace = np.array(term_list)
+    term_list = [term_to_string(term) for term in expression.args]
+    v_subspace = np.array([pauli_to_symplectic(terms.split(), nqubits) for terms in term_list])
     v_basis = binary_gaussian_elimination(v_subspace)
 
     dim_v = v_basis.shape[0]
@@ -163,7 +163,10 @@ def gc_measurement_mapping(expression, nqubits):
         term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
         for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
     }
-    return mapping, u_circuit(tau_term_str, sigma_term_str, nqubits).queue
+    # Define the measurement gates
+    u_gates = u_circuit(tau_term_str, sigma_term_str, nqubits).queue
+    m_gates = [gates.M(_q) for _q in {gate.target_qubit for gate in u_gates if hasattr(gate, "target_qubit")}]
+    return mapping, u_gates + m_gates
 
 
 def gc_measurements(hamiltonian):
@@ -191,9 +194,15 @@ def gc_measurements(hamiltonian):
     to_return = []
     for term_group in term_groups:
         grouped_expression = sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group)
+        print(f"{grouped_expression = }")
         mapping, gates_to_add = gc_measurement_mapping(grouped_expression, hamiltonian.nqubits)
+        print(f"{mapping = }")
         # Update the initial expression based on the obtained mapping
-        new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
+        # new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
+        new_expression = 0.0
+        for term in term_group:
+            print(f"{term = }")
+            new_expression += ham_terms[term][1] * mapping[term]
         to_return.append((new_expression, gates_to_add))
     return to_return
 
@@ -211,8 +220,6 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
             gates associated with each group of terms
 
     Returns:
-        NOTE: NOT FOR GC!
-
         list: List of two-tuples; the first item in the tuple is a group of Pauli terms (:class:`sympy.Expr`), and the
         second is a list of measurement gates (:class:`qibo.gates.M`) that can be used to get the expectation value
         for the corresponding expression.
@@ -227,8 +234,7 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     elif grouping == "qwc":
         result += qwc_measurements(hamiltonian)
     elif grouping == "gc":
-        # TODO: This is a mess...!!!
-        return gc_measurements(hamiltonian)
+        result += gc_measurements(hamiltonian)
     else:
         raise NotImplementedError("Not ready yet!")
     return result
