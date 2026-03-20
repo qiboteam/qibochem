@@ -13,14 +13,18 @@ from qibochem.ansatz.ucc import expi_pauli
 from qibochem.measurement.util import (
     binary_gaussian_elimination,
     binary_nullspace,
+    col_reduce_x_matrix,
     get_sigma_terms,
     group_commuting_terms,
     langrangian_subspace,
+    make_x_matrix_full_rank,
     pauli_to_symplectic,
     phase_factor,
     solve_linear_system,
     sort_tau_terms,
     symplectic_to_pauli,
+    synthesise_circuit,
+    zero_z_matrix,
 )
 
 
@@ -122,7 +126,7 @@ def qwc_measurements(hamiltonian):
     ]
 
 
-def gc_measurement_mapping(expression, nqubits):
+def gc_measurement_mapping(expression, nqubits, method="chong"):
     """
     TODO: Docstring
 
@@ -155,24 +159,36 @@ def gc_measurement_mapping(expression, nqubits):
         # Interchange the 1st/2nd half of the indices to get nullspace in a symplectic sense
         nullspace = np.concatenate((nullspace[:, dim_symplectic:], nullspace[:, :dim_symplectic]), axis=1)
         v_basis = langrangian_subspace(nullspace)
-    # ZC NOTE: I have completely forgotten what is all this about...
-    # print(f"v_basis:\n{v_basis}")
-    v_basis = sort_tau_terms(v_basis)
-    # print(f"{v_basis = }")
-    new_tau_terms, sigma_terms = get_sigma_terms(v_basis)
-    x_result = solve_linear_system(new_tau_terms, v_subspace)
-    tau_term_str = [symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
-    sigma_term_str = [symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
-    qwc_terms = [symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
-    phase_factors = [phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
-    mapping = {
-        term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
-        for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
-    }
-    # print(f"{mapping = }")
-    # Define the measurement gates
-    u_gates = u_circuit(tau_term_str, sigma_term_str, nqubits).queue
-    # print(f"{u_gates = }")
+    # Different methods of circuit synthesis
+    if method == "chong":
+        x_result = solve_linear_system(v_basis, v_subspace)
+        phase_factors = [phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
+        u_gates = transformation_circuit = synthesise_circuit(v_basis)
+        mapping = {
+            term: phase * prod(Z(_i) for _i in soln) for term, phase, soln in zip(term_list, phase_factors, x_result)
+        }
+    elif method == "izmaylov":
+        # ZC NOTE: I have completely forgotten what is all this about...
+        # print(f"v_basis:\n{v_basis}")
+        v_basis = sort_tau_terms(v_basis)
+        # print(f"{v_basis = }")
+        new_tau_terms, sigma_terms = get_sigma_terms(v_basis)
+        x_result = solve_linear_system(new_tau_terms, v_subspace)
+        phase_factors = [phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
+        tau_term_str = [symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
+        sigma_term_str = [symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
+        qwc_terms = [symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
+        mapping = {
+            term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
+            for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
+        }
+        # print(f"{mapping = }")
+        # Define the measurement gates
+        u_gates = u_circuit(tau_term_str, sigma_term_str, nqubits).queue
+        # print(f"{u_gates = }")
+    else:
+        raise ValueError("Unknown method!")
+    # Add measuremnt gates
     qubits_to_measure = set()
     for term in mapping.values():
         if term.args:
@@ -185,7 +201,7 @@ def gc_measurement_mapping(expression, nqubits):
     return mapping, m_gates, u_gates
 
 
-def gc_measurements(hamiltonian):
+def gc_measurements(hamiltonian, method):
     """
     Sort out a list of Hamiltonian terms into separate groups of mutually qubitwise commuting terms, and returns the
     grouped terms along with their associated measurement gates
@@ -222,16 +238,18 @@ def gc_measurements(hamiltonian):
             # grouped_expression = sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group)
             grouped_expression = sum(ham_terms[term][0] for term in term_group)
             # print(f"{grouped_expression = }")
-            mapping, measurement_gates, rotation_gates = gc_measurement_mapping(grouped_expression, hamiltonian.nqubits)
+            mapping, measurement_gates, rotation_gates = gc_measurement_mapping(
+                grouped_expression, hamiltonian.nqubits, method
+            )
             print(f"{mapping = }")
             # print(f"{measurement_gates = }")
             # print(f"{rotation_gates = }")
             # Update the initial expression based on the obtained mapping
             new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
-            new_expression = 0.0
-            for term in term_group:
-                # print(f"{term = }")
-                new_expression += ham_terms[term][1] * mapping[term]
+            # new_expression = 0.0
+            # for term in term_group:
+            #     # print(f"{term = }")
+            #     new_expression += ham_terms[term][1] * mapping[term]
         to_return.append((new_expression, measurement_gates, rotation_gates))
     return to_return
 
@@ -262,7 +280,9 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
     elif grouping == "qwc":
         result += qwc_measurements(hamiltonian)
     elif grouping == "gc":
-        result += gc_measurements(hamiltonian)
+        result += gc_measurements(hamiltonian, "chong")
+    elif grouping == "gc2":
+        result += gc_measurements(hamiltonian, "izmaylov")
     else:
         raise NotImplementedError("Not ready yet!")
     return result

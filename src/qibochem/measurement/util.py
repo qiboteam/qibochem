@@ -4,6 +4,7 @@ Utility functions for optimising measurements and calculation of expectation val
 
 import networkx as nx
 import numpy as np
+from qibo import gates
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
 PAULI_BINARY = {"I": (0, 0), "Z": (0, 1), "X": (1, 0), "Y": (1, 1)}
@@ -379,3 +380,144 @@ def phase_factor(tau_k_terms):
             current_pauli_op = (current_pauli_op + pauli_op) % 2
         coefficient *= coeff
     return int(np.real_if_close(coefficient))
+
+
+def make_x_matrix_full_rank(stabliser_matrix):
+    """
+    Modifies stabliser_matrix in-place to transform 'X matrix' to full rank, with H gates representing each 'swap' of columns between the 'Z' and 'X' matrices.
+    stabliser_matrix should already be in reduced row echelon form
+
+    Returns:
+        list: List of H gates to be added to the circuit
+    """
+    gates_list = []
+    _dim, _dim_space = stabliser_matrix.shape
+    dim_space = _dim_space // 2
+    # print(dim, dim_space)
+
+    # TODO: Try to work directly in the stabliser_matrix instead of defining x/z_matrix
+    x_matrix = stabliser_matrix[:, :dim_space]
+    z_matrix = stabliser_matrix[:, dim_space:]
+
+    # Need to find full rank submatrix in Z matrix for each of the zero rows in the X matrix
+    zero_row_indices = [_i for _i, is_zero in enumerate(np.all(x_matrix == 0, axis=1)) if is_zero]
+    # Only need to do anything if there are zero rows in the X matrix
+    while zero_row_indices:
+        nonzero_cols_by_row = {
+            # row:[col for col in np.nonzero(z_matrix[row, :])[0]]
+            row: list(np.nonzero(z_matrix[row, :])[0])
+            for row in zero_row_indices
+        }
+        # print(f"nonzero_cols_by_row:\n{nonzero_cols_by_row}")
+        # See if there are any single-element lists in the values of nonzero_cols_by_row
+        no_choice_rows = [row for row, possible_cols in nonzero_cols_by_row.items() if len(possible_cols) == 1]
+        chosen_row = no_choice_rows[0] if no_choice_rows else zero_row_indices[0]
+        chosen_qubit = nonzero_cols_by_row[chosen_row][0]
+        # print(f"chosen_qubit: {chosen_qubit}")
+        stabliser_matrix[:, [chosen_qubit, chosen_qubit + dim_space]] = stabliser_matrix[
+            :, [chosen_qubit + dim_space, chosen_qubit]
+        ]
+        gates_list.append(gates.H(chosen_qubit))
+        zero_row_indices.remove(chosen_row)
+        # print(f"Remaining rows: {zero_row_indices}")
+
+    return gates_list
+
+
+def col_reduce_x_matrix(stabliser_matrix):
+    """
+    Modifies stabliser_matrix in-place to transform the X matrix to I, using CNOT/SWAP gates
+
+    Returns:
+        list: List of CNOT/SWAP gates to be added to the circuit
+    """
+    gates_list = []
+    dim, _dim_space = stabliser_matrix.shape
+    dim_space = _dim_space // 2
+
+    # Paper used row reduction, but should be column reduction in our context
+    for _i in range(dim_space):
+        if _i > dim:
+            break
+        # Get columns with row _i != 0
+        nonzero_cols = np.nonzero(stabliser_matrix[_i, :dim_space])[0]
+
+        # Always take the first nonzero row to sort
+        _col = [_j for _j in nonzero_cols if _j >= _i][0]
+        if _i not in nonzero_cols:
+            # print("Need to add SWAP gates")
+            stabliser_matrix[:, [_i, _col, _i + dim_space, _col + dim_space]] = stabliser_matrix[
+                :, [_col, _i, _col + dim_space, _i + dim_space]
+            ]
+            gates_list.append(gates.SWAP(_i, _col))
+        nonzero_cols = np.nonzero(stabliser_matrix[_i, :dim_space])[0]
+        # Remove all nonzero entries on row _i using CNOT gates
+        for _col in nonzero_cols:  # Ignore first entry of nonzero_cols since effectively should be 0 now
+            if _col != _i:
+                # Add j^th column to i^th column
+                stabliser_matrix[:, _col] += stabliser_matrix[:, _i]
+                # Add (i+dim_space)^th column to (j+dim_space)^th column
+                # But RHS of stabiliser matrix should be 0 matrix, so I think can ignore...?
+                stabliser_matrix[:, dim_space + _i] += stabliser_matrix[:, _col + dim_space]
+                # Mod 2
+                stabliser_matrix %= 2
+                gates_list.append(gates.CNOT(_i, _col))
+
+    return gates_list
+
+
+def zero_z_matrix(stabliser_matrix):
+    """
+    Modifies stabliser_matrix in-place to transform the Z matrix to a zero matrix.
+    1. S gates used to set diagonal entries on Z matrix
+    2. CZ gates used to remove off-diagonal entries on Z matrix
+
+    Returns:
+        list: List of S and CZ gates to be added to the circuit
+    """
+    s_gates = []
+    cz_gates = []
+    dim, _dim_space = stabliser_matrix.shape
+    dim_space = _dim_space // 2
+    # Following the algorithm in the paper, zero out the diagonal entries first
+    for _i in range(dim):
+        if stabliser_matrix[_i, dim_space + _i] == 1:
+            s_gates.append(gates.S(_i).dagger())  # Paper says S gate, but should be S.dagger?
+            stabliser_matrix[_i, dim_space + _i] = 0
+        # Then remove the off-diagonal terms in each row
+        for _j in range(dim_space):
+            if _j > _i and stabliser_matrix[_i, dim_space + _j] == 1:
+                cz_gates.append(gates.CZ(_i, _j))
+                stabliser_matrix[_i, dim_space + _j] = 0
+                stabliser_matrix[_j, dim_space + _i] = 0
+    return s_gates + cz_gates
+
+
+def synthesise_circuit(v_basis):
+    """
+    Build the unitary transformation circuit according to the algorithm
+
+    Args:
+        v_basis (np.array): Basis for the symplectic vector space of the group of commuting Pauli terms
+
+    Returns:
+        list: List of gates to be applied after the circuit ansatz for rotating the initial measurement basis into the computational basis
+    """
+    stabliser_matrix = np.array(v_basis)
+    n_qubits = stabliser_matrix.shape[1] // 2
+    rotation_gates = []
+    # 1. Apply H gates to transform 'X matrix' to full rank
+    h_gates1 = make_x_matrix_full_rank(stabliser_matrix)
+    rotation_gates += h_gates1
+    # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
+    rr_gates = col_reduce_x_matrix(stabliser_matrix)
+    rotation_gates += rr_gates
+    # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
+    gates_list = zero_z_matrix(stabliser_matrix)
+    rotation_gates += gates_list
+    # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
+    rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
+    # stabliser_matrix[:, list(range(stabliser_matrix.shape[1]))] = (
+    #     stabliser_matrix[:, list(range(n_qubits, 2*n_qubits)) + list(range(n_qubits))]
+    # )
+    return rotation_gates
