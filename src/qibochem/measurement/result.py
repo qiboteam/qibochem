@@ -115,6 +115,7 @@ def expectation_from_samples(
 
     total = constant_term(hamiltonian)
     for _i, (expression, measurement_gates) in enumerate(grouped_terms):
+        # print(f"{measurement_gates = }")
         _circuit = circuit.copy()
         _circuit.add(measurement_gates)
 
@@ -122,9 +123,12 @@ def expectation_from_samples(
         nshots = n_shots if n_shots_per_pauli_term else shot_allocation[_i]
         if nshots:
             result = _circuit(nshots=nshots)
+            # print(type(result))
             frequencies = result.frequencies(binary=True)
+            print(f"{frequencies = }")
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-                qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
+                qubit_map = sorted({qubit for gate in measurement_gates for qubit in gate.target_qubits})
+                print(f"{qubit_map = }")
                 total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
 
