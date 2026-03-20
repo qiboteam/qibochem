@@ -114,9 +114,10 @@ def expectation_from_samples(
         ), f"shot_allocation list ({len(shot_allocation)}) doesn't match the number of grouped terms ({len(grouped_terms)})"
 
     total = constant_term(hamiltonian)
-    for _i, (expression, measurement_gates) in enumerate(grouped_terms):
+    for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
         # print(f"{measurement_gates = }")
         _circuit = circuit.copy()
+        _circuit.add(rotation_gates)
         _circuit.add(measurement_gates)
 
         # Number of shots used to run the circuit depends on n_shots_per_pauli_term
@@ -125,10 +126,10 @@ def expectation_from_samples(
             result = _circuit(nshots=nshots)
             # print(type(result))
             frequencies = result.frequencies(binary=True)
-            print(f"{frequencies = }")
+            # print(f"{frequencies = }")
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
                 qubit_map = sorted({qubit for gate in measurement_gates for qubit in gate.target_qubits})
-                print(f"{qubit_map = }")
+                # print(f"{qubit_map = }")
                 total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
 
@@ -152,8 +153,9 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
         Hamiltonian term (group) with respect to the given circuit.
     """
     expectation_values, expectation_variances = [], []
-    for expression, measurement_gates in grouped_terms:
+    for expression, measurement_gates, rotation_gates in grouped_terms:
         _circuit = circuit.copy()
+        _circuit.add(rotation_gates)
         _circuit.add(measurement_gates)
         result = _circuit(nshots=n_shots)
         frequencies = result.frequencies(binary=True)

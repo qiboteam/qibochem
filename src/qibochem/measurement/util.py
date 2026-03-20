@@ -241,13 +241,31 @@ def sort_tau_terms(v_basis):
     # Convert the basis set to strings for easier sorting
     pauli_terms = [symplectic_to_pauli(vector) for vector in v_basis]
     dim = len(pauli_terms)
-    sorted_terms = []
-    for _i in range(dim):
-        # Get all terms that are not I in qubit _i
-        possible_terms = [term for term in pauli_terms if any(int(_op[1:]) == _i for _op in term)]
-        sorted_terms.append(pauli_terms.pop(pauli_terms.index(min(possible_terms, key=lambda x: len(x)))))
+
+    sorted_terms = {}
+    while True:
+        possible_terms = {
+            _i: [term for term in pauli_terms if any(int(_op[1:]) == _i for _op in term)]
+            for _i in range(dim)
+            if _i not in sorted_terms
+        }
+        # Remove terms that only have a single possibility
+        single_choices = [_i for _i, terms in possible_terms.items() if len(terms) == 1]
+        if single_choices:
+            # Should have no more overlapping terms? TODO: If got then how?
+            for qubit in single_choices:
+                sorted_terms[qubit] = pauli_terms.pop(pauli_terms.index(possible_terms[qubit][0]))
+        # Select based on the first remaining unassigned qubit
+        else:
+            least_choices = min(len(terms) for terms in possible_terms.values())
+            n_choices = [_q for _q, terms in possible_terms.items() if len(terms) == least_choices]
+            qubit = min(n_choices)
+            term_to_remove = min(possible_terms[qubit], key=len)
+            sorted_terms[qubit] = pauli_terms.pop(pauli_terms.index(term_to_remove))
+        if not pauli_terms:
+            break
     # Convert the strings back to symplectic vectors and return the whole array
-    return np.array([pauli_to_symplectic(pauli_term, dim) for pauli_term in sorted_terms])
+    return np.array([pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
 
 
 def get_sigma_terms(tau_terms):
