@@ -10,3 +10,4 @@ In this section we document the main Qibochem components and primitives in the p
     molecule
     ansatz
     measurement
+    selected_ci
