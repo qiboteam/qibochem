@@ -2,10 +2,28 @@
 Functions for optimising the measurement cost of obtaining the expectation value
 """
 
-import networkx as nx
-from qibo import gates
+from math import prod
+
+import numpy as np
+from qibo import Circuit, gates, symbols
 from qibo.symbols import X, Y, Z
 from sympy.core.numbers import One
+
+from qibochem.ansatz.ucc import expi_pauli
+from qibochem.measurement.util import (
+    binary_gaussian_elimination,
+    binary_nullspace,
+    col_reduce_x_matrix,
+    get_sigma_terms,
+    group_commuting_terms,
+    langrangian_subspace,
+    pauli_to_symplectic,
+    phase_factor,
+    solve_linear_system,
+    sort_tau_terms,
+    symplectic_to_pauli,
+    synthesise_circuit,
+)
 
 
 def term_to_string(term):
@@ -16,72 +34,32 @@ def term_to_string(term):
     return " ".join(str(_x) for _x in term.args if isinstance(_x, (X, Y, Z))) if term.args else str(term)
 
 
-def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
+def u_circuit(tau_terms, sigma_terms, n_qubits):
     """
-    Check if terms 1 and 2 are mutually commuting. The 'qubitwise' flag determines if the check is for general
-    commutativity (False), or the stricter qubitwise commutativity.
+    Obtain the ciruit representing the unitary transformation to be applied on top of the original circuit ansatz
+    to allow the expectation value of a group of Pauli terms (that commute) to be obtained using qubit-wise commuting
+    measurements
+    TODO: Make nice the docstring
 
     Args:
-        term1/term2: Strings representing a single Pauli term. E.g. "X0 Z1 Y3". Obtained from a Qibo SymbolicTerm as
-        ``" ".join(factor.name for factor in term.factors)``.
-        qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
+        tau_terms, sigma_terms: Lists of strings representing the decomposition of the group of Pauli terms
 
     Returns:
-        bool: Do terms 1 and 2 commute?
+        Qibo Circuit
     """
-    # Get a list of common qubits for each term
-    common_qubits = {_term[1:] for _term in term1.split() if _term[0] != "I"} & {
-        _term[1:] for _term in term2.split() if _term[0] != "I"
-    }
-    if not common_qubits:
-        return True
-    # Get the single Pauli operators for the common qubits for both Pauli terms
-    term1_ops = [_op for _op in term1.split() if _op[1:] in common_qubits]
-    term2_ops = [_op for _op in term2.split() if _op[1:] in common_qubits]
-    if qubitwise:
-        # Qubitwise: Compare the Pauli terms at the common qubits. Any difference => False
-        return all(_op1 == _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
-    # General commutativity:
-    # Get the number of single Pauli operators that do NOT commute
-    n_noncommuting_ops = sum(_op1 != _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
-    # term1 and term2 have general commutativity iff n_noncommuting_ops is even
-    return n_noncommuting_ops % 2 == 0
+    circuit = Circuit(n_qubits)
+    for _tau, _sigma in zip(tau_terms, sigma_terms):
+        # Convert the strings to QubitOperators
+        tau_i = " ".join(_tau)
+        sigma_i = " ".join(_sigma)
 
+        theta = 0.25 * np.pi
+        # Build up the circuit
+        circuit += expi_pauli(n_qubits, sigma_i, theta)
+        circuit += expi_pauli(n_qubits, tau_i, theta)
+        circuit += expi_pauli(n_qubits, sigma_i, theta)
 
-def group_commuting_terms(terms_list, qubitwise):
-    """
-    Groups the terms in terms_list into as few groups as possible, where all the terms in each group commute
-    mutually == Finding the minimum clique cover (i.e. as few cliques as possible) for the graph whereby each node
-    is a Pauli string, and an edge exists between two nodes iff they commute.
-
-    This is equivalent to the graph colouring problem of the complement graph (i.e. edge between nodes if they DO NOT
-    commute), which this function follows.
-
-    Args:
-        terms_list: List of strings. The strings should follow the output from
-            ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo SymbolicTerm. E.g. "X0 Z1".
-        qubitwise: Determines if the check is for general commutativity, or the stricter qubitwise commutativity
-
-    Returns:
-        list: Containing groups (lists) of Pauli strings that all commute mutually
-    """
-    G = nx.Graph()
-    # Complement graph: Add all the terms as nodes first, then add edges between nodes if they DO NOT commute
-    G.add_nodes_from(terms_list)
-    G.add_edges_from(
-        (term1, term2)
-        for _i1, term1 in enumerate(terms_list)
-        for _i2, term2 in enumerate(terms_list)
-        if _i2 > _i1 and not check_terms_commutativity(term1, term2, qubitwise)
-    )
-    # Solve using Greedy Colouring on NetworkX
-    sorted_groups = nx.coloring.greedy_color(G)
-    group_ids = set(sorted_groups.values())
-    # Sort results so that test results will be replicable
-    term_groups = sorted(
-        sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
-    )
-    return term_groups
+    return circuit
 
 
 def qwc_measurement_gates(expression):
@@ -108,10 +86,10 @@ def qwc_measurement_gates(expression):
             _m_gates = {
                 pauli_op.target_qubit: gates.M(pauli_op.target_qubit, basis=type(pauli_op.gate))
                 for pauli_op in term.args
-                if m_gates.get(pauli_op.target_qubit) is None
+                if hasattr(pauli_op, "target_qubit") and m_gates.get(pauli_op.target_qubit) is None
             }
         m_gates = {**m_gates, **_m_gates}
-    return list(m_gates.values())
+    return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
 def qwc_measurements(hamiltonian):
@@ -140,9 +118,108 @@ def qwc_measurements(hamiltonian):
         (
             sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group),  # Original expression: coeff*term
             qwc_measurement_gates(sum(ham_terms[term][0] for term in term_group)),  # No coeff for qwc_measurement_gates
+            [],  # No additional rotation gates needed; Already included in `basis` argument of gates.M
         )
         for term_group in term_groups
     ]
+
+
+def gc_measurement_mapping(expression, nqubits, method="chong"):
+    """
+    TODO: Docstring
+
+    Get the list of (basis rotation) measurement gates to be added to the circuit. The measurements from the resultant
+    circuit can then be used to obtain the expectation values of ALL the terms in expression directly.
+
+    Args:
+        expression (sympy.Expr): Group of Pauli terms that all mutually commute with each other qubitwise
+
+    Returns:
+        dict: Mapping of the original Hamiltonian terms to the new Hamiltonian
+        list: Measurement gates to be appended to the original Qibo circuit
+    """
+    # Single Pauli operator
+    if not expression.args:
+        return {term_to_string(expression): expression}, [gates.M(expression.target_qubit, basis=type(expression.gate))]
+    # Otherwise, expression is a sum of terms
+    term_list = [term_to_string(term) for term in expression.args if term_to_string(term)[0] in ("X", "Y", "Z")]
+    v_subspace = np.array([pauli_to_symplectic(terms.split(), nqubits) for terms in term_list])
+    v_basis = binary_gaussian_elimination(v_subspace)
+
+    dim_v = v_basis.shape[0]
+    dim_symplectic = v_basis.shape[1] // 2
+    # If dim(V) < N, update v_basis to form a Lagrangian subspace
+    if dim_v != dim_symplectic:
+        nullspace = binary_nullspace(v_basis)
+        # Interchange the 1st/2nd half of the indices to get nullspace in a symplectic sense
+        nullspace = np.concatenate((nullspace[:, dim_symplectic:], nullspace[:, :dim_symplectic]), axis=1)
+        v_basis = langrangian_subspace(nullspace)
+    # Different methods of circuit synthesis
+    if method == "chong":
+        x_result = solve_linear_system(v_basis, v_subspace)
+        phase_factors = [phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
+        u_gates = synthesise_circuit(v_basis)
+        mapping = {
+            term: phase * prod(Z(_i) for _i in soln) for term, phase, soln in zip(term_list, phase_factors, x_result)
+        }
+    elif method == "izmaylov":
+        # ZC NOTE: I have completely forgotten what is all this about...
+        v_basis = sort_tau_terms(v_basis)
+        new_tau_terms, sigma_terms = get_sigma_terms(v_basis)
+        x_result = solve_linear_system(new_tau_terms, v_subspace)
+        phase_factors = [phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
+        tau_term_str = [symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
+        sigma_term_str = [symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
+        qwc_terms = [symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
+        mapping = {
+            term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
+            for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
+        }
+        # Define the measurement gates
+        u_gates = u_circuit(tau_term_str, sigma_term_str, nqubits).queue
+    else:
+        raise ValueError("Unknown method!")
+    return mapping, u_gates
+
+
+def gc_measurements(hamiltonian, method):
+    """
+    Sort out a list of Hamiltonian terms into separate groups of mutually qubitwise commuting terms, and returns the
+    grouped terms along with their associated measurement gates
+
+    Args:
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
+
+    Returns:
+        list: List of two-tuples, with each tuple given as (sorted_ham, [`list of measurement gates`]), where
+            sorted_ham is a :class:`qibo.hamiltonians.SymbolicHamiltonian`
+    """
+    # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
+    if hamiltonian.form.args:
+        ham_terms = {
+            term_to_string(term): (term, coeff)
+            for term, coeff in hamiltonian.form.as_coefficients_dict().items()
+            if not isinstance(term, One)
+        }
+    else:
+        ham_terms = {term_to_string(hamiltonian.form): (hamiltonian.form, 1.0)}  # Single Pauli operator
+    term_groups = group_commuting_terms(ham_terms.keys(), qubitwise=False)
+    to_return = []
+    for term_group in term_groups:
+        # Check for qubitwise commutativity
+        qubitwise_commutative = len(group_commuting_terms(term_group, qubitwise=True)) == 1
+        if qubitwise_commutative:
+            new_expression = sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group)  # Unchanged if QWC
+            rotation_gates = []
+        else:
+            grouped_expression = sum(ham_terms[term][0] for term in term_group)
+            mapping, rotation_gates = gc_measurement_mapping(grouped_expression, hamiltonian.nqubits, method)
+            # Update the initial expression based on the obtained mapping
+            new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
+        # Add measurement gates based on the updated expression
+        measurement_gates = qwc_measurement_gates(new_expression)
+        to_return.append((new_expression, measurement_gates, rotation_gates))
+    return to_return
 
 
 def measurement_basis_rotations(hamiltonian, grouping=None):
@@ -158,19 +235,22 @@ def measurement_basis_rotations(hamiltonian, grouping=None):
             gates associated with each group of terms
 
     Returns:
-        list: List of two-tuples; the first item in the tuple is a group of Pauli terms (:class:`sympy.Expr`), and the
-        second is a list of measurement gates (:class:`qibo.gates.M`) that can be used to get the expectation value
-        for the corresponding expression.
+        list: List of three-tuples; 1. Group of Pauli terms (:class:`sympy.Expr`), 2. List of measurement gates
+            (:class:`qibo.gates.M`), 3. List of Clifford gates to be added to the circuit before (2)
     """
     result = []
     if grouping is None:
         result += [
-            (coeff * term, qwc_measurement_gates(term))
+            (coeff * term, qwc_measurement_gates(term), [])
             for term, coeff in hamiltonian.form.as_coefficients_dict().items()
             if not isinstance(term, One)  # Ignore any constant term
         ]
     elif grouping == "qwc":
         result += qwc_measurements(hamiltonian)
+    elif grouping == "gc":
+        result += gc_measurements(hamiltonian, "chong")
+    elif grouping == "gc2":
+        result += gc_measurements(hamiltonian, "izmaylov")
     else:
         raise NotImplementedError("Not ready yet!")
     return result

@@ -29,9 +29,8 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: qibo.hamiltonians.Sym
     Returns:
         float: Expectation value of the Hamiltonian for the given circuit
     """
-    result = circuit()
-    state_ket = result.state()
-    return hamiltonian.expectation(state_ket)
+    # TODO: Remove this function
+    return hamiltonian.expectation(circuit)
 
 
 def constant_term(hamiltonian):
@@ -67,7 +66,10 @@ def pauli_term_measurement_expectation(expression, frequencies, qubit_map):
     if isinstance(expression, Mul):
         # Single Pauli term
         pauli_z_terms = [Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term for term in expression.args]
-        z_only_ham = SymbolicHamiltonian(reduce(lambda x, y: x * y, pauli_z_terms, 1.0))
+        z_only_ham = SymbolicHamiltonian(
+            reduce(lambda x, y: x * y, pauli_z_terms, 1.0),
+            nqubits=max(term.target_qubit for term in expression.args if isinstance(term, (X, Y, Z))) + 1,
+        )
     elif isinstance(expression, (X, Y, Z)):
         z_only_ham = SymbolicHamiltonian(Z(expression.target_qubit), nqubits=expression.target_qubit + 1)
     # Can now apply expectation_from_samples directly
@@ -95,9 +97,9 @@ def expectation_from_samples(
         n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
             Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
             to get the expectation value for each term (group of terms) in the Hamiltonian.
-        shot_allocation (list): Iterable containing the number of shots to be allocated to each term (or group of terms) in the
-            Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``; shots are
-            allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
+        shot_allocation (list): Iterable containing the number of shots to be allocated to each term (or group of terms)
+            in the Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``;
+            shots are allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
 
     Returns:
         float: Hamiltonian expectation value for the given circuit using sample measurements
@@ -109,22 +111,25 @@ def expectation_from_samples(
     if not n_shots_per_pauli_term:
         if shot_allocation is None:
             shot_allocation = allocate_shots(grouped_terms, n_shots)
-        assert len(shot_allocation) == len(
-            grouped_terms
-        ), f"shot_allocation list ({len(shot_allocation)}) doesn't match the number of grouped terms ({len(grouped_terms)})"
+        if len(shot_allocation) != len(grouped_terms):
+            raise ValueError(
+                f"{len(shot_allocation) = } doesn't match the number of grouped terms ({len(grouped_terms)})!"
+            )
 
     total = constant_term(hamiltonian)
-    for _i, (expression, measurement_gates) in enumerate(grouped_terms):
+    for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
         _circuit = circuit.copy()
+        _circuit.add(rotation_gates)
         _circuit.add(measurement_gates)
 
         # Number of shots used to run the circuit depends on n_shots_per_pauli_term
-        result = _circuit(nshots=n_shots if n_shots_per_pauli_term else shot_allocation[_i])
-
-        frequencies = result.frequencies(binary=True)
-        if frequencies:  # Needed because might have cases whereby no shots allocated to a group
-            qubit_map = sorted(qubit for gate in measurement_gates for qubit in gate.target_qubits)
-            total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
+        nshots = n_shots if n_shots_per_pauli_term else shot_allocation[_i]
+        if nshots:
+            result = _circuit(nshots=nshots)
+            frequencies = result.frequencies(binary=True)
+            if frequencies:  # Needed because might have cases whereby no shots allocated to a group
+                qubit_map = [qubit for gate in measurement_gates for qubit in gate.target_qubits]
+                total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
     return total
 
 
@@ -147,8 +152,9 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
         Hamiltonian term (group) with respect to the given circuit.
     """
     expectation_values, expectation_variances = [], []
-    for expression, measurement_gates in grouped_terms:
+    for expression, measurement_gates, rotation_gates in grouped_terms:
         _circuit = circuit.copy()
+        _circuit.add(rotation_gates)
         _circuit.add(measurement_gates)
         result = _circuit(nshots=n_shots)
         frequencies = result.frequencies(binary=True)
@@ -207,7 +213,7 @@ def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, m
     remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
         expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, grouping=grouping)
-        for (expression, _), _n in zip(grouped_terms, remaining_shot_allocation)
+        for (expression, _, _), _n in zip(grouped_terms, remaining_shot_allocation)
     ]
     # Combine the results from the initial n_trial_shots and the remaining shots
     sum_values = [
