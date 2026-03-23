@@ -17,14 +17,12 @@ from qibochem.measurement.util import (
     get_sigma_terms,
     group_commuting_terms,
     langrangian_subspace,
-    make_x_matrix_full_rank,
     pauli_to_symplectic,
     phase_factor,
     solve_linear_system,
     sort_tau_terms,
     symplectic_to_pauli,
     synthesise_circuit,
-    zero_z_matrix,
 )
 
 
@@ -160,7 +158,7 @@ def gc_measurement_mapping(expression, nqubits, method="chong"):
     if method == "chong":
         x_result = solve_linear_system(v_basis, v_subspace)
         phase_factors = [phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
-        u_gates = transformation_circuit = synthesise_circuit(v_basis)
+        u_gates = synthesise_circuit(v_basis)
         mapping = {
             term: phase * prod(Z(_i) for _i in soln) for term, phase, soln in zip(term_list, phase_factors, x_result)
         }

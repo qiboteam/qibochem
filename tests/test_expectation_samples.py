@@ -75,7 +75,7 @@ def test_expectation_invalid_shot_allocation():
     circuit = Circuit(1)
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     shot_allocation = (1,)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = expectation_from_samples(
             circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
         )

@@ -95,7 +95,7 @@ def pauli_to_symplectic(pauli_string, n_qubits):
     pauli_ops = {int(pauli_op[1:]): pauli_op[0] for pauli_op in pauli_string}
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(n_qubits)]), newshape=2 * n_qubits, order="F"
+        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(n_qubits)]), shape=2 * n_qubits, order="F"
     )
     return sym_vector
 
@@ -317,7 +317,7 @@ def solve_linear_system_single_vector(A, b):
     # Form the augmented matrix
     aug_matrix = np.concatenate((A.T, b[:, None]), axis=1)
     rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
-    # Find the non-zero entries in each column on the RHS of rref_aug_matrix, which is the solution for respective vector in b
+    # Find non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
     return np.nonzero(rref_aug_matrix[:, A.shape[0]])[0].tolist()
 
 
@@ -331,7 +331,7 @@ def solve_linear_system(A, b):
     # Form the augmented matrix
     aug_matrix = np.concatenate((A, b), axis=0).T
     rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
-    # Find the non-zero entries in each column on the RHS of rref_aug_matrix, which is the solution for respective vector in b
+    # Find non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
     return [np.nonzero(rref_aug_matrix[:, A.shape[0] + _i])[0].tolist() for _i in range(b.shape[0])]
 
 
@@ -382,8 +382,8 @@ def phase_factor(tau_k_terms):
 
 def make_x_matrix_full_rank(stabliser_matrix):
     """
-    Modifies stabliser_matrix in-place to transform 'X matrix' to full rank, with H gates representing each 'swap' of columns between the 'Z' and 'X' matrices.
-    stabliser_matrix should already be in reduced row echelon form
+    Modifies stabliser_matrix (in-place) to transform 'X matrix' to full rank, with H gates representing each 'swap'
+    of columns between the 'Z' and 'X' matrices. Note: stabliser_matrix should already be in reduced row echelon form
 
     Returns:
         list: List of H gates to be added to the circuit
@@ -483,13 +483,13 @@ def zero_z_matrix(stabliser_matrix):
 
 def synthesise_circuit(v_basis):
     """
-    Build the unitary transformation circuit according to the algorithm
+    Build the unitary transformation circuit for rotating the initial measurement basis into the computational basis
 
     Args:
         v_basis (np.array): Basis for the symplectic vector space of the group of commuting Pauli terms
 
     Returns:
-        list: List of gates to be applied after the circuit ansatz for rotating the initial measurement basis into the computational basis
+        list: Gates to be added after the circuit ansatz
     """
     stabliser_matrix = np.array(v_basis)
     n_qubits = stabliser_matrix.shape[1] // 2

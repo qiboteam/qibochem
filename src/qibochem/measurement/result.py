@@ -29,9 +29,8 @@ def expectation(circuit: qibo.models.Circuit, hamiltonian: qibo.hamiltonians.Sym
     Returns:
         float: Expectation value of the Hamiltonian for the given circuit
     """
-    result = circuit()
-    state_ket = result.state()
-    return hamiltonian.expectation(state_ket)
+    # TODO: Remove this function
+    return hamiltonian.expectation(circuit)
 
 
 def constant_term(hamiltonian):
@@ -98,9 +97,9 @@ def expectation_from_samples(
         n_shots_per_pauli_term (bool): Whether or not ``n_shots`` is used for each Pauli term (or group of terms) in the
             Hamiltonian, or for *all* the (group of) terms in the Hamiltonian. Default: ``True``; ``n_shots`` are used
             to get the expectation value for each term (group of terms) in the Hamiltonian.
-        shot_allocation (list): Iterable containing the number of shots to be allocated to each term (or group of terms) in the
-            Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``; shots are
-            allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
+        shot_allocation (list): Iterable containing the number of shots to be allocated to each term (or group of terms)
+            in the Hamiltonian respectively if the `n_shots_per_pauli_term` argument is ``False``. Default: ``None``;
+            shots are allocated based on the magnitudes of the coefficients of the Hamiltonian terms.
 
     Returns:
         float: Hamiltonian expectation value for the given circuit using sample measurements
@@ -112,9 +111,10 @@ def expectation_from_samples(
     if not n_shots_per_pauli_term:
         if shot_allocation is None:
             shot_allocation = allocate_shots(grouped_terms, n_shots)
-        assert len(shot_allocation) == len(
-            grouped_terms
-        ), f"shot_allocation list ({len(shot_allocation)}) doesn't match the number of grouped terms ({len(grouped_terms)})"
+        if len(shot_allocation) != len(grouped_terms):
+            raise ValueError(
+                f"{len(shot_allocation) = } doesn't match the number of grouped terms ({len(grouped_terms)})!"
+            )
 
     total = constant_term(hamiltonian)
     for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
