@@ -171,7 +171,6 @@ def binary_gaussian_elimination(vector_space):
 
     # Remove all zero rows from the obtained basis
     zero_vector_indices = np.all(cp_vector_space == 0, axis=1)
-    # print(f"zero_vector_indices:\n{zero_vector_indices}")
     cp_vector_space = cp_vector_space[~zero_vector_indices]
     return cp_vector_space
 
@@ -348,7 +347,6 @@ def phase_factor(tau_k_terms):
     Returns:
         int: 1 or -1
     """
-    # print(f"tau_k_terms:\n{tau_k_terms}")
     dim = tau_k_terms[0].shape[0] // 2
     # Singleton case is trivial: 1
     if len(tau_k_terms) == 1:
@@ -393,7 +391,6 @@ def make_x_matrix_full_rank(stabliser_matrix):
     gates_list = []
     _dim, _dim_space = stabliser_matrix.shape
     dim_space = _dim_space // 2
-    # print(dim, dim_space)
 
     # TODO: Try to work directly in the stabliser_matrix instead of defining x/z_matrix
     x_matrix = stabliser_matrix[:, :dim_space]
@@ -403,24 +400,16 @@ def make_x_matrix_full_rank(stabliser_matrix):
     zero_row_indices = [_i for _i, is_zero in enumerate(np.all(x_matrix == 0, axis=1)) if is_zero]
     # Only need to do anything if there are zero rows in the X matrix
     while zero_row_indices:
-        nonzero_cols_by_row = {
-            # row:[col for col in np.nonzero(z_matrix[row, :])[0]]
-            row: list(np.nonzero(z_matrix[row, :])[0])
-            for row in zero_row_indices
-        }
-        # print(f"nonzero_cols_by_row:\n{nonzero_cols_by_row}")
+        nonzero_cols_by_row = {row: list(np.nonzero(z_matrix[row, :])[0]) for row in zero_row_indices}
         # See if there are any single-element lists in the values of nonzero_cols_by_row
         no_choice_rows = [row for row, possible_cols in nonzero_cols_by_row.items() if len(possible_cols) == 1]
         chosen_row = no_choice_rows[0] if no_choice_rows else zero_row_indices[0]
         chosen_qubit = nonzero_cols_by_row[chosen_row][0]
-        # print(f"chosen_qubit: {chosen_qubit}")
         stabliser_matrix[:, [chosen_qubit, chosen_qubit + dim_space]] = stabliser_matrix[
             :, [chosen_qubit + dim_space, chosen_qubit]
         ]
         gates_list.append(gates.H(chosen_qubit))
         zero_row_indices.remove(chosen_row)
-        # print(f"Remaining rows: {zero_row_indices}")
-
     return gates_list
 
 
@@ -445,7 +434,6 @@ def col_reduce_x_matrix(stabliser_matrix):
         # Always take the first nonzero row to sort
         _col = [_j for _j in nonzero_cols if _j >= _i][0]
         if _i not in nonzero_cols:
-            # print("Need to add SWAP gates")
             stabliser_matrix[:, [_i, _col, _i + dim_space, _col + dim_space]] = stabliser_matrix[
                 :, [_col, _i, _col + dim_space, _i + dim_space]
             ]

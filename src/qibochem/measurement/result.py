@@ -63,20 +63,13 @@ def pauli_term_measurement_expectation(expression, frequencies, qubit_map):
     z_only_ham = None  # Needed to satisfy pylint :(
     if isinstance(expression, Add):
         # Sum of multiple Pauli terms
-        for term in expression.args:
-            print(f"{term = }: {pauli_term_measurement_expectation(term, frequencies, qubit_map) = }")
-            pauli_z_terms = [Z(op.target_qubit) if isinstance(op, (X, Y, Z)) else op for op in term.args]
-            z_only_ham = SymbolicHamiltonian(reduce(lambda x, y: x * y, pauli_z_terms, 1.0), nqubits=8)
-            # print(f"{z_only_ham = }, {z_only_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)}")
-            print(f"{z_only_ham = }, {z_only_ham.expectation_from_samples(frequencies)}")
-
         return sum(pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in expression.args)
     if isinstance(expression, Mul):
         # Single Pauli term
         pauli_z_terms = [Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term for term in expression.args]
         z_only_ham = SymbolicHamiltonian(
             reduce(lambda x, y: x * y, pauli_z_terms, 1.0),
-            nqubits=max(term.target_qubit for term in expression.args if hasattr(term, "target_qubit")) + 1,
+            nqubits=max(term.target_qubit for term in expression.args if isinstance(term, (X, Y, Z))) + 1,
         )
     elif isinstance(expression, (X, Y, Z)):
         z_only_ham = SymbolicHamiltonian(Z(expression.target_qubit), nqubits=expression.target_qubit + 1)
@@ -125,7 +118,6 @@ def expectation_from_samples(
 
     total = constant_term(hamiltonian)
     for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
-        # print(f"{measurement_gates = }")
         _circuit = circuit.copy()
         _circuit.add(rotation_gates)
         _circuit.add(measurement_gates)
@@ -134,17 +126,10 @@ def expectation_from_samples(
         nshots = n_shots if n_shots_per_pauli_term else shot_allocation[_i]
         if nshots:
             result = _circuit(nshots=nshots)
-            # # print(type(result))
             frequencies = result.frequencies(binary=True)
-            # print(f"{frequencies = }")
             if frequencies:  # Needed because might have cases whereby no shots allocated to a group
                 qubit_map = [qubit for gate in measurement_gates for qubit in gate.target_qubits]
-                # qubit_map = sorted({qubit for gate in measurement_gates for qubit in gate.target_qubits})
-                print(f"{expression = }")
-                print(f"{qubit_map = }")
-
                 total += pauli_term_measurement_expectation(expression, frequencies, qubit_map)
-            # total += SymbolicHamiltonian(expression, nqubits=circuit.nqubits).expectation(_circuit, nshots=nshots)
     return total
 
 
@@ -228,7 +213,7 @@ def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, m
     remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
         expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, grouping=grouping)
-        for (expression, _), _n in zip(grouped_terms, remaining_shot_allocation)
+        for (expression, _, _), _n in zip(grouped_terms, remaining_shot_allocation)
     ]
     # Combine the results from the initial n_trial_shots and the remaining shots
     sum_values = [

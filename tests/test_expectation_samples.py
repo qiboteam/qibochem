@@ -90,7 +90,7 @@ def test_expectation_invalid_shot_allocation():
         SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
     ],
 )
-def test_qwc_functionality(hamiltonian):
+def test_measurement_grouping_functionality(hamiltonian):
     """Small scale tests of commuting measurements functionality"""
     n_qubits = 3
     circuit = Circuit(n_qubits)
@@ -99,7 +99,7 @@ def test_qwc_functionality(hamiltonian):
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = hamiltonian.expectation(circuit)
     n_shots = 10000
-    for grouping in ("qwc", "gc"):
+    for grouping in ("qwc", "gc", "gc2"):
         test = expectation_from_samples(
             circuit,
             hamiltonian,
@@ -107,33 +107,6 @@ def test_qwc_functionality(hamiltonian):
             grouping=grouping,
         )
         assert test == pytest.approx(expected, abs=0.08)
-
-
-@pytest.mark.parametrize(
-    "hamiltonian",
-    [
-        SymbolicHamiltonian(Z(2)),
-        SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0),
-        SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
-        SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
-    ],
-)
-def test_gc_functionality(hamiltonian):
-    """Small scale tests of GC functionality"""
-    n_qubits = 3
-    circuit = Circuit(n_qubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
-    expected = expectation(circuit, hamiltonian)
-    n_shots = 10000
-    test = expectation_from_samples(
-        circuit,
-        hamiltonian,
-        n_shots=n_shots,
-        grouping="gc",
-    )
-    assert test == pytest.approx(expected, abs=0.08)
 
 
 @pytest.mark.parametrize(
@@ -191,6 +164,7 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
         (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), "qwc"),
         (SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)), None),
         (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "qwc"),
+        (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "gc"),
     ],
 )
 def test_v_expectation_vmsa(hamiltonian, grouping):
