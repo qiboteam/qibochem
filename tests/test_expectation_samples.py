@@ -91,7 +91,35 @@ def test_expectation_invalid_shot_allocation():
     ],
 )
 def test_qwc_functionality(hamiltonian):
-    """Small scale tests of QWC functionality"""
+    """Small scale tests of commuting measurements functionality"""
+    n_qubits = 3
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    expected = hamiltonian.expectation(circuit)
+    n_shots = 10000
+    for grouping in ("qwc", "gc"):
+        test = expectation_from_samples(
+            circuit,
+            hamiltonian,
+            n_shots=n_shots,
+            grouping=grouping,
+        )
+        assert test == pytest.approx(expected, abs=0.08)
+
+
+@pytest.mark.parametrize(
+    "hamiltonian",
+    [
+        SymbolicHamiltonian(Z(2)),
+        SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0),
+        SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
+        SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
+    ],
+)
+def test_gc_functionality(hamiltonian):
+    """Small scale tests of GC functionality"""
     n_qubits = 3
     circuit = Circuit(n_qubits)
     circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
@@ -103,7 +131,7 @@ def test_qwc_functionality(hamiltonian):
         circuit,
         hamiltonian,
         n_shots=n_shots,
-        grouping="qwc",
+        grouping="gc",
     )
     assert test == pytest.approx(expected, abs=0.08)
 
@@ -132,7 +160,7 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
         hamiltonian,
         n_shots_per_pauli_term=n_shots_per_pauli_term,
         n_shots=n_shots,
-        grouping="qwc",
+        grouping="gc",
     )
     assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=threshold)
 

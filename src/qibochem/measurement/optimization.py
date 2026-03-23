@@ -91,7 +91,7 @@ def qwc_measurement_gates(expression):
                 if m_gates.get(pauli_op.target_qubit) is None
             }
         m_gates = {**m_gates, **_m_gates}
-    return list(m_gates.values())
+    return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
 def qwc_measurements(hamiltonian):
@@ -174,10 +174,14 @@ def gc_measurement_mapping(expression, nqubits, method="chong"):
         # print(f"{v_basis = }")
         new_tau_terms, sigma_terms = get_sigma_terms(v_basis)
         x_result = solve_linear_system(new_tau_terms, v_subspace)
+        print(f"{x_result = }")
         phase_factors = [phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
+        print(f"{phase_factors = }")
         tau_term_str = [symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
+        print(f"{tau_term_str = }")
         sigma_term_str = [symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
         qwc_terms = [symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
+        print(f"{qwc_terms = }")
         mapping = {
             term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
             for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
@@ -241,15 +245,16 @@ def gc_measurements(hamiltonian, method):
             mapping, measurement_gates, rotation_gates = gc_measurement_mapping(
                 grouped_expression, hamiltonian.nqubits, method
             )
-            print(f"{mapping = }")
+            print(f"{mapping = }\n")
             # print(f"{measurement_gates = }")
             # print(f"{rotation_gates = }")
             # Update the initial expression based on the obtained mapping
-            new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
-            # new_expression = 0.0
-            # for term in term_group:
-            #     # print(f"{term = }")
-            #     new_expression += ham_terms[term][1] * mapping[term]
+            # new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
+            new_expression = 0.0
+            for term in term_group:
+                print(f"{term = }, new_term = {mapping[term]}")
+                # print(f"{term = }")
+                new_expression += ham_terms[term][1] * mapping[term]
         to_return.append((new_expression, measurement_gates, rotation_gates))
     return to_return
 

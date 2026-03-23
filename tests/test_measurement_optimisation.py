@@ -2,21 +2,22 @@
 Test functionality to reduce the measurement cost of running VQE
 """
 
+import numpy as np
 import pytest
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
-from qibochem.measurement.optimization import (
-    check_terms_commutativity,
-    group_commuting_terms,
-    measurement_basis_rotations,
-    pauli_to_symplectic,
-    symplectic_inner_product,
-    symplectic_to_pauli,
-)
+from qibochem.measurement.optimization import measurement_basis_rotations
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
     allocate_shots_by_variance,
+)
+from qibochem.measurement.util import (
+    check_terms_commutativity,
+    group_commuting_terms,
+    pauli_to_symplectic,
+    symplectic_inner_product,
+    symplectic_to_pauli,
 )
 
 
