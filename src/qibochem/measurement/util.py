@@ -11,7 +11,7 @@ PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
 SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
-SYMPLECTIC_VECTORS = [[0, 0], [1, 0], [1, 1], [0, 1]]
+SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
 
 
 def _get_qubit(pauli_op: str) -> int:
@@ -51,7 +51,7 @@ def check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
     return n_noncommuting_ops % 2 == 0
 
 
-def group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[str]:
+def group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[str]]:
     """
     Groups the terms in terms_list into as few groups as possible, where all the terms in each group commute
     mutually == Finding the minimum clique cover (i.e. as few cliques as possible) for the graph whereby each node
@@ -66,7 +66,7 @@ def group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[str]:
         qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
 
     Returns:
-        list: Containing groups (lists) of Pauli strings that all commute mutually
+        list[list[str]]: Containing groups (lists) of Pauli strings that all commute mutually
     """
     G = nx.Graph()
     # Complement graph: Add all the terms as nodes first, then add edges between nodes if they DO NOT commute
@@ -200,7 +200,7 @@ def lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
     cp_vector_space = np.array(vector_space)
     # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
     while True:
-        anticommuting_vector_indices = None
+        anticommuting_vector_indices, anticommuting_vectors = None, None
         # Find a pair of anti-commuting vectors in vector_space
         for _i1, _v1 in enumerate(cp_vector_space):
             for _i2, _v2 in enumerate(cp_vector_space):
@@ -208,6 +208,8 @@ def lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
                     anticommuting_vector_indices = [_i1, _i2]
                     anticommuting_vectors = cp_vector_space[anticommuting_vector_indices]
                     break
+            if anticommuting_vector_indices is not None:
+                break
 
         if cp_vector_space.shape[0] == (cp_vector_space.shape[1] // 2):
             break
@@ -325,20 +327,18 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     coeff, current_pauli_op = 1.0, np.zeros(2)
     for pauli_op in pauli_ops:
         # If I, just skip
-        if SYMPLECTIC_VECTORS.index(current_pauli_op.tolist()) == 0:
+        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
             current_pauli_op = pauli_op
             continue
-        if SYMPLECTIC_VECTORS.index(pauli_op.tolist()) == 0:
+        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
             continue
         # Multiply by some phase factor depending on what Pauli operators are involved
-        coeff *= SYMPLECTIC_PHASE_TABLE[
-            SYMPLECTIC_VECTORS.index(pauli_op.tolist()) - SYMPLECTIC_VECTORS.index(current_pauli_op.tolist())
-        ]
+        coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
         current_pauli_op = (current_pauli_op + pauli_op) % 2
     return coeff
 
 
-def phase_factor(pauli_terms: list[str]) -> int:
+def phase_factor(pauli_terms: list[np.ndarray]) -> int:
     r"""
     Calculate the phase factor (p) in the decomposition of a Pauli string in the original Hamiltonian into a
     product of k mutually commuting Pauli terms, i.e. P_I =  p \prod_{K} \tau_k
@@ -475,14 +475,11 @@ def synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     n_qubits = stabiliser_matrix.shape[1] // 2
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
-    h_gates1 = make_x_matrix_full_rank(stabiliser_matrix)
-    rotation_gates += h_gates1
+    rotation_gates += make_x_matrix_full_rank(stabiliser_matrix)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
-    rr_gates = col_reduce_x_matrix(stabiliser_matrix)
-    rotation_gates += rr_gates
+    rotation_gates += col_reduce_x_matrix(stabiliser_matrix)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
-    gates_list = zero_z_matrix(stabiliser_matrix)
-    rotation_gates += gates_list
+    rotation_gates += zero_z_matrix(stabiliser_matrix)
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
     return rotation_gates
