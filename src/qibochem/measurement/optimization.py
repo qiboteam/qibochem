@@ -16,7 +16,7 @@ from qibochem.measurement.util import (
     col_reduce_x_matrix,
     get_sigma_terms,
     group_commuting_terms,
-    langrangian_subspace,
+    lagrangian_subspace,
     pauli_to_symplectic,
     phase_factor,
     solve_linear_system,
@@ -153,7 +153,7 @@ def gc_measurement_mapping(expression, nqubits, method="chong"):
         nullspace = binary_nullspace(v_basis)
         # Interchange the 1st/2nd half of the indices to get nullspace in a symplectic sense
         nullspace = np.concatenate((nullspace[:, dim_symplectic:], nullspace[:, :dim_symplectic]), axis=1)
-        v_basis = langrangian_subspace(nullspace)
+        v_basis = lagrangian_subspace(nullspace)
     # Different methods of circuit synthesis
     if method == "chong":
         x_result = solve_linear_system(v_basis, v_subspace)

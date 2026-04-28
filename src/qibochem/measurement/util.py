@@ -11,7 +11,7 @@ PAULI_BINARY = {"I": (0, 0), "Z": (0, 1), "X": (1, 0), "Y": (1, 1)}
 BINARY_PAULI = {(0, 0): "I", (0, 1): "Z", (1, 0): "X", (1, 1): "Y"}  # Vice versa
 
 
-def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
+def check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
     """
     Check if terms 1 and 2 are mutually commuting. The 'qubitwise' flag determines if the check is for general
     commutativity (False), or the stricter qubitwise commutativity.
@@ -43,7 +43,7 @@ def check_terms_commutativity(term1: str, term2: str, qubitwise: bool):
     return n_noncommuting_ops % 2 == 0
 
 
-def group_commuting_terms(terms_list, qubitwise):
+def group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[str]:
     """
     Groups the terms in terms_list into as few groups as possible, where all the terms in each group commute
     mutually == Finding the minimum clique cover (i.e. as few cliques as possible) for the graph whereby each node
@@ -53,9 +53,9 @@ def group_commuting_terms(terms_list, qubitwise):
     commute), which this function follows.
 
     Args:
-        terms_list: List of strings. The strings should follow the output from
+        terms_list (List(str)): List of strings. The strings should follow the output from
             ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo SymbolicTerm. E.g. "X0 Z1".
-        qubitwise: Determines if the check is for general commutativity, or the stricter qubitwise commutativity
+        qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
 
     Returns:
         list: Containing groups (lists) of Pauli strings that all commute mutually
@@ -79,7 +79,7 @@ def group_commuting_terms(terms_list, qubitwise):
     return term_groups
 
 
-def pauli_to_symplectic(pauli_string, n_qubits):
+def pauli_to_symplectic(pauli_string: list[str], n_qubits: int) -> np.ndarray:
     """
     Map a single Pauli term to the corresponding symplectic vector
 
@@ -100,7 +100,7 @@ def pauli_to_symplectic(pauli_string, n_qubits):
     return sym_vector
 
 
-def symplectic_to_pauli(symplectic_vector):
+def symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
     """
     Map a symplectic vector back to a single Pauli term
 
@@ -121,31 +121,30 @@ def symplectic_to_pauli(symplectic_vector):
     return pauli_op_terms
 
 
-def symplectic_inner_product(u, v):
+def symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
     """
     Inner product of the symplectic vector space := (u, Jv), where
     J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]]
 
     Returns:
-        0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute"""
+        int: 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
+    """
     dim = u.shape[0] // 2
     return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
 
 
-def binary_gaussian_elimination(vector_space):
+def binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
     Carries out Gaussian elimination on a binary (!) vector_space to obtain a basis for vector_space.
     Reduces vector_space to its (unique) reduced row echelon form, and removes any zero rows as well
 
     Args:
-        vector_space (np.array, dtype=int): Binary vector space
+        vector_space (np.ndarray): Binary vector space
 
     Returns:
-        np.array: Basis set for vector_space
+        np.ndarray: Basis set for vector_space
     """
     cp_vector_space = np.array(vector_space)
-    # Get a list of non-zero columns
-    # nonzero_cols = np.nonzero(np.any(cp_vector_space, axis=0))[0]
 
     dim = vector_space.shape[0]
     # Swap the rows in the vector space to get its row echelon form
@@ -175,13 +174,8 @@ def binary_gaussian_elimination(vector_space):
     return cp_vector_space
 
 
-def binary_nullspace(binary_matrix):
-    """
-    Finds the nullspace of a binary_matrix, i.e. Ax = 0
-
-    Returns:
-        np.array: Nullspace of binary matrix
-    """
+def binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
+    """Finds the nullspace of a binary_matrix, i.e. x s.t. Ax = 0"""
     dim = binary_matrix.shape[0]
     # Form the augmented matrix
     aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1])), axis=1)
@@ -190,12 +184,12 @@ def binary_nullspace(binary_matrix):
     return nullspace.astype(int)
 
 
-def langrangian_subspace(vector_space):
+def lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
     """
-    Find the Lagrangian subspace of some vector space. (The symplectic nullspace in this context)
+    Find the Lagrangian subspace of some vector space; the symplectic nullspace in this context
 
     Returns:
-        np.array: Basis vectors of vector_space. Shape of the array should be (N, 2N)
+        np.ndarray: Basis vectors of vector_space. Shape of the array should be (N, 2N)
     """
     cp_vector_space = np.array(vector_space)
     # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
@@ -228,7 +222,7 @@ def langrangian_subspace(vector_space):
     return cp_vector_space
 
 
-def sort_tau_terms(v_basis):
+def sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     """
     Sorts the individual vectors in v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
     [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
@@ -236,7 +230,7 @@ def sort_tau_terms(v_basis):
     [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
 
     Returns:
-        list: Sorted list of basis vectors that can be used for finding sigma_i directly
+        np.ndarray: Sorted array of basis vectors that can be used for finding sigma_i directly
     """
     # Convert the basis set to strings for easier sorting
     pauli_terms = [symplectic_to_pauli(vector) for vector in v_basis]
@@ -268,7 +262,7 @@ def sort_tau_terms(v_basis):
     return np.array([pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
 
 
-def get_sigma_terms(tau_terms):
+def get_sigma_terms(tau_terms: np.ndarray) -> tuple:
     """
     Find the set of sigma terms for a given array of tau terms's, with (sigma_i|tau_j) = 1 if i == j else 0, and
     (sigma_i|sigma_j) == 0 if i != j, i.e. all sigma_i's must correspond to different qubits. Note that tau_terms must
@@ -307,21 +301,7 @@ def get_sigma_terms(tau_terms):
     return new_tau_terms, np.array(sigma_terms)
 
 
-def solve_linear_system_single_vector(A, b):
-    """
-    Solve the (binary) linear system Ax = b, where b is a single row vector
-
-    Returns:
-        list: Each item in the list corresponds to the respective vectors in b.
-    """
-    # Form the augmented matrix
-    aug_matrix = np.concatenate((A.T, b[:, None]), axis=1)
-    rref_aug_matrix = binary_gaussian_elimination(aug_matrix)
-    # Find non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
-    return np.nonzero(rref_aug_matrix[:, A.shape[0]])[0].tolist()
-
-
-def solve_linear_system(A, b):
+def solve_linear_system(A: np.ndarray, b: np.ndarray) -> list[np.ndarray]:
     """
     Solve the (binary) linear system Ax = b
 
@@ -335,7 +315,7 @@ def solve_linear_system(A, b):
     return [np.nonzero(rref_aug_matrix[:, A.shape[0] + _i])[0].tolist() for _i in range(b.shape[0])]
 
 
-def phase_factor(tau_k_terms):
+def phase_factor(tau_k_terms: list[str]) -> int:
     r"""
     Calculate the phase factor (p) in the decomposition of a Pauli string in the original Hamiltonian into a
     product of k mutually commuting Pauli terms, i.e. P_I =  p \prod_{K} \tau_k
@@ -380,7 +360,7 @@ def phase_factor(tau_k_terms):
     return int(np.real_if_close(coefficient))
 
 
-def make_x_matrix_full_rank(stabliser_matrix):
+def make_x_matrix_full_rank(stabliser_matrix: np.ndarray) -> list[gates.Gate]:
     """
     Modifies stabliser_matrix (in-place) to transform 'X matrix' to full rank, with H gates representing each 'swap'
     of columns between the 'Z' and 'X' matrices. Note: stabliser_matrix should already be in reduced row echelon form
@@ -392,7 +372,6 @@ def make_x_matrix_full_rank(stabliser_matrix):
     _dim, _dim_space = stabliser_matrix.shape
     dim_space = _dim_space // 2
 
-    # TODO: Try to work directly in the stabliser_matrix instead of defining x/z_matrix
     x_matrix = stabliser_matrix[:, :dim_space]
     z_matrix = stabliser_matrix[:, dim_space:]
 
@@ -413,7 +392,7 @@ def make_x_matrix_full_rank(stabliser_matrix):
     return gates_list
 
 
-def col_reduce_x_matrix(stabliser_matrix):
+def col_reduce_x_matrix(stabliser_matrix: np.ndarray) -> list[gates.Gate]:
     """
     Modifies stabliser_matrix in-place to transform the X matrix to I, using CNOT/SWAP gates
 
@@ -454,7 +433,7 @@ def col_reduce_x_matrix(stabliser_matrix):
     return gates_list
 
 
-def zero_z_matrix(stabliser_matrix):
+def zero_z_matrix(stabliser_matrix: np.ndarray) -> list[gates.Gate]:
     """
     Modifies stabliser_matrix in-place to transform the Z matrix to a zero matrix.
     1. S gates used to set diagonal entries on Z matrix
@@ -481,7 +460,7 @@ def zero_z_matrix(stabliser_matrix):
     return s_gates + cz_gates
 
 
-def synthesise_circuit(v_basis):
+def synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     """
     Build the unitary transformation circuit for rotating the initial measurement basis into the computational basis
 
@@ -489,7 +468,7 @@ def synthesise_circuit(v_basis):
         v_basis (np.array): Basis for the symplectic vector space of the group of commuting Pauli terms
 
     Returns:
-        list: Gates to be added after the circuit ansatz
+        list[gates.Gate]: Gates to be added after the circuit ansatz
     """
     stabliser_matrix = np.array(v_basis)
     n_qubits = stabliser_matrix.shape[1] // 2
@@ -505,7 +484,4 @@ def synthesise_circuit(v_basis):
     rotation_gates += gates_list
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
-    # stabliser_matrix[:, list(range(stabliser_matrix.shape[1]))] = (
-    #     stabliser_matrix[:, list(range(n_qubits, 2*n_qubits)) + list(range(n_qubits))]
-    # )
     return rotation_gates
