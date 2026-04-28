@@ -7,8 +7,11 @@ import numpy as np
 from qibo import gates
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
-PAULI_BINARY = {"I": (0, 0), "Z": (0, 1), "X": (1, 0), "Y": (1, 1)}
+PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
+
+SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
+SYMPLECTIC_VECTORS = [[0, 0], [1, 0], [1, 1], [0, 1]]
 
 
 def _get_qubit(pauli_op: str) -> int:
@@ -226,7 +229,7 @@ def lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
 
 def sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     """
-    Sorts the individual vectors in v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
+    Sorts v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
     [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
     will return
     [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
@@ -237,30 +240,20 @@ def sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     # Convert the basis set to strings for easier sorting
     pauli_terms = [symplectic_to_pauli(vector) for vector in v_basis]
     dim = len(pauli_terms)
-
     sorted_terms = {}
-    while True:
-        pauli_terms = [term for term in pauli_terms if term not in sorted_terms.values()]
-        if not pauli_terms:
-            break
+    remaining = list(pauli_terms)
 
-        possible_terms = {
-            _i: [term for term in pauli_terms if any(_get_qubit(_op) == _i for _op in term)]
-            for _i in range(dim)
-            if _i not in sorted_terms
+    while remaining:
+        qubit_terms = {
+            qubit: [term for term in remaining if any(_get_qubit(_op) == qubit for _op in term)]
+            for qubit in range(dim)
+            if qubit not in sorted_terms
         }
-        # Remove terms that only have a single possibility
-        single_choices = {_i: terms for _i, terms in possible_terms.items() if len(terms) == 1}
-        if single_choices:
-            # Should have no overlapping terms in single_choices...?
-            sorted_terms = {**sorted_terms, **single_choices}
-        # Select based on the first remaining unassigned qubit
-        else:
-            least_choices = min(len(terms) for terms in possible_terms.values())
-            n_choices = [_q for _q, terms in possible_terms.items() if len(terms) == least_choices]
-            qubit = min(n_choices)
-            term_to_remove = min(possible_terms[qubit], key=len)
-            sorted_terms[qubit] = pauli_terms.pop(pauli_terms.index(term_to_remove))
+        # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
+        qubit = min(qubit_terms, key=lambda x: (len(qubit_terms[x]), x))
+        selected_term = min(qubit_terms[qubit], key=len)
+        sorted_terms[qubit] = selected_term
+        remaining.remove(selected_term)
     # Convert the strings back to symplectic vectors and return the whole array
     return np.array([pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
 
@@ -318,48 +311,55 @@ def solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[n
     return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + _i])[0].tolist() for _i in range(vector.shape[0])]
 
 
-def phase_factor(tau_k_terms: list[str]) -> int:
+def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
+    """
+    Compute the phase factor for a single qubit w.r.t. multiplication of Pauli operators
+
+    Args:
+        pauli_ops (list[np.ndarray]): List of Pauli operators (symplectic form) acting on the same qubit
+
+    Returns:
+        complex: Coefficient of multiplying all terms together
+    """
+    # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
+    coeff, current_pauli_op = 1.0, np.zeros(2)
+    for pauli_op in pauli_ops:
+        # If I, just skip
+        if SYMPLECTIC_VECTORS.index(current_pauli_op.tolist()) == 0:
+            current_pauli_op = pauli_op
+            continue
+        if SYMPLECTIC_VECTORS.index(pauli_op.tolist()) == 0:
+            continue
+        # Multiply by some phase factor depending on what Pauli operators are involved
+        coeff *= SYMPLECTIC_PHASE_TABLE[
+            SYMPLECTIC_VECTORS.index(pauli_op.tolist()) - SYMPLECTIC_VECTORS.index(current_pauli_op.tolist())
+        ]
+        current_pauli_op = (current_pauli_op + pauli_op) % 2
+    return coeff
+
+
+def phase_factor(pauli_terms: list[str]) -> int:
     r"""
     Calculate the phase factor (p) in the decomposition of a Pauli string in the original Hamiltonian into a
     product of k mutually commuting Pauli terms, i.e. P_I =  p \prod_{K} \tau_k
 
     Args:
-        tau_k_terms: Iterable of mutually commuting Pauli products, given in the form of symplectic vectors.
-            Note: Each tau_k term is a 1D array.
+        pauli_terms (list[np.ndarray]): List of mutually commuting Pauli strings, given in the form of symplectic vectors.
+            Each term in pauli_termsis a 1D array.
 
     Returns:
         int: 1 or -1
     """
-    dim = tau_k_terms[0].shape[0] // 2
     # Singleton case is trivial: 1
-    if len(tau_k_terms) == 1:
+    if len(pauli_terms) == 1:
         return 1
-    # >1 terms: Need to take the product of every Pauli operator of every term in tau_k_terms
-    phases = (1.0, 1.0j, -1.0j)
-    symplectic_vectors = [[0, 0], [1, 0], [1, 1], [0, 1]]  # I, X, Y, Z
-
-    # Split up the vectors by imdividual qubits, then take the product for each qubit
-    split_vectors_by_qubit = [[tau_k[[_i, _i + dim]] for _i in range(dim)] for tau_k in tau_k_terms]
-
+    # >1 term:
+    dim = pauli_terms[0].shape[0] // 2
     coefficient = 1.0
     for qubit in range(dim):
         # Get all Pauli operators for a particular qubit
-        pauli_ops = [vector[qubit] for vector in split_vectors_by_qubit]
-        # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-        coeff, current_pauli_op = 1.0, np.zeros(2)
-        for pauli_op in pauli_ops:
-            # To handle I cases
-            if symplectic_vectors.index(current_pauli_op.tolist()) == 0:
-                current_pauli_op = pauli_op
-                continue
-            if symplectic_vectors.index(pauli_op.tolist()) == 0:
-                continue
-            # Multiply by some phase factor depending on what Pauli operators are involved
-            coeff *= phases[
-                symplectic_vectors.index(pauli_op.tolist()) - symplectic_vectors.index(current_pauli_op.tolist())
-            ]
-            current_pauli_op = (current_pauli_op + pauli_op) % 2
-        coefficient *= coeff
+        pauli_ops = [pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms]
+        coefficient *= _single_qubit_phase_factor(pauli_ops)
     return int(np.real_if_close(coefficient))
 
 
