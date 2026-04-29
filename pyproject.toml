@@ -21,6 +21,10 @@ openfermion = ">=1.5,<1.7"
 pyscf = "^2.9.0"
 scipy = "^1.15.2"
 numpy = "^2.0.0"
+pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+qibochem = "qibochem.cli.main:main"
 
 [build-system]
 requires = ["poetry-core"]

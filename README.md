@@ -47,6 +47,21 @@ best, params, extra = vqe.minimize(initial_parameters)
 print(f"VQE result: {best:.10f}")
 ```
 
+## Command-line interface
+
+Qibochem also exposes a `qibochem` CLI for running workflows from a YAML input file:
+
+```
+qibochem template vqe > my_input.yaml   # generate a starter input
+qibochem run my_input.yaml              # validate, build, optimise, write JSON results
+qibochem inspect molecule.xyz           # quick HF / qubit-count summary, no YAML
+```
+
+See `examples/cli/` for self-contained examples (H2 HF, UCCSD VQE, LiH with HF embedding,
+H3+ basis rotation, and an H2 dissociation-curve scan), or the
+[CLI documentation](https://qibo.science/qibochem/stable/getting-started/cli.html) for
+the full schema reference.
+
 ## Citation policy
 
 If you use the Qibochem plugin please refer to the documentation for citation instructions.

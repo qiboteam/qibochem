@@ -9,3 +9,4 @@ This section covers how to install Qibochem and a basic example presenting the f
 
     quickstart
     installation
+    cli
