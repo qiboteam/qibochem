@@ -1,0 +1,28 @@
+# LiH / STO-3G VQE with UCCSD on a 3-orbital active space.
+# Replicates the workflow in examples/ucc_example1.py.
+
+version: 1
+
+molecule:
+  xyz_file: ../lih.xyz       # resolved relative to this yaml file
+  basis: sto-3g
+  active: [1, 2, 5]
+
+hamiltonian:
+  mapping: jw
+
+method:
+  kind: vqe
+  ansatz:
+    kind: ucc
+    excitations: [singles, doubles]
+  optimizer:
+    name: BFGS
+    options:
+      maxiter: 500
+    initial_parameters: mp2
+    seed: 0
+
+output:
+  save_parameters: true
+  log_level: info

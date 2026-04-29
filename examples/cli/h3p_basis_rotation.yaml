@@ -1,0 +1,26 @@
+# H3+ basis-rotation ansatz; recovers HF energy from the optimised orbital basis.
+# Replicates the workflow in examples/br_example.py.
+
+version: 1
+
+molecule:
+  xyz_file: ../h3p.xyz
+  basis: sto-3g
+
+hamiltonian:
+  mapping: jw
+
+method:
+  kind: vqe
+  ansatz:
+    kind: basis_rotation
+  optimizer:
+    name: BFGS
+    options:
+      maxiter: 500
+    initial_parameters: zeros
+    seed: 0
+
+output:
+  save_parameters: true
+  log_level: info

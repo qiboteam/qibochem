@@ -1,0 +1,28 @@
+# H2 / STO-3G VQE with UCCSD. Should reproduce FCI to ~1e-8 Ha for H2.
+
+version: 1
+
+molecule:
+  geometry:
+    - [H, [0.0, 0.0, 0.0]]
+    - [H, [0.0, 0.0, 0.74804]]
+  basis: sto-3g
+
+hamiltonian:
+  mapping: jw
+
+method:
+  kind: vqe
+  ansatz:
+    kind: ucc
+    excitations: [singles, doubles]
+  optimizer:
+    name: BFGS
+    options:
+      maxiter: 200
+    initial_parameters: mp2
+    seed: 0
+
+output:
+  save_parameters: true
+  log_level: info
