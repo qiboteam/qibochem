@@ -6,8 +6,11 @@ import numpy as np
 import pytest
 
 from qibochem.measurement.util import (
+    binary_gaussian_elimination,
+    binary_nullspace,
     check_terms_commutativity,
     group_commuting_terms,
+    lagrangian_subspace,
     pauli_to_symplectic,
     symplectic_inner_product,
     symplectic_to_pauli,
@@ -89,3 +92,70 @@ def test_symplectic_inner_product(u, v):
         axis=0,
     )
     assert symplectic_inner_product(u, v) == (np.dot(u, np.dot(j_matrix, v)).astype(int) % 2)
+
+
+@pytest.mark.parametrize(
+    "test,result",
+    [
+        (
+            np.array(
+                [[0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]]
+            ),
+            np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]]),
+        ),
+        (
+            np.array(
+                [[1, 1, 1, 1, 0, 1, 1, 0], [1, 1, 1, 1, 1, 0, 0, 1], [1, 1, 1, 1, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1, 0, 0]]
+            ),
+            np.array([[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]]),
+        ),
+        (
+            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 0, 1]]),
+            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]]),
+        ),
+        (
+            np.array([[0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]]),
+            np.array([[0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]]),
+        ),
+        (
+            np.array(
+                [[1, 1, 1, 1, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 1, 1], [1, 1, 1, 1, 0, 1, 0, 1], [1, 1, 1, 1, 1, 0, 0, 1]]
+            ),
+            np.array(
+                [[1, 1, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 0, 0, 1, 1]]
+            ),
+        ),
+    ],
+)
+def test_binary_gaussian_elimination(test, result):
+    # Hardcoded test results
+    test = binary_gaussian_elimination(test)
+    assert np.allclose(test, result), f"RREF forms don't match: {test} != {result}"
+
+
+def test_binary_nullspace():
+    test_space = np.array([[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]])
+    nullspace = binary_nullspace(test_space)
+    assert all(np.allclose((test_space @ vector) % 2, np.zeros(test_space.shape[0])) for vector in nullspace)
+
+
+def test_lagrangian_subspace():
+    # Null space of the test space in test_binary_nullspace
+    test_space = np.array(
+        [
+            [1, 0, 0, 0, 0, 1, 0, 1],
+            [0, 1, 0, 0, 0, 1, 0, 1],
+            [0, 0, 1, 0, 0, 1, 0, 1],
+            [0, 0, 0, 1, 0, 1, 0, 1],
+            [0, 0, 0, 0, 1, 1, 1, 1],
+        ],
+        dtype=int,
+    )
+    subspace = lagrangian_subspace(test_space)
+    # Vectors in subspace should all be symplectically orthogonal to each other
+    assert all(
+        symplectic_inner_product(_v1, _v2) == 0
+        for _i1, _v1 in enumerate(subspace)
+        for _i2, _v2 in enumerate(subspace)
+        if _i1 > _i2
+    )
