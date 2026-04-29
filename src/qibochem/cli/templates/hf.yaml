@@ -1,0 +1,27 @@
+# Hartree-Fock energy via PySCF.
+# Run with:  qibochem run hf.yaml
+
+version: 1
+
+molecule:
+  # Either inline geometry...
+  geometry:
+    - [H, [0.0, 0.0, 0.0]]
+    - [H, [0.0, 0.0, 0.74804]]
+  # ... or an .xyz file (path is resolved relative to THIS yaml file):
+  # xyz_file: h2.xyz
+  charge: 0
+  multiplicity: 1
+  basis: sto-3g
+  # active: [1, 2, 5]   # optional HF embedding active space
+
+hamiltonian:
+  mapping: jw           # jw | bk
+
+method:
+  kind: hf
+
+output:
+  # dir: ./results       # default: alongside this yaml
+  # prefix: my_run       # default: this yaml's filename stem
+  log_level: info
