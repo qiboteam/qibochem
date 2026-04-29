@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -18,13 +19,11 @@ from scipy.optimize import minimize
 from qibochem.ansatz import (
     basis_rotation_gates,
     givens_excitation_ansatz,
-    givens_excitation_circuit,
     he_circuit,
     hf_circuit,
     qeb_circuit,
     symm_preserving_circuit,
     ucc_ansatz,
-    ucc_circuit,
 )
 from qibochem.ansatz.basis_rotation import (
     basis_rotation_layout,
@@ -71,10 +70,21 @@ def build_molecule(cfg: MoleculeConfig, yaml_path: Path) -> Molecule:
     return mol
 
 
+def _molecular_formula(geometry) -> str:
+    """Build a Hill-style molecular formula like 'H2', 'LiH', 'CH4'."""
+    counts = Counter(sym for sym, _ in geometry)
+    parts = []
+    # Hill convention: C first, then H, then everything else alphabetical
+    for sym in sorted(counts, key=lambda s: (s != "C", s != "H", s)):
+        n = counts[sym]
+        parts.append(f"{sym}{n}" if n > 1 else sym)
+    return "".join(parts)
+
+
 def molecule_summary(mol: Molecule) -> dict:
-    formula = "".join(sorted({sym for sym, _ in mol.geometry}))  # rough; just for logging
     return {
-        "formula": formula,
+        "formula": _molecular_formula(mol.geometry),
+        "n_atoms": len(mol.geometry),
         "nelec": int(mol.nelec),
         "nso": int(mol.nso),
         "active": list(mol.active) if mol.active is not None else None,

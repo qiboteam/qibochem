@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import subprocess
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
@@ -181,7 +180,3 @@ __all__ = [
     "write_circuit_qasm",
     "write_result",
 ]
-
-
-# Suppress noisy third-party loggers when imported as a module.
-os.environ.setdefault("PYSCF_TMPDIR", os.environ.get("TMPDIR", "/tmp"))

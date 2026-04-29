@@ -164,7 +164,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     print(f"File:        {info['xyz_file']}")
     print(f"Basis:       {info['basis']}")
     print(f"Mapping:     {info['mapping']}")
-    print(f"Atoms:       {len(info['molecule'].get('formula', '')) or '?'}  ({info['molecule']['formula']})")
+    print(f"Atoms:       {info['molecule']['n_atoms']}  ({info['molecule']['formula']})")
     print(f"Electrons:   {info['molecule']['nelec']}")
     print(f"Spin orbs:   {info['molecule']['nso']} (= n_qubits)")
     print(f"e_nuc:       {info['e_nuc']:.8f} Ha")
