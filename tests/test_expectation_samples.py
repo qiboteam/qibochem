@@ -88,6 +88,9 @@ def test_expectation_invalid_shot_allocation():
         SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0),
         SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
         SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
+        SymbolicHamiltonian(
+            0.1 * X(0) * X(1) * Y(2) + 0.2 * X(0) * Y(1) * Y(2) + 0.3 * Y(0) * X(1) * X(2) - 3.14 * Y(0) * Y(1) * X(2)
+        ),
     ],
 )
 def test_measurement_grouping_functionality(hamiltonian):
@@ -109,14 +112,7 @@ def test_measurement_grouping_functionality(hamiltonian):
         assert test == pytest.approx(expected, abs=0.08)
 
 
-@pytest.mark.parametrize(
-    "n_shots_per_pauli_term,threshold",
-    [
-        (True, 0.005),  # 5000 shots used for each term in Hamiltonian
-        (False, 0.02),  # 5000 shots divided between each Pauli string in Hamiltonian
-    ],
-)
-def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
+def test_h2_hf_energy():
     """Test HF energy of H2 molecule"""
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
@@ -127,15 +123,17 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
 
-    n_shots = 5000
-    hf_energy = expectation_from_samples(
-        circuit,
-        hamiltonian,
-        n_shots_per_pauli_term=n_shots_per_pauli_term,
-        n_shots=n_shots,
-        grouping="gc",
-    )
-    assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=threshold)
+    n_shots = 50000
+    for n_shots_per_pauli_term in (True, False):
+        hf_energy = expectation_from_samples(
+            circuit,
+            hamiltonian,
+            n_shots_per_pauli_term=n_shots_per_pauli_term,
+            n_shots=n_shots,
+            grouping="gc",
+        )
+        # Hardcoded threshold should be high enough with so many shots
+        assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=0.01)
 
 
 @pytest.mark.parametrize(
@@ -150,7 +148,7 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
     circuit = Circuit(2)
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
-    n_trial_shots = 5000
+    n_trial_shots = 20000
     grouped_terms = measurement_basis_rotations(hamiltonian, grouping)
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
@@ -175,8 +173,8 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
     expected = expectation(circuit, hamiltonian)
-    n_shots = 5000
-    n_trial_shots = 200
+    n_shots = 50000
+    n_trial_shots = 2000
     test = v_expectation(
         circuit,
         hamiltonian,
