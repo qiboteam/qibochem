@@ -124,7 +124,7 @@ def qwc_measurements(hamiltonian):
     ]
 
 
-def gc_measurement_mapping(expression, nqubits, method="chong"):
+def gc_measurement_mapping(expression, nqubits, method):
     """
     TODO: Docstring
 
@@ -163,7 +163,6 @@ def gc_measurement_mapping(expression, nqubits, method="chong"):
             term: phase * prod(Z(_i) for _i in soln) for term, phase, soln in zip(term_list, phase_factors, x_result)
         }
     elif method == "izmaylov":
-        # ZC NOTE: I have completely forgotten what is all this about...
         v_basis = sort_tau_terms(v_basis)
         new_tau_terms, sigma_terms = get_sigma_terms(v_basis)
         x_result = solve_linear_system(new_tau_terms, v_subspace)
