@@ -18,21 +18,6 @@ from qibochem.measurement.shot_allocation import (
 )
 
 
-def expectation(circuit: qibo.models.Circuit, hamiltonian: qibo.hamiltonians.SymbolicHamiltonian):
-    """
-    Expectation value using state vector simulations
-
-    Args:
-        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
-        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
-
-    Returns:
-        float: Expectation value of the Hamiltonian for the given circuit
-    """
-    # TODO: Remove this function
-    return hamiltonian.expectation(circuit)
-
-
 def constant_term(hamiltonian):
     """Extract the constant term (if any) from a given SymbolicHamiltonian"""
     constant = 0.0
