@@ -6,7 +6,6 @@ import pytest
 
 from qibochem.ansatz import hf_circuit
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(
@@ -25,7 +24,7 @@ def test_h2(mapping):
     h2.run_pyscf()
     hamiltonian = h2.hamiltonian(ferm_qubit_map=mapping)
     circuit = hf_circuit(h2.nso, h2.nelec, ferm_qubit_map=mapping)
-    hf_energy = expectation(circuit, hamiltonian)
+    hf_energy = hamiltonian.expectation(circuit)
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert pytest.approx(hf_energy) == h2_ref_energy

@@ -8,7 +8,7 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation, expectation_from_samples, v_expectation
+from qibochem.measurement import expectation_from_samples, v_expectation
 from qibochem.measurement.optimization import measurement_basis_rotations
 from qibochem.measurement.result import (
     pauli_term_measurement_expectation,
@@ -133,7 +133,7 @@ def test_h2_hf_energy():
             grouping="gc",
         )
         # Hardcoded threshold should be high enough with so many shots
-        assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=0.01)
+        assert hf_energy == pytest.approx(hamiltonian.expectation(circuit), abs=0.01)
 
 
 @pytest.mark.parametrize(
@@ -172,7 +172,7 @@ def test_v_expectation_vmsa(hamiltonian, grouping):
     circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
     circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
     circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
-    expected = expectation(circuit, hamiltonian)
+    expected = hamiltonian.expectation(circuit)
     n_shots = 50000
     n_trial_shots = 2000
     test = v_expectation(

@@ -5,7 +5,6 @@ from qibo.optimizers import optimize
 
 from qibochem.ansatz import he_circuit
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 def test_he_circuit():
@@ -37,7 +36,7 @@ def test_vqe_he_ansatz():
     # Loss function for VQE
     def electronic_energy(parameters, circuit, hamiltonian):
         circuit.set_parameters(parameters)
-        return expectation(circuit, hamiltonian)
+        return hamiltonian.expectation(circuit)
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     mol.run_pyscf()
