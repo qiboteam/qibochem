@@ -13,7 +13,6 @@ from qibochem.ansatz.ucc import expi_pauli
 from qibochem.measurement.util import (
     binary_gaussian_elimination,
     binary_nullspace,
-    col_reduce_x_matrix,
     get_sigma_terms,
     group_commuting_terms,
     lagrangian_subspace,
