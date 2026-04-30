@@ -406,7 +406,7 @@ def col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
 
     # Paper used row reduction, but should be column reduction in our context
     for _i in range(dim_space):
-        if _i > dim:
+        if _i >= dim:
             break
         # Get columns with row _i != 0
         nonzero_cols = np.nonzero(stabiliser_matrix[_i, :dim_space])[0]
