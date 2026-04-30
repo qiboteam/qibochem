@@ -44,7 +44,7 @@ def test_expectation_from_samples(terms, gates_to_add):
     circuit = Circuit(2)
     circuit.add(gates_to_add)
     result = expectation_from_samples(circuit, hamiltonian)
-    assert result == pytest.approx(expected := expectation(circuit, hamiltonian)), f"{result} != {expected}"
+    assert result == pytest.approx(expected := hamiltonian.expectation(circuit)), f"{result} != {expected}"
 
 
 def test_measurement_basis_rotations_error():
