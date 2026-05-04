@@ -9,9 +9,9 @@ from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
 from qibochem.measurement import expectation_from_samples, v_expectation
-from qibochem.measurement.optimization import measurement_basis_rotations
+from qibochem.measurement.optimization import _measurement_basis_rotations
 from qibochem.measurement.result import (
-    pauli_term_measurement_expectation,
+    _pauli_term_measurement_expectation,
     sample_statistics,
 )
 
@@ -27,7 +27,7 @@ from qibochem.measurement.result import (
     ],
 )
 def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expected):
-    result = pauli_term_measurement_expectation(term, frequencies, qubit_map)
+    result = _pauli_term_measurement_expectation(term, frequencies, qubit_map)
     assert result == expected
 
 
@@ -51,7 +51,7 @@ def test_measurement_basis_rotations_error():
     """If unknown measurement grouping scheme used"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(NotImplementedError):
-        _ = measurement_basis_rotations(hamiltonian, grouping="test")
+        _ = _measurement_basis_rotations(hamiltonian, grouping="test")
 
 
 @pytest.mark.parametrize(
@@ -149,7 +149,7 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
     n_trial_shots = 20000
-    grouped_terms = measurement_basis_rotations(hamiltonian, grouping)
+    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping)
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
     assert sample_variances == pytest.approx(expected_variances, abs=0.1)

@@ -8,8 +8,8 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
 from qibochem.measurement.optimization import (
-    gc_measurement_mapping,
-    measurement_basis_rotations,
+    _gc_measurement_mapping,
+    _measurement_basis_rotations,
 )
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
@@ -18,15 +18,15 @@ from qibochem.measurement.shot_allocation import (
 
 
 def test_gc_measurement_mapping():
-    """Remaining coverage tests for gc_measurement_mapping"""
+    """Remaining coverage tests for _gc_measurement_mapping"""
     ham = SymbolicHamiltonian(Z(2))
-    mapping, m_gates = gc_measurement_mapping(ham.form, 2, "izmaylov")
+    mapping, m_gates = _gc_measurement_mapping(ham.form, 2, "izmaylov")
     assert mapping == {"Z2": ham.form}  # Single term expression should remain unchanged
     assert len(m_gates) == 1 and m_gates[0].name == "measure"  # Single measurement gate, no basis rotation
 
     ham = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(ValueError):
-        _ = gc_measurement_mapping(ham.form, 2, "zc")
+        _ = _gc_measurement_mapping(ham.form, 2, "zc")
 
 
 @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ def test_gc_measurement_mapping():
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Y(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
-    grouped_terms = measurement_basis_rotations(hamiltonian)
+    grouped_terms = _measurement_basis_rotations(hamiltonian)
     n_shots = 200
     test_allocation = allocate_shots(
         grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term
@@ -53,14 +53,14 @@ def test_allocate_shots(method, max_shots_per_term, expected):
 def test_allocate_shots_coefficient_edge_case():
     """Edge cases of allocate_shots"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian)
+    grouped_terms = _measurement_basis_rotations(hamiltonian)
     n_shots = 1
     assert allocate_shots(grouped_terms, n_shots=n_shots) in ([0, 1], [1, 0])
 
 
 def test_allocate_shots_input_validity():
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
-    grouped_terms = measurement_basis_rotations(hamiltonian)
+    grouped_terms = _measurement_basis_rotations(hamiltonian)
     with pytest.raises(NameError):
         _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
 
