@@ -3,12 +3,15 @@ Functions for obtaining the expectation value for some given circuit and Hamilto
 vector simulation, or from sample measurements
 """
 
+from collections import Counter
 from functools import reduce
 
-import qibo
+from qibo import Circuit
+from qibo.gates import Gate
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 from sympy import Add, Mul
+from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
 from qibochem.measurement.optimization import _measurement_basis_rotations
@@ -18,7 +21,7 @@ from qibochem.measurement.shot_allocation import (
 )
 
 
-def _constant_term(hamiltonian):
+def _constant_term(hamiltonian: SymbolicHamiltonian) -> complex:
     """Extract the constant term (if any) from a given SymbolicHamiltonian"""
     constant = 0.0
     ham_form = hamiltonian.form
@@ -32,18 +35,8 @@ def _constant_term(hamiltonian):
     return constant
 
 
-def _pauli_term_measurement_expectation(expression, frequencies, qubit_map):
-    """
-    Calculate expectation of an expression with >=1 non-diagonal terms for a given set of measurement frequencies
-
-    Args:
-        expression (sympy.Expr): (Group of) Pauli terms, e.g. X0*Z2 + Y1
-        frequencies: Measurement frequencies, taken from MeasurementOutcomes.frequencies(binary=True)
-        qubit_map (dict): Mapping the output frequencies to the corresponding qubit
-
-    Returns:
-        float: Expectation value of expression
-    """
+def _pauli_term_measurement_expectation(expression: Expr, frequencies: Counter[str], qubit_map: list[int]) -> float:
+    """Calculate expectation of an expression with >=1 non-diagonal terms for a given set of measurement frequencies"""
     z_only_ham = None  # Needed to satisfy pylint :(
     if isinstance(expression, Add):
         # Sum of multiple Pauli terms
@@ -62,12 +55,12 @@ def _pauli_term_measurement_expectation(expression, frequencies, qubit_map):
 
 
 def expectation_from_samples(
-    circuit: qibo.models.Circuit,
+    circuit: Circuit,
     hamiltonian: SymbolicHamiltonian,
     n_shots: int = 1000,
-    grouping=None,
+    grouping: str | None = None,
     n_shots_per_pauli_term: bool = True,
-    shot_allocation=None,
+    shot_allocation: list[int] | None = None,
 ) -> float:
     """
     Calculate expectation value of some Hamiltonian using sample measurements from running a Qibo quantum circuit
@@ -79,7 +72,7 @@ def expectation_from_samples(
             Molecular Hamiltonian
         n_shots (int):
             Number of times the circuit is run. Default: ``1000``
-        grouping (str):
+        grouping (str | None):
             Whether to group Hamiltonian terms together to reduce the measurement cost
 
             Options:
@@ -90,7 +83,7 @@ def expectation_from_samples(
         n_shots_per_pauli_term (bool):
             If ``True`` (Default), uses ``n_shots`` per Pauli term (or group of terms) to calculate the expectation
             value
-        shot_allocation (list):
+        shot_allocation (list[int]):
             Shot allocation per Pauli term (or group of terms) when ``n_shots_per_pauli_term`` is ``False``.
 
     Returns:
@@ -125,7 +118,9 @@ def expectation_from_samples(
     return total
 
 
-def sample_statistics(circuit, grouped_terms, n_shots=100):
+def sample_statistics(
+    circuit: Circuit, grouped_terms: list[tuple[Expr, list[Gate]]], n_shots: int = 1000
+) -> tuple[list[float], list[float]]:
     """
     An alternative to the :ref:`expectation_from_samples<expectation-samples>` function when both the expectation values
     and sample variances are of interest. Unlike :ref:`expectation_from_samples<expectation-samples>`, this function
@@ -133,15 +128,16 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
     number of shots will be allocated to each term (group) instead.
 
     Args:
-        circuit (:class:`qibo.models.Circuit`): Quantum circuit ansatz
-        grouped_terms (list): List of two-tuples; the first item in the tuple is a group of Pauli terms
-            (:class:`sympy.Expr`), and the second is a list of measurement gates (:class:`qibo.gates.M`) that can be
-            used to get the expectation value for the corresponding expression
-        n_shots (int): Number of times the circuit is run for each Hamiltonian term (group). Default: ``1000``
+        circuit (:class:`qibo.models.Circuit`):
+            Quantum circuit ansatz
+        grouped_terms (list[tuple[Expr, list[Gate]]]):
+            Groups of Pauli terms and their corresponding rotation gates.
+        n_shots (int):
+            Number of times the circuit is run for each Hamiltonian term (group). Default: ``1000``
 
     Returns:
-        tuple: A two-tuple of lists, corresponding to the sample means (expectation values) and variances for each
-        Hamiltonian term (group) with respect to the given circuit.
+        tuple[list[float], list[float]]:
+            Sample means (expectation values) and variances for each Hamiltonian term (group)
     """
     expectation_values, expectation_variances = [], []
     for expression, measurement_gates, rotation_gates in grouped_terms:
@@ -162,7 +158,14 @@ def sample_statistics(circuit, grouped_terms, n_shots=100):
     return expectation_values, expectation_variances
 
 
-def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, method="vmsa"):
+def v_expectation(
+    circuit: Circuit,
+    hamiltonian: SymbolicHamiltonian,
+    n_shots: int,
+    n_trial_shots: int,
+    grouping: str | None = None,
+    method: str = "vmsa",
+) -> float:
     """
     An alternative loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated
     according to the Variance-Minimized Shot Assignment (VMSA) or Variance-Preserved Shot Reduction (VPSR) approaches
@@ -179,7 +182,7 @@ def v_expectation(circuit, hamiltonian, n_shots, n_trial_shots, grouping=None, m
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
         n_shots (int): Total number of shots for finding the Hamiltonian expectation value
         n_trial_shots (int): Number of shots to use for finding the sample variance for each Hamiltonian term
-        grouping (str): Whether to group Hamiltonian terms together. The available options: ``None``: (Default),
+        grouping (str | None): Whether to group Hamiltonian terms together. The available options: ``None``: (Default),
             ``"qwc"``, ``"gc"``, and ``"gc2"`` (see :func:`qibochem.measurement.util.expectation_from_samples` for
             details)
         method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.

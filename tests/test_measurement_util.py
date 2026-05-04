@@ -57,9 +57,9 @@ def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
     # "pauli_string,n_qubits,expected",
     "function_args,expected",
     [
-        ({"pauli_string": ["X0", "Y1", "Z2"], "n_qubits": 4}, np.array([1, 1, 0, 0, 0, 1, 1, 0])),
-        ({"pauli_string": ["Z1", "X3"], "n_qubits": 4}, np.array([0, 0, 0, 1, 0, 1, 0, 0])),
-        ({"pauli_string": [], "n_qubits": 4}, np.array([0, 0, 0, 0, 0, 0, 0, 0])),
+        ({"pauli_string": ["X0", "Y1", "Z2"], "nqubits": 4}, np.array([1, 1, 0, 0, 0, 1, 1, 0])),
+        ({"pauli_string": ["Z1", "X3"], "nqubits": 4}, np.array([0, 0, 0, 1, 0, 1, 0, 0])),
+        ({"pauli_string": [], "nqubits": 4}, np.array([0, 0, 0, 0, 0, 0, 0, 0])),
     ],
 )
 def test_pauli_to_symplectic(function_args, expected):
@@ -169,7 +169,7 @@ def test_lagrangian_subspace():
 def test_sort_tau_terms():
     # Using the example given in the function docstring
     test_terms = (["X0", "X2"], ["Z1", "X3", "Z4", "X5"], ["Z0", "Z2"], ["Z1"], ["Z3", "Z5"], ["Z4"])
-    test_symplectic_form = [_pauli_to_symplectic(term, n_qubits=6) for term in test_terms]
+    test_symplectic_form = [_pauli_to_symplectic(term, nqubits=6) for term in test_terms]
     result_symplectic = _sort_tau_terms(test_symplectic_form)
     result_pauli = [_symplectic_to_pauli(term) for term in result_symplectic]
     assert result_pauli == [["X0", "X2"], ["Z1"], ["Z0", "Z2"], ["Z3", "Z5"], ["Z4"], ["Z1", "X3", "Z4", "X5"]]
@@ -177,7 +177,7 @@ def test_sort_tau_terms():
 
 def test_get_sigma_terms():
     test_terms = [["X0", "X2"], ["Z1"], ["Z0", "Z2"], ["Z3", "Z5"], ["Z4"], ["Z1", "X3", "Z4", "X5"]]
-    test_symplectic_form = [_pauli_to_symplectic(term, n_qubits=6) for term in test_terms]
+    test_symplectic_form = [_pauli_to_symplectic(term, nqubits=6) for term in test_terms]
     new_tau_terms, sigma_terms = _get_sigma_terms(test_symplectic_form)
     # Check new tau terms are still mutually orthogonal
     assert all(

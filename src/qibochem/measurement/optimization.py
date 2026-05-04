@@ -6,7 +6,10 @@ from math import prod
 
 import numpy as np
 from qibo import Circuit, gates, symbols
+from qibo.gates import Gate
+from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
+from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
 from qibochem.ansatz.ucc import expi_pauli
@@ -25,23 +28,17 @@ from qibochem.measurement.util import (
 )
 
 
-def _term_to_string(term):
-    """Convert a single Pauli term (:class:`sympy.Expr`) to its string representation; dropping any coefficient"""
+def _term_to_string(term: Expr) -> str:
+    """Convert a single Pauli term to its string representation; dropping any coefficient"""
     return " ".join(str(_x) for _x in term.args if isinstance(_x, (X, Y, Z))) if term.args else str(term)
 
 
-def _u_circuit(tau_terms, sigma_terms, n_qubits):
+def _u_circuit(tau_terms: list[str], sigma_terms: list[str], nqubits: int) -> Circuit:
     """
     Circuit formulation by Izmaylov and co-workers for measuring generally commuting terms simultaneously.
     TODO: Consider using the gates from Qibo directly, instead of expi_pauli
-
-    Args:
-        tau_terms, sigma_terms: Lists of strings representing the decomposition of the group of Pauli terms
-
-    Returns:
-        Qibo Circuit
     """
-    circuit = Circuit(n_qubits)
+    circuit = Circuit(nqubits)
     for _tau, _sigma in zip(tau_terms, sigma_terms):
         # Convert the strings to QubitOperators
         tau_i = " ".join(_tau)
@@ -49,23 +46,17 @@ def _u_circuit(tau_terms, sigma_terms, n_qubits):
 
         theta = 0.25 * np.pi
         # Build up the circuit
-        circuit += expi_pauli(n_qubits, sigma_i, theta)
-        circuit += expi_pauli(n_qubits, tau_i, theta)
-        circuit += expi_pauli(n_qubits, sigma_i, theta)
+        circuit += expi_pauli(nqubits, sigma_i, theta)
+        circuit += expi_pauli(nqubits, tau_i, theta)
+        circuit += expi_pauli(nqubits, sigma_i, theta)
 
     return circuit
 
 
-def _qwc_measurement_gates(expression):
+def _qwc_measurement_gates(expression: Expr) -> list[Gate]:
     """
-    (Basis rotation) Measurement gates to be added to the circuit for qubit-wise commuting terms. Resultant measurements
-    can be used to calculate the expectation values of ALL the terms in expression directly.
-
-    Args:
-        expression (sympy.Expr): Group of Pauli terms that all mutually commute with each other qubitwise
-
-    Returns:
-        list: Measurement gates to be appended to the Qibo circuit
+    Measurement gates to be added to the circuit for an expression of qubit-wise commuting terms. Resultant measurements
+    can be used to calculate the expectation values of ALL terms in expression directly.
     """
     m_gates, _m_gates = {}, {}
     # Single Pauli operator
@@ -86,17 +77,10 @@ def _qwc_measurement_gates(expression):
     return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
-def _qwc_measurements(hamiltonian):
+def _qwc_measurements(hamiltonian: SymbolicHamiltonian) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
-    Sort the Hamiltonian terms into separate groups of mutually qubitwise commuting terms, and returns the grouped terms
+    Sort the Hamiltonian into separate groups of mutually qubitwise commuting terms, and returns the grouped terms
     along with their associated measurement gates
-
-    Args:
-        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
-
-    Returns:
-        list[tuple]: List of three-tuples. Each tuple ss given as:
-            (:class:`qibo.hamiltonians.SymbolicHamiltonian`, [`gates.M`,], []).
     """
     # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
     if hamiltonian.form.args:
@@ -120,7 +104,7 @@ def _qwc_measurements(hamiltonian):
     ]
 
 
-def _gc_measurement_mapping(expression, nqubits, method):
+def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tuple[dict[str, Expr], list[Gate]]:
     """
     Basis rotation gates to be added to the circuit for generally commuting terms. Resultant measurements
     can be used to calculate the expectation values of ALL the terms in expression directly.
@@ -131,8 +115,7 @@ def _gc_measurement_mapping(expression, nqubits, method):
         method (str): Circuit formulation to use, either "chong" (default) or "izmaylov"
 
     Returns:
-        tuple(dict, list): (Mapping of the original Hamiltonian terms to the new Hamiltonian, Measurement gates to be
-            appended to the original Qibo circuit)
+        tuple[dict[str, Expr], list[Gate]]: (Mapping of original expression, Gates to add to original Qibo circuit)
     """
     # Single Pauli operator
     if not expression.args:
@@ -179,17 +162,10 @@ def _gc_measurement_mapping(expression, nqubits, method):
     return mapping, u_gates
 
 
-def _gc_measurements(hamiltonian, method):
+def _gc_measurements(hamiltonian: SymbolicHamiltonian, method: str) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
     Sort the Hamiltonian terms into separate groups of mutually commuting terms, and returns the updated expressions to
     measured, their associated measurement gates, and the rotation gates to update the initial expressions
-
-    Args:
-        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
-
-    Returns:
-        list[tuple]: List of three-tuples. Each tuple ss given as:
-            (:class:`qibo.hamiltonians.SymbolicHamiltonian`, [`gates.M`,], [`basis rotation gates`]).
     """
     # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
     if hamiltonian.form.args:
@@ -219,18 +195,12 @@ def _gc_measurements(hamiltonian, method):
     return to_return
 
 
-def _measurement_basis_rotations(hamiltonian, grouping=None):
+def _measurement_basis_rotations(
+    hamiltonian: SymbolicHamiltonian, grouping: str | None = None
+) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
-    Split up and sort the Hamiltonian terms to get the basis rotation gates to be applied to a quantum circuit for the
-    respective (group of) terms in the Hamiltonian
-
-    Args:
-        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
-        grouping (str): ``None``, ``"qwc"``, ``"gc"``, and ``"gc2"``. See `expectation_from_samples` for details
-
-    Returns:
-        list: List of three-tuples; 1. Group of Pauli terms (:class:`sympy.Expr`), 2. List of measurement gates
-            (:class:`qibo.gates.M`), 3. List of Clifford gates to be added to the circuit before (2)
+    Sort Hamiltonian into separate groups and get the basis rotation gates to be applied for each of the corresponding
+    (group of) terms in the Hamiltonian. `grouping` argument must be in (None, "qwc", "gc", "gc2")
     """
     result = []
     if grouping is None:
@@ -246,5 +216,5 @@ def _measurement_basis_rotations(hamiltonian, grouping=None):
     elif grouping == "gc2":
         result += _gc_measurements(hamiltonian, "izmaylov")
     else:
-        raise NotImplementedError("Not ready yet!")
+        raise NotImplementedError("Unknown Pauli term grouping method!")
     return result

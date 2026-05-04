@@ -21,16 +21,8 @@ def _get_qubit(pauli_op: str) -> int:
 
 def _check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
     """
-    Check if terms 1 and 2 are mutually commuting. The 'qubitwise' flag determines if the check is for general
-    commutativity (False), or the stricter qubitwise commutativity.
-
-    Args:
-        term1/term2: Strings representing a single Pauli term. E.g. "X0 Z1 Y3". Obtained from a Qibo SymbolicTerm as
-        ``" ".join(factor.name for factor in term.factors)``.
-        qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
-
-    Returns:
-        bool: Do terms 1 and 2 commute?
+    Check if terms 1 and 2 (e.g. "X0 Z1 Y3") are mutually commuting. The 'qubitwise' argument determines if the check is
+    for general commutativity (False), or the stricter qubitwise commutativity.
     """
     # Get a list of common qubits for each term
     common_qubits = {_get_qubit(_op) for _op in term1.split() if _op[0] != "I"} & {
@@ -61,7 +53,7 @@ def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[
     commute), which this function follows.
 
     Args:
-        terms_list (List(str)): List of strings. The strings should follow the output from
+        terms_list (list(str)): List of strings. The strings should follow the output from
             ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo SymbolicTerm. E.g. "X0 Z1".
         qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
 
@@ -87,38 +79,22 @@ def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[
     return term_groups
 
 
-def _pauli_to_symplectic(pauli_string: list[str], n_qubits: int) -> np.ndarray:
+def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
     """
-    Map a single Pauli term to the corresponding symplectic vector
-
-    Args:
-        pauli_string: Iterable of strings representing a single Pauli term, e.g ["X0", "Y26", "Z200"]
-            Can get with: [factor.name for factor in term.factors], where term is a Qibo SymbolicTerm
-        n_qubits: Number of qubits used for the molecular Hamiltonian; needed to define the dimensions of the vector
-
-    Returns:
-        np.array: Symplectic vector for the given Pauli string (1D np.array)
+    Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic vector ((1D np.ndarray)).
+    `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
     """
     pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(n_qubits)]), shape=2 * n_qubits, order="F"
+        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(nqubits)]), shape=2 * nqubits, order="F"
     )
     return sym_vector
 
 
 def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
-    """
-    Map a single symplectic vector back to a single Pauli term
-
-    Args:
-        symplectic_vector (np.array): Symplectic vector to be converted
-
-    Returns:
-        list: A list of Pauli operators for a single Pauli term, e.g. ['Y0', 'X2']
-    """
+    """Map a single symplectic vector to its corresponding Pauli term (E.g. ['Y0', 'X2'])"""
     dim = symplectic_vector.shape[0] // 2
-
     pauli_op_vectors = [tuple(symplectic_vector[[_i, _i + dim]]) for _i in range(dim)]
     pauli_op_terms = [
         f"{BINARY_PAULI[vector]}{_q}"
@@ -130,11 +106,8 @@ def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
 
 def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
     """
-    Inner product of the symplectic vector space := (u, Jv), where
-    J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]]
-
-    Returns:
-        int: 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
+    Inner product of the symplectic vector space := (u, Jv), where J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]].
+    Returns 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
     """
     dim = u.shape[0] // 2
     return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
@@ -142,14 +115,8 @@ def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
-    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces vector_space
-    to its (unique) reduced row echelon form, and removes any zero rows as well
-
-    Args:
-        vector_space (np.ndarray): Binary vector space
-
-    Returns:
-        np.ndarray: Basis set for vector_space
+    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces and returns
+    vector_space to its (unique) reduced row echelon form, and removes any zero rows as well
     """
     cp_vector_space = np.array(vector_space)
 
@@ -191,12 +158,7 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
 
 
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
-    """
-    Find the Lagrangian subspace of some vector space; the symplectic nullspace in this context
-
-    Returns:
-        np.ndarray: Basis vectors of vector_space. Shape of the array should be (N, 2N)
-    """
+    """Find Lagrangian subspace of the given vector space; the symplectic nullspace in this context"""
     cp_vector_space = np.array(vector_space)
     # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
     while True:
@@ -235,9 +197,6 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
     will return
     [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
-
-    Returns:
-        np.ndarray: Sorted array of basis vectors that can be used for finding sigma_i directly
     """
     # Convert the basis set to strings for easier sorting
     pauli_terms = [_symplectic_to_pauli(vector) for vector in v_basis]
@@ -260,17 +219,11 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     return np.array([_pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
 
 
-def _get_sigma_terms(tau_terms: np.ndarray) -> tuple:
+def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Find the set of sigma terms for a given array of tau terms's, with (sigma_i|tau_j) = 1 if i == j else 0, and
-    (sigma_i|sigma_j) == 0 if i != j, i.e. all sigma_i's must correspond to different qubits. Note that tau_terms must
-    also be re-orthogonalised to follow the first relation given above in the process.
-
-    Args:
-        tau_terms: Basis set of the V subspace
-
-    Returns:
-        np.array, np.array: The new (re-orthogonalized) tau_i terms, and the sigma_i terms
+    (sigma_i|sigma_j) == 0 if i != j, i.e. all sigma_i's must correspond to different qubits. Note that tau_terms is
+    also re-orthogonalised to follow the first relation given above in the process.
     """
     sigma_terms = []
     dim = tau_terms[0].shape[0] // 2
@@ -300,12 +253,7 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple:
 
 
 def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[np.ndarray]:
-    """
-    Solve the (binary) linear system Ax = b
-
-    Returns:
-        list: Each item in the list corresponds to the respective vectors in b.
-    """
+    """Solve (binary) linear system Ax = b. Each item in the result corresponds to the respective vectors in b"""
     # Form the augmented matrix and row-reduce it using Gaussian elimination
     aug_matrix = np.concatenate((binary_matrix, vector), axis=0).T
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
@@ -314,15 +262,7 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
 
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
-    """
-    Compute the phase factor for a single qubit w.r.t. multiplication of Pauli operators
-
-    Args:
-        pauli_ops (list[np.ndarray]): List of Pauli operators (symplectic form) acting on the same qubit
-
-    Returns:
-        complex: Coefficient of multiplying all terms together
-    """
+    """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
     coeff, current_pauli_op = 1.0, np.zeros(2)
     for pauli_op in pauli_ops:
@@ -339,17 +279,7 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
 
 
 def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
-    r"""
-    Calculate the phase factor (p) in the decomposition of a Pauli string in the original Hamiltonian into a
-    product of k mutually commuting Pauli terms, i.e. P_I =  p \prod_{K} \tau_k
-
-    Args:
-        pauli_terms (list[np.ndarray]): List of mutually commuting Pauli strings, given in the form of symplectic vectors.
-            Each term in pauli_termsis a 1D array.
-
-    Returns:
-        int: 1 or -1
-    """
+    """Compute phase factor of a product of mutually commuting Pauli terms (in symplectic form). Returns: 1 or -1"""
     # Singleton case is trivial: 1
     if len(pauli_terms) == 1:
         return 1
@@ -369,7 +299,7 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     of columns between the 'Z' and 'X' matrices. Note: stabiliser_matrix should already be in reduced row echelon form
 
     Returns:
-        list: List of H gates to be added to the circuit
+        list[gates.Gate]: List of H gates to be added to the circuit
     """
     gates_list = []
 
@@ -398,7 +328,7 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     Modifies stabiliser_matrix in-place to transform the X matrix to I, using CNOT/SWAP gates
 
     Returns:
-        list: List of CNOT/SWAP gates to be added to the circuit
+        list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
     """
     gates_list = []
     dim, _dim_space = stabiliser_matrix.shape
@@ -440,7 +370,7 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     2. CZ gates used to remove off-diagonal entries on Z matrix
 
     Returns:
-        list: List of S and CZ gates to be added to the circuit
+        list[gates.Gate]: List of S and CZ gates to be added to the circuit
     """
     s_gates = []
     cz_gates = []
@@ -462,11 +392,8 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
 
 def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     """
-    Build the unitary transformation circuit for rotating the initial measurement basis into the computational basis.
-    The stabiliser matrix follows the format of (X|Z) matrices.
-
-    Args:
-        v_basis (np.array): Basis for the symplectic vector space of the group of commuting Pauli terms
+    Gets the basis rotation gates for rotating the initial measurement basis into the computational basis.
+    The stabiliser matrix (v_basis) follows the format of (X|Z) matrices.
 
     Returns:
         list[gates.Gate]: Gates to be added after the circuit ansatz
