@@ -182,8 +182,8 @@ def v_expectation(
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian of interest
         n_shots (int): Total number of shots for finding the Hamiltonian expectation value
         n_trial_shots (int): Number of shots to use for finding the sample variance for each Hamiltonian term
-        grouping (str | None): Whether to group Hamiltonian terms together. The available options: ``None``: (Default),
-            ``"qwc"``, ``"gc"``, and ``"gc2"`` (see :func:`qibochem.measurement.util.expectation_from_samples` for
+        grouping (str | None): Whether to group Hamiltonian terms together. The available options are: ``None``
+            (Default), ``"qwc"``, ``"gc"``, and ``"gc2"`` (see :ref:`expectation_from_samples<expectation-samples>` for
             details)
         method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
 
