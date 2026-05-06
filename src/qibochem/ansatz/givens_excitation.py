@@ -5,7 +5,7 @@ Circuit ansatz for representing a fermionic excitation as a Givens rotation by A
 from qibo import Circuit, gates
 
 from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
+from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
 
 # Helper functions
 

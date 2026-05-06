@@ -7,7 +7,7 @@ import openfermion
 from qibo import Circuit, gates
 
 from qibochem.ansatz.hf_reference import hf_circuit
-from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
+from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
 
 
 def expi_pauli(n_qubits, pauli_string, theta):

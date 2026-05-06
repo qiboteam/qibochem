@@ -8,4 +8,4 @@ from qibochem.ansatz.hf_reference import hf_circuit
 from qibochem.ansatz.qeb import qeb_circuit
 from qibochem.ansatz.symmetry import symm_preserving_circuit
 from qibochem.ansatz.ucc import ucc_ansatz, ucc_circuit
-from qibochem.ansatz.util import generate_excitations, mp2_amplitude, sort_excitations
+from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
