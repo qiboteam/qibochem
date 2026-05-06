@@ -3,6 +3,7 @@ Circuit representing a Hartree-Fock reference wave function
 """
 
 import numpy as np
+from qibo import Circuit
 from qibo.config import raise_error
 from qibo.models.encodings import comp_basis_encoder
 
@@ -35,23 +36,23 @@ def _bk_matrix_power2(dims: int) -> np.ndarray:
     return np.concatenate((top_half, bottom_half), axis=0)
 
 
-def _bk_matrix(n: int) -> np.ndarray:
-    """Exact Brayvi-Kitaev matrix of size n, obtained by slicing a larger BK matrix with dimension 2**m > n
+def _bk_matrix(dims: int) -> np.ndarray:
+    """Exact Brayvi-Kitaev matrix of size dims, obtained by slicing a larger BK matrix with dimension 2**m > n
 
     TODO: Update the occupation number vector using the update, parity, and flip set instead?
         Not sure if necessary; i.e. size of BK matrix probably not comparable to the memory needed
         for a classical simulation?
 
     Args:
-        n: Size of BK matrix
+        dims (int): Size of BK matrix
     """
     if dims < 1:
         raise_error(ValueError, "Dimension of Bravyi-Kitaev matrix must be at least 1")
-    # Build bk_matrix_power2(m), where 2**m > n
-    min_bk_size = int(np.ceil(np.log2(n))) + 1
+    # Build bk_matrix_power2(m), where 2**m > dims
+    min_bk_size = int(np.ceil(np.log2(dims))) + 1
     min_bk_matrix = _bk_matrix_power2(min_bk_size)
     # Then use array slicing to get the actual BK matrix
-    return min_bk_matrix[:n, :n]
+    return min_bk_matrix[:dims, :dims]
 
 
 # Main function
