@@ -76,7 +76,7 @@ def double_excitation_gate(sorted_orbitals, theta):
 
 
 # Main function
-def givens_excitation_circuit(n_qubits, excitation, theta=None):
+def givens_excitation_circuit(n_qubits, excitation, theta=0.0):
     """
     Circuit ansatz corresponding to the Givens rotation excitation from Arrazola et al.
 
@@ -95,19 +95,20 @@ def givens_excitation_circuit(n_qubits, excitation, theta=None):
         (`link <https://quantum-journal.org/papers/q-2022-06-20-742>`__)
     """
     sorted_orbitals = sorted(excitation)
-    # Check size of orbitals input
-    assert len(sorted_orbitals) % 2 == 0, f"{excitation} must have an even number of items"
-
-    if theta is None:
-        theta = 0.0
+    n_orbitals = len(excitation)
+    # Check excitation input
+    if not n_orbitals:
+        raise_error(ValueError, f"No excitations given")
+    if n_orbitals % 2 != 0:
+        raise_error(ValueError, f"{excitation} must have an even number of items")
+    qubits_in, qubits_out = sorted_orbitals[: (n_orbitals // 2)], sorted_orbitals[(n_orbitals // 2) :]
 
     circuit = Circuit(n_qubits)
-    if len(excitation) == 2:
-        circuit.add(single_excitation_gate(sorted_orbitals, theta))
-    elif len(excitation) == 4:
-        circuit.add(double_excitation_gate(sorted_orbitals, theta))
+    if n_orbitals == 2:
+        # circuit.add(single_excitation_gate(sorted_orbitals, theta))
+        circuit.add(gates.GIVENS(qubits_in[0], qubits_out[0], theta))
     else:
-        raise NotImplementedError("Can only handle single and double excitations!")
+        circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))  # phi parameter not used here
     return circuit
 
 
