@@ -2,25 +2,19 @@
 Circuit representing a Hartree-Fock reference wave function
 """
 
-from typing import Optional
-
 import numpy as np
+from qibo.config import raise_error
 from qibo.models.encodings import comp_basis_encoder
 
-
 # Helper functions for the Brayvi-Kitaev mapping
-def _bk_matrix_power2(dims: int):
-    """Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively.
 
-    Args:
-        dims (int): Size of Bravyi-Kitaev matrix.
 
-    Returns:
-        ndarray: Bravyi-Kitaev matrix of size ``dims x dims``.
-    """
-    assert dims > 0, "Dimension of BK matrix must be at least 1"
+def _bk_matrix_power2(dims: int) -> np.ndarray:
+    """Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively"""
+    if dims < 1:
+        raise_error(ValueError, "Dimension of Bravyi-Kitaev matrix must be at least 1")
     # Base case
-    if dims == 1:
+    elif dims == 1:
         return np.ones((1, 1), dtype=np.int8)
 
     # Recursive definition
@@ -41,9 +35,8 @@ def _bk_matrix_power2(dims: int):
     return np.concatenate((top_half, bottom_half), axis=0)
 
 
-def _bk_matrix(n: int):
-    """Exact Brayvi-Kitaev matrix of size n, obtained by slicing a larger BK matrix
-        with dimension 2**m > n
+def _bk_matrix(n: int) -> np.ndarray:
+    """Exact Brayvi-Kitaev matrix of size n, obtained by slicing a larger BK matrix with dimension 2**m > n
 
     TODO: Update the occupation number vector using the update, parity, and flip set instead?
         Not sure if necessary; i.e. size of BK matrix probably not comparable to the memory needed
@@ -52,7 +45,8 @@ def _bk_matrix(n: int):
     Args:
         n: Size of BK matrix
     """
-    assert n > 0, "Dimension of the Brayvi-Kitaev matrix must be at least 1"
+    if dims < 1:
+        raise_error(ValueError, "Dimension of Bravyi-Kitaev matrix must be at least 1")
     # Build bk_matrix_power2(m), where 2**m > n
     min_bk_size = int(np.ceil(np.log2(n))) + 1
     min_bk_matrix = _bk_matrix_power2(min_bk_size)
@@ -61,13 +55,13 @@ def _bk_matrix(n: int):
 
 
 # Main function
-def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: Optional[str] = None, **kwargs):
+def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str | None = None, **kwargs) -> Circuit:
     """Circuit to prepare a Hartree-Fock state
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        ferm_qubit_map (str, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or Brayvi-Kitaev
+        ferm_qubit_map (str | None, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or Brayvi-Kitaev
             (``"bk"``). Default value is ``"jw"``.
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.
@@ -79,7 +73,7 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: Optional[str] = No
     if ferm_qubit_map is None:
         ferm_qubit_map = "jw"
     if ferm_qubit_map not in ("jw", "bk"):
-        raise KeyError("Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        raise_error(KeyError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
     # Occupation number of SOs
     mapped_occ_n = None
