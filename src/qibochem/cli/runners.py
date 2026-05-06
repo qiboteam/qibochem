@@ -137,29 +137,24 @@ def _gen_excitations(mol: Molecule, orders: list[int]) -> list[list[int]]:
     return excs
 
 
-def _build_ucc(mol: Molecule, excitations: list[str], mapping: str):
+def _build_ucc(mol: Molecule, excitations: list[str], mapping: str, *, use_mp2_guess: bool = False):
     """UCC: full UCCSD by default, or a subset depending on ``excitations``."""
     orders = _excitation_orders(excitations)
     if orders == [2, 1]:
-        excitation_level = "D"  # ucc_ansatz with D includes both S and D
-        circuit = ucc_ansatz(mol, excitation_level=excitation_level, ferm_qubit_map=mapping, use_mp2_guess=False)
-    elif orders == [1]:
-        circuit = ucc_ansatz(mol, excitation_level="S", ferm_qubit_map=mapping, use_mp2_guess=False)
-    elif orders == [2]:
-        # Doubles only — pass explicit list
-        excs = _gen_excitations(mol, [2])
-        circuit = ucc_ansatz(mol, excitations=excs, ferm_qubit_map=mapping, use_mp2_guess=False)
-    else:  # pragma: no cover - schema rules this out
-        raise ConfigError("UCC requires at least one of singles/doubles")
-    return circuit
+        return ucc_ansatz(mol, excitation_level="D", ferm_qubit_map=mapping, use_mp2_guess=use_mp2_guess)
+    if orders == [1]:
+        return ucc_ansatz(mol, excitation_level="S", ferm_qubit_map=mapping, use_mp2_guess=use_mp2_guess)
+    # Doubles only — pass an explicit list (the helper has no excitation_level="D-only").
+    excs = _gen_excitations(mol, [2])
+    return ucc_ansatz(mol, excitations=excs, ferm_qubit_map=mapping, use_mp2_guess=use_mp2_guess)
 
 
-def _build_givens(mol: Molecule, excitations: list[str]):
+def _build_givens(mol: Molecule, excitations: list[str], *, use_mp2_guess: bool = False):
     orders = _excitation_orders(excitations)
     if orders == [2, 1]:
-        return givens_excitation_ansatz(mol, use_mp2_guess=False)
+        return givens_excitation_ansatz(mol, use_mp2_guess=use_mp2_guess)
     excs = _gen_excitations(mol, orders)
-    return givens_excitation_ansatz(mol, excitations=excs, use_mp2_guess=False)
+    return givens_excitation_ansatz(mol, excitations=excs, use_mp2_guess=use_mp2_guess)
 
 
 def _build_qeb(mol: Molecule, excitations: list[str]):
@@ -219,7 +214,7 @@ def build_ansatz_circuit(mol: Molecule, ansatz_cfg, mapping: str):
         if mapping != "jw":
             raise ConfigError("ansatz.kind=basis_rotation currently only supports JW mapping")
         return _build_basis_rotation(mol)
-    raise ConfigError(f"unknown ansatz kind: {kind!r}")
+    raise ConfigError(f"unknown ansatz kind: {kind!r}")  # pragma: no cover - schema rejects first
 
 
 # --------------------------------------------------------------------------- #
@@ -240,7 +235,7 @@ def _flatten_circuit_params(circuit) -> np.ndarray:
         if isinstance(entry, (list, tuple, np.ndarray)):
             for x in entry:
                 flat.append(float(np.real(x)))
-        else:
+        else:  # pragma: no cover - all current ansatzes return per-gate tuples
             flat.append(float(np.real(entry)))
     return np.asarray(flat, dtype=float)
 
@@ -248,13 +243,13 @@ def _flatten_circuit_params(circuit) -> np.ndarray:
 def _n_circuit_params(circuit) -> int:
     try:
         return int(len(_flatten_circuit_params(circuit)))
-    except Exception:
+    except Exception:  # pragma: no cover - defensive against malformed circuits
         return 0
 
 
-def initial_parameters(circuit, opt_cfg: OptimizerConfig, mol: Molecule, ansatz_cfg) -> np.ndarray:
+def initial_parameters(circuit, opt_cfg: OptimizerConfig, mol: Molecule, ansatz_cfg, mapping: str = "jw") -> np.ndarray:
     n = _n_circuit_params(circuit)
-    if n == 0:
+    if n == 0:  # pragma: no cover - all current ansatzes produce at least one parameter
         return np.zeros(0)
 
     strategy = opt_cfg.initial_parameters
@@ -276,10 +271,12 @@ def initial_parameters(circuit, opt_cfg: OptimizerConfig, mol: Molecule, ansatz_
                 f"initial_parameters='mp2' is only supported for ansatz.kind in (ucc, givens); "
                 f"got {ansatz_cfg.kind!r}"
             )
+        # Rebuild a twin circuit with use_mp2_guess=True using the SAME excitation
+        # subset the user requested — otherwise the parameter count won't match.
         if ansatz_cfg.kind == "ucc":
-            mp2_circuit = ucc_ansatz(mol, excitation_level="D", use_mp2_guess=True)
+            mp2_circuit = _build_ucc(mol, ansatz_cfg.excitations, mapping, use_mp2_guess=True)
         else:
-            mp2_circuit = givens_excitation_ansatz(mol, use_mp2_guess=True)
+            mp2_circuit = _build_givens(mol, ansatz_cfg.excitations, use_mp2_guess=True)
         return _flatten_circuit_params(mp2_circuit)
 
     raise ConfigError(f"unknown initial_parameters strategy: {strategy!r}")  # pragma: no cover
@@ -292,7 +289,7 @@ def initial_parameters(circuit, opt_cfg: OptimizerConfig, mol: Molecule, ansatz_
 
 def run_hf(top: TopLevelConfig, yaml_path: Path) -> dict:
     """Hartree-Fock only: build molecule, run PySCF, report e_hf."""
-    if not isinstance(top.method, HFMethodConfig):
+    if not isinstance(top.method, HFMethodConfig):  # pragma: no cover - dispatch() guarantees the type
         raise ConfigError("run_hf called with non-HF method config")
     timing: dict[str, float] = {}
 
@@ -319,7 +316,7 @@ def run_hf(top: TopLevelConfig, yaml_path: Path) -> dict:
 
 def run_vqe(top: TopLevelConfig, yaml_path: Path) -> dict:
     """VQE: build molecule + ansatz, optimize, report energies and parameters."""
-    if not isinstance(top.method, VQEMethodConfig):
+    if not isinstance(top.method, VQEMethodConfig):  # pragma: no cover - dispatch() guarantees the type
         raise ConfigError("run_vqe called with non-VQE method config")
     method: VQEMethodConfig = top.method
     timing: dict[str, float] = {}
@@ -340,7 +337,7 @@ def run_vqe(top: TopLevelConfig, yaml_path: Path) -> dict:
     circuit = build_ansatz_circuit(mol, method.ansatz, top.hamiltonian.mapping)
     timing["ansatz_build"] = time.perf_counter() - t0
 
-    params0 = initial_parameters(circuit, method.optimizer, mol, method.ansatz)
+    params0 = initial_parameters(circuit, method.optimizer, mol, method.ansatz, top.hamiltonian.mapping)
     n_params = len(params0)
     logger.info("VQE: %d parameters; ansatz=%s; optimizer=%s", n_params, method.ansatz.kind, method.optimizer.name)
 
@@ -357,7 +354,7 @@ def run_vqe(top: TopLevelConfig, yaml_path: Path) -> dict:
     if method.optimizer.name.lower() == "qibo":
         from qibo.optimizers import optimize as qibo_optimize
 
-        best_energy, best_params, _extra = qibo_optimize(loss, params0)
+        best_energy, best_params, _extra = qibo_optimize(loss, params0, options=method.optimizer.options or None)
         success = True
         message = "qibo.optimizers.optimize"
     else:
@@ -401,7 +398,9 @@ def dispatch(top: TopLevelConfig, yaml_path: Path) -> dict:
         return run_hf(top, yaml_path)
     if isinstance(top.method, VQEMethodConfig):
         return run_vqe(top, yaml_path)
-    raise ConfigError(f"no runner for method type {type(top.method).__name__}")  # pragma: no cover
+    raise ConfigError(  # pragma: no cover - schema rules out other method types
+        f"no runner for method type {type(top.method).__name__}"
+    )
 
 
 # --------------------------------------------------------------------------- #

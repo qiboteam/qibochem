@@ -153,8 +153,6 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 def _cmd_template(args: argparse.Namespace) -> int:
     text = resources.files("qibochem.cli.templates").joinpath(f"{args.kind}.yaml").read_text(encoding="utf-8")
     sys.stdout.write(text)
-    if not text.endswith("\n"):
-        sys.stdout.write("\n")
     return EXIT_OK
 
 
@@ -229,5 +227,5 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_UNEXPECTED
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

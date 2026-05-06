@@ -45,6 +45,24 @@ def _unknown_keys(d: dict, allowed: set[str], where: str) -> None:
         raise ConfigError(f"{where}: unknown keys {sorted(extra)}; allowed: {sorted(allowed)}")
 
 
+def _coerce_int(value: Any, where: str, *, allow_none: bool = False) -> Any:
+    """Coerce ``value`` to int, raising :class:`ConfigError` on bad input.
+
+    Accepts bool-free numeric types only (``True``/``False`` are *not* valid
+    integers here even though Python's ``int(True) == 1`` would silently work).
+    Without this guard, downstream comparisons like ``self.n_shots <= 0``
+    raise raw ``TypeError`` and surface as exit code 1 instead of 2.
+    """
+    if allow_none and value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ConfigError(f"{where}: must be an integer; got {type(value).__name__}")
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ConfigError(f"{where}: must be an integer; got {value!r}") from None
+
+
 @dataclass(frozen=True)
 class MoleculeConfig:
     """Molecule block.
@@ -86,8 +104,8 @@ class MoleculeConfig:
         return cls(
             xyz_file=d.get("xyz_file"),
             geometry=d.get("geometry"),
-            charge=int(d.get("charge", 0)),
-            multiplicity=int(d.get("multiplicity", 1)),
+            charge=_coerce_int(d.get("charge", 0), "molecule.charge"),
+            multiplicity=_coerce_int(d.get("multiplicity", 1), "molecule.multiplicity"),
             basis=str(d.get("basis", "sto-3g")),
             active=d.get("active"),
         )
@@ -130,7 +148,7 @@ class AnsatzConfig:
         return cls(
             kind=str(_require(d, "kind", "method.ansatz")),
             excitations=list(d.get("excitations", ["singles", "doubles"])),
-            layers=int(d.get("layers", 1)),
+            layers=_coerce_int(d.get("layers", 1), "method.ansatz.layers"),
         )
 
 
@@ -159,11 +177,13 @@ class OptimizerConfig:
     @classmethod
     def parse(cls, d: dict) -> OptimizerConfig:
         _unknown_keys(d, {"name", "options", "initial_parameters", "seed"}, "method.optimizer")
+        # Pass `options` through unchanged; __post_init__ validates the type so
+        # users get a clean ConfigError rather than a generic dict-coercion error.
         return cls(
             name=str(d.get("name", "BFGS")),
-            options=dict(d.get("options", {})),
+            options=d.get("options", {}),
             initial_parameters=d.get("initial_parameters", "zeros"),
-            seed=d.get("seed"),
+            seed=_coerce_int(d.get("seed"), "method.optimizer.seed", allow_none=True),
         )
 
 
@@ -172,7 +192,7 @@ class HFMethodConfig:
     kind: str = "hf"
 
     def __post_init__(self) -> None:
-        if self.kind != "hf":
+        if self.kind != "hf":  # pragma: no cover - parse() always sets kind="hf"
             raise ConfigError(f"HFMethodConfig.kind must be 'hf'; got {self.kind!r}")
 
     @classmethod
@@ -189,7 +209,7 @@ class VQEMethodConfig:
     n_shots: int | None = None
 
     def __post_init__(self) -> None:
-        if self.kind != "vqe":
+        if self.kind != "vqe":  # pragma: no cover - parse() always sets kind="vqe"
             raise ConfigError(f"VQEMethodConfig.kind must be 'vqe'; got {self.kind!r}")
         if self.n_shots is not None and self.n_shots <= 0:
             raise ConfigError("method.n_shots must be a positive integer")
@@ -201,7 +221,7 @@ class VQEMethodConfig:
             kind="vqe",
             ansatz=AnsatzConfig.parse(_require(d, "ansatz", "method (vqe)")),
             optimizer=OptimizerConfig.parse(d.get("optimizer", {})),
-            n_shots=d.get("n_shots"),
+            n_shots=_coerce_int(d.get("n_shots"), "method.n_shots", allow_none=True),
         )
 
 
@@ -269,7 +289,7 @@ class TopLevelConfig:
             raise ConfigError("top-level: expected a mapping")
         _unknown_keys(d, {"version", "molecule", "hamiltonian", "method", "output"}, "top-level")
         return cls(
-            version=int(_require(d, "version", "top-level")),
+            version=_coerce_int(_require(d, "version", "top-level"), "version"),
             molecule=MoleculeConfig.parse(_require(d, "molecule", "top-level")),
             hamiltonian=HamiltonianConfig.parse(d.get("hamiltonian", {})),
             method=_parse_method(_require(d, "method", "top-level")),
