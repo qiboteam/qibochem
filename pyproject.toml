@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qibochem"
-version = "0.0.5"
+version = "0.0.6"
 description = "Quantum chemistry module for quantum computing with Qibo"
 authors = ["The Qibo team"]
 license = "Apache License 2.0"
@@ -15,10 +15,10 @@ classifiers = [
 packages = [{ include = "qibochem", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.14"
-qibo = ">=0.2.18"
-openfermion = ">=1.5,<1.7"
-pyscf = "^2.9.0"
+python = ">=3.11,<3.14"
+qibo = "^0.3.2"
+openfermion = "^1.7.1"
+pyscf = "^2.12.0"
 scipy = "^1.15.2"
 numpy = "^2.0.0"
 
@@ -37,8 +37,8 @@ sphinxcontrib-bibtex = "^2.5.0"
 sphinxcontrib-katex = "^0.9.6"
 sphinx-markdown-tables = "^0.0.17"
 nbsphinx = "^0.9.1"
-ipython = "^8.12.0"
-sphinx-copybutton = "^0.5.1"
+ipython = "^8.34.0"
+sphinx-copybutton = "^0.5.2"
 
 [tool.poetry.group.tests]
 optional = true
