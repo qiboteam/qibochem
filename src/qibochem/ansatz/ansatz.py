@@ -5,6 +5,7 @@ Circuit ansatzes for chemistry
 from collections.abc import Sequence
 
 import numpy as np
+import openfermion
 from qibo import Circuit, gates
 from qibo.config import raise_error
 from qibo.gates import Gate
@@ -49,8 +50,8 @@ def he_circuit(
     # Default variables
     if rotation_gates is None:
         rotation_gates = ["RY", "RZ"]
-    if not all(isinstance(_gate, (str, Gate)) for _gate in rotation_gates):
-        raise_error(TypeError, "Invalid one-qubit rotation gate input")
+    # if not all(isinstance(_gate, (str, Gate)) for _gate in rotation_gates):
+    #     raise_error(TypeError, "Invalid one-qubit rotation gate input")
     rotation_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in rotation_gates]
 
     circuit = Circuit(nqubits, **kwargs)
@@ -59,7 +60,7 @@ def he_circuit(
         circuit.add(
             rgate(qubit, theta=0.0)  # pylint: disable=not-callable
             for qubit in range(nqubits)
-            for rgate in parameter_gates
+            for rgate in rotation_gates
         )
         # Entangling gates
         circuit += entangling_layer(nqubits, architecture, entangling_gate, closed_boundary, **kwargs)
@@ -98,7 +99,7 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str | None = None,
 
 
 def ucc_circuit(
-    n_qubits: int,
+    nqubits: int,
     excitation: Sequence[int],
     theta: float = 0.0,
     trotter_steps: int = 1,
@@ -109,7 +110,7 @@ def ucc_circuit(
     Circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
     Args:
-        n_qubits (int): Number of qubits in the quantum circuit
+        nqubits (int): Number of qubits in the quantum circuit
         excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta (float, optional): UCC parameter. Defaults to 0.0
@@ -153,15 +154,63 @@ def ucc_circuit(
     # Apply the qubit_ucc_operator 'trotter_steps' times:
     if trotter_steps < 1:
         raise_error(ValueError, f"{trotter_steps} must be > 0!")
-    circuit = Circuit(n_qubits, **kwargs)
+    circuit = Circuit(nqubits, **kwargs)
     for _i in range(trotter_steps):
         for pauli_ops, coeff in qubit_ucc_operator.terms.items():
             # Convert each operator into a string and get the associated coefficient
             pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
             # Build the circuit and add it on
             circuit += _expi_pauli(
-                n_qubits, pauli_string, -1.0j * coeff * theta / trotter_steps
+                nqubits, pauli_string, -1.0j * coeff * theta / trotter_steps
             )  # Divide imag. coeff by 1.0j
+    return circuit
+
+
+def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
+    r"""
+    Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation.
+    This circuit ansatz is only valid for the Jordan-Wigner fermion to qubit mapping.
+
+    Args:
+        nqubits (int): Number of qubits in the quantum circuit
+        excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements.
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
+        theta (float, optional): UCC parameter. Defaults to 0.0
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
+
+    References:
+        1. I. Magoulas and F. A. Evangelista, *CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit
+        Excitations*, Journal of Chemical Theory and Computation, 2023, 19(3), 822-836.
+        (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.2c01016>`__ or
+        on `arXiv <https://arxiv.org/abs/2210.05771>`__)
+    """
+    n_orbitals = len(excitation)
+    if not n_orbitals:
+        raise_error(ValueError, f"No excitations given")
+    if n_orbitals % 2 != 0:
+        raise_error(ValueError, f"{excitation} must have an even number of items")
+
+    n_tuples = len(excitation) // 2
+    i_array = excitation[:n_tuples]
+    a_array = excitation[n_tuples:]
+    fwd_gates = [gates.CNOT(i_array[-1], _i) for _i in i_array[-2::-1]]
+    fwd_gates += [gates.CNOT(a_array[-1], _a) for _a in a_array[-2::-1]]
+    fwd_gates.append(gates.CNOT(a_array[-1], i_array[-1]))
+    fwd_gates += [gates.X(_ia) for _ia in excitation if _ia not in (i_array[-1], a_array[-1])]
+    circuit = Circuit(nqubits, **kwargs)
+    circuit.add(gate for gate in fwd_gates)
+    # MCRY
+    # multi-controlled RY gate,
+    # negative controls i, a
+    # positive control on i_n
+    mcry_controls = excitation[:-1]
+    ry_angle = 2.0 * theta
+    circuit.add(gates.RY(a_array[-1], ry_angle).controlled_by(*mcry_controls))
+    circuit.add(gate for gate in fwd_gates[::-1])
     return circuit
 
 
@@ -192,7 +241,7 @@ def givens_excitation_circuit(nqubits: int, excitation: Sequence[int], theta: fl
         raise_error(ValueError, f"{excitation} must have an even number of items")
     qubits_in, qubits_out = sorted_orbitals[: (n_orbitals // 2)], sorted_orbitals[(n_orbitals // 2) :]
 
-    circuit = Circuit(n_qubits)
+    circuit = Circuit(nqubits)
     if n_orbitals == 2:
         circuit.add(gates.GIVENS(qubits_in[0], qubits_out[0], theta))
     else:
