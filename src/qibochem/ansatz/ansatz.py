@@ -83,7 +83,7 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str | None = None,
     if ferm_qubit_map is None:
         ferm_qubit_map = "jw"
     if ferm_qubit_map not in ("jw", "bk"):
-        raise_error(KeyError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
     # Occupation number of SOs
     mapped_occ_n = None

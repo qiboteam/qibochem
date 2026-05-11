@@ -2,15 +2,12 @@
 
 import numpy as np
 from qibo import Circuit, gates
-from qibo.config import raise_error
 
 
 def _bk_matrix_power2(dims: int) -> np.ndarray:
     """Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively"""
-    if dims < 1:
-        raise_error(ValueError, "Dimension of Bravyi-Kitaev matrix must be at least 1")
     # Base case
-    elif dims == 1:
+    if dims == 1:
         return np.ones((1, 1), dtype=np.int8)
 
     # Recursive definition
@@ -41,8 +38,6 @@ def _bk_matrix(dims: int) -> np.ndarray:
     Args:
         dims (int): Size of BK matrix
     """
-    if dims < 1:
-        raise_error(ValueError, "Dimension of Bravyi-Kitaev matrix must be at least 1")
     # Build bk_matrix_power2(m), where 2**m > dims
     min_bk_size = int(np.ceil(np.log2(dims))) + 1
     min_bk_matrix = _bk_matrix_power2(min_bk_size)

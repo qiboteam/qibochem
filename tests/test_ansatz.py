@@ -24,6 +24,7 @@ from qibochem.driver import Molecule
 @pytest.mark.parametrize(
     "rotation_gates,entangling_gate",
     [
+        (None, None),
         (["RX"], "CNOT"),
         ([gates.RZ], gates.CZ),
     ],
@@ -32,23 +33,25 @@ def test_he_circuit(rotation_gates, entangling_gate):
     """Test hardware efficient circuit"""
     nqubits = 4
     nlayers = 1
-    control = Circuit(nqubits)
+    control_circuit = Circuit(nqubits)
+    rotation_gates = rotation_gates if rotation_gates is not None else ["RY", gates.RZ]
+    entangling_gate = entangling_gate if entangling_gate is not None else gates.CNOT
     for _ in range(nlayers):
         # Rotation gates
-        control.add(
+        control_circuit.add(
             (getattr(gates, rotation_gate) if isinstance(rotation_gate, str) else rotation_gate)(_i, 0.0)
-            for rotation_gate in rotation_gates
             for _i in range(nqubits)
+            for rotation_gate in rotation_gates
         )
         # Entanglement gates
-        control.add(
+        control_circuit.add(
             (getattr(gates, entangling_gate) if isinstance(entangling_gate, str) else entangling_gate)(_i, _i + 1)
             for _i in range(nqubits - 1)
         )
     # Test function
     test_circuit = he_circuit(nqubits, nlayers, rotation_gates, entangling_gate)
 
-    for gate, target in zip(control.queue, test_circuit.queue):
+    for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
         assert gate.qubits == target.qubits
         assert gate.target_qubits == target.target_qubits
@@ -76,12 +79,6 @@ def test_hf_circuit(mapping):
 
     # assert h2.e_hf == pytest.approx(hf_energy)
     assert pytest.approx(hf_energy) == h2_ref_energy
-
-
-def test_mapping_errors():
-    """Tests the HF circuit with an incorrect mapping"""
-    with pytest.raises(KeyError):
-        hf_circuit(4, 2, ferm_qubit_map="incorrect")
 
 
 @pytest.mark.parametrize(
@@ -250,16 +247,17 @@ def test_givens_circuit():
         assert np.allclose(control_state, test_state)
 
 
-def test_ansatz_argument_cheks():
-    """Input validity of ucc_circuit, qeb_circuit, and givens_circuit"""
+def test_ansatz_argument_checks():
+    """Input validity of hf_circuit, ucc_circuit, qeb_circuit, and givens_circuit"""
+    # Fermion to qubit mapping checks
+    for circuit_func in (hf_circuit, ucc_circuit):
+        with pytest.raises(NotImplementedError):
+            circuit_func(2, [0, 1], ferm_qubit_map="zc")
     # Excitation input errors
     for circuit_func in (ucc_circuit, qeb_circuit, givens_circuit):
         for excitation in ([], [1000]):
             with pytest.raises(ValueError):
                 circuit_func(2, excitation)
-    # Other ucc_circuit checks
-    with pytest.raises(NotImplementedError):  # Fermion to qubit mapping
-        ucc_circuit(2, [0, 1], ferm_qubit_map="zc")
     with pytest.raises(ValueError):  # Trotter steps
         ucc_circuit(2, [0, 1], trotter_steps=0)
 
