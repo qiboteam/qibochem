@@ -1,5 +1,5 @@
 from qibochem.ansatz.ansatz import (
-    givens_excitation_circuit,
+    givens_circuit,
     he_circuit,
     hf_circuit,
     qeb_circuit,

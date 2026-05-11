@@ -6,7 +6,7 @@ import numpy as np
 from qibo import gates, models
 from scipy.linalg import expm
 
-from qibochem.ansatz import ucc
+from qibochem.ansatz.utils import generate_excitations, sort_excitations
 from qibochem.driver import hamiltonian
 
 # Helper functions
@@ -29,9 +29,9 @@ def unitary(occ_orbitals, virt_orbitals, parameters=None):
     """
 
     # conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
-    ov_pairs = ucc.generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True)
+    ov_pairs = generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True)
     # print('ov_pairs presort', ov_pairs)
-    ov_pairs = ucc.sort_excitations(ov_pairs)
+    ov_pairs = sort_excitations(ov_pairs)
     # print('ov_pairs sorted ', ov_pairs)
     n_theta = len(ov_pairs)
     if parameters is None:
