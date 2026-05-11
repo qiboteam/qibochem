@@ -7,23 +7,24 @@ This section covers the API reference for various chemistry circuit ansatzes.
 Hardware-efficient
 ------------------
 
-.. autofunction:: qibochem.ansatz.hardware_efficient.he_circuit
+.. autofunction:: qibochem.ansatz.ansatz.he_circuit
 
 
 Hartree-Fock
 ------------
 
-.. autofunction:: qibochem.ansatz.hf_reference.hf_circuit
+.. autofunction:: qibochem.ansatz.ansatz.hf_circuit
 
 
 Unitary Coupled Cluster
 -----------------------
 
-.. autofunction:: qibochem.ansatz.ucc.ucc_circuit
+.. autofunction:: qibochem.ansatz.ansatz.ucc_circuit
 
-.. autofunction:: qibochem.ansatz.ucc.ucc_ansatz
+.. Comment out for now
+  .. autofunction:: qibochem.ansatz.ucc.ucc_ansatz
 
-.. autofunction:: qibochem.ansatz.qeb.qeb_circuit
+.. autofunction:: qibochem.ansatz.ansatz.qeb_circuit
 
 
 Basis rotation
@@ -34,9 +35,10 @@ Basis rotation
 Givens Excitation
 -----------------
 
-.. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_circuit
+.. autofunction:: qibochem.ansatz.ansatz.givens_circuit
 
-.. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_ansatz
+.. Comment out for now
+  .. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_ansatz
 
 Symmetry-Preserving
 -------------------
