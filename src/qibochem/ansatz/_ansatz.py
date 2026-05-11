@@ -129,7 +129,7 @@ def _basis_rotation_unitary(
     return expm(kappa), parameters
 
 
-def _qr_decompose_givens(unitary_matrix: np.ndarray):
+def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
     r"""
     Clements scheme to QR decompose a unitary matrix using Givens rotations. See arxiv:1603.08788
 
@@ -141,7 +141,7 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray):
     """
 
     def row_op(unitary_matrix, row, col):
-        """internal function to zero out a row using Givens rotation with angle z"""
+        """Zero out a row using Givens rotation; returns the rotation angle"""
         srow = row - 1
         angle = np.arctan2(-unitary_matrix[row][col], unitary_matrix[srow][col])
         new_srow = np.cos(angle) * unitary_matrix[srow, :] - np.sin(angle) * unitary_matrix[row, :]
@@ -185,6 +185,58 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray):
             row += -1
             col += -1
             angles.append(col_op(unitary_matrix, row, col))
-    if not np.allclose(unitary_matrix, np.eye(dim)):
-        raise_error(ValueError, "unitary_matrix is not identity matrix after QR decomposition")
     return angles
+
+
+def _basis_rotation_layout(nqubits: int) -> np.ndarray:
+    """
+    Generates the layout of the basis rotation circuit for Clements scheme QR decomposition
+
+    Args:
+        nqubits (int): Number of qubits/modes
+
+    Returns:
+        np.ndarray: (nqubits, nqubits) matrix. -1 is null, 0 is the control and >1 is the index for angles in
+            Clements QR decomposition of the unitary basis rotation matrix
+    """
+
+    def assign_element(array, row, col, k):
+        """Helper function to set matrix elements of array"""
+        array[row - 1][col] = 0
+        array[row][col] = k
+
+    array = np.full((nqubits, nqubits), -1, dtype=int)
+    # First step
+    row, col = (1, 0)
+    k = 1
+    assign_element(array, row, col, k)
+    k += 1
+    updown = 1
+    while k <= ((nqubits - 1) * nqubits // 2):  # Half-triangle
+        if updown == 1:
+            # Check if reached top of layout matrix, i.e. row == 1. (row 0 not assigned any operation; just control)
+            if row > 1:
+                row += -1
+                col += 1
+                assign_element(array, row, col, k)
+            else:
+                # Jump right
+                row = nqubits - 2 - col
+                col = nqubits - 1
+                updown = -1
+                assign_element(array, row, col, k)
+        elif updown == -1:
+            # Check if at bottom of layout matrix
+            if row < nqubits - 1:
+                row += 1
+                col += -1
+                assign_element(array, row, col, k)
+            else:
+                # Jump left
+                row = nqubits + 1 - col
+                col = 0
+                updown = 1
+                assign_element(array, row, col, k)
+        k += 1
+
+    return array

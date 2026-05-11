@@ -10,6 +10,7 @@ from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.ansatz._ansatz import (
+    _basis_rotation_layout,
     _basis_rotation_unitary,
     _expi_pauli,
     _qr_decompose_givens,
@@ -331,6 +332,24 @@ def test_qr_decompose_givens():
     )
 
     assert np.allclose(z_angles, ref_z)
+
+
+def test_basis_rotation_layout():
+    control = np.array(
+        [
+            [0, -1, 0, -1, 0, -1, 0, -1, 0, -1],
+            [1, 0, 6, 0, 15, 0, 28, 0, 45, 0],
+            [0, 5, 0, 14, 0, 27, 0, 44, 0, 29],
+            [4, 0, 13, 0, 26, 0, 43, 0, 30, 0],
+            [0, 12, 0, 25, 0, 42, 0, 31, 0, 16],
+            [11, 0, 24, 0, 41, 0, 32, 0, 17, 0],
+            [0, 23, 0, 40, 0, 33, 0, 18, 0, 7],
+            [22, 0, 39, 0, 34, 0, 19, 0, 8, 0],
+            [0, 38, 0, 35, 0, 20, 0, 9, 0, 2],
+            [37, -1, 36, -1, 21, -1, 10, -1, 3, -1],
+        ]
+    )
+    assert np.allclose(_basis_rotation_layout(10), control)
 
 
 def test_ansatz_argument_checks():

@@ -12,6 +12,7 @@ from qibo.gates import Gate
 from qibo.models.encodings import comp_basis_encoder, entangling_layer
 
 from qibochem.ansatz._ansatz import (
+    _basis_rotation_layout,
     _basis_rotation_unitary,
     _bk_matrix,
     _expi_pauli,
@@ -119,7 +120,8 @@ def ucc_circuit(
         theta (float, optional): UCC parameter. Defaults to 0.0
         trotter_steps (int, optional): Number of Trotter steps; i.e. number of times the UCC ansatz is applied
             with :math:`\theta = \theta` / ``trotter_steps``. Default: 1
-        ferm_qubit_map (str, optional): Fermion-to-qubit transformation. Default: Jordan-Wigner (``"jw"``)
+        ferm_qubit_map (str, optional): Fermion-to-qubit transformation. Must be either Jordan-Wigner (``"jw"``) or
+            Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`
 
@@ -136,8 +138,6 @@ def ucc_circuit(
     sorted_orbitals = sorted(excitation, reverse=True)
 
     # Define default mapping and check input is valid
-    if ferm_qubit_map is None:
-        ferm_qubit_map = "jw"
     if ferm_qubit_map not in ("jw", "bk"):
         raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
 
@@ -279,12 +279,12 @@ def basis_rotation_circuit(
     unitary_matrix, kappa = _basis_rotation_unitary(range(0, nelectrons), range(nelectrons, nqubits), parameters=thetas)
 
     gate_angles = _qr_decompose_givens(unitary_matrix)
-    # gate_layout = basis_rotation.basis_rotation_layout(nqubits)
+    gate_layout = _basis_rotation_layout(nqubits)
     # gate_list, _ordered_angles = basis_rotation.basis_rotation_gates(
     #     gate_layout, gate_angles, kappa
     # )
 
-    # circuit = hf_circuit(nqubits, nelectrons)
+    circuit = hf_circuit(nqubits, nelectrons, **kwargs)
     # circuit.add(gate_list)
 
-    # return circuit
+    return circuit
