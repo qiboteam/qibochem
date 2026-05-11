@@ -50,8 +50,6 @@ def he_circuit(
     # Default variables
     if rotation_gates is None:
         rotation_gates = ["RY", "RZ"]
-    # if not all(isinstance(_gate, (str, Gate)) for _gate in rotation_gates):
-    #     raise_error(TypeError, "Invalid one-qubit rotation gate input")
     rotation_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in rotation_gates]
 
     circuit = Circuit(nqubits, **kwargs)
@@ -126,7 +124,7 @@ def ucc_circuit(
     # Check size of orbitals input
     n_orbitals = len(excitation)
     if not n_orbitals:
-        raise_error(ValueError, f"No excitations given")
+        raise_error(ValueError, "No excitations given")
     if n_orbitals % 2 != 0:
         raise_error(ValueError, f"{excitation} must have an even number of items")
     # Reverse sort orbitals to get largest-->smallest
@@ -146,6 +144,7 @@ def ucc_circuit(
     ucc_operator = fermion_operator - openfermion.hermitian_conjugated(fermion_operator)
 
     # Map the FermionOperator to a QubitOperator
+    qubit_ucc_operator = None
     if ferm_qubit_map == "jw":
         qubit_ucc_operator = openfermion.jordan_wigner(ucc_operator)
     elif ferm_qubit_map == "bk":
@@ -190,7 +189,7 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     """
     n_orbitals = len(excitation)
     if not n_orbitals:
-        raise_error(ValueError, f"No excitations given")
+        raise_error(ValueError, "No excitations given")
     if n_orbitals % 2 != 0:
         raise_error(ValueError, f"{excitation} must have an even number of items")
 
@@ -214,15 +213,17 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     return circuit
 
 
-def givens_excitation_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0) -> Circuit:
+def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
     """
     Circuit ansatz corresponding to the Givens rotation from Arrazola et al.
 
     Args:
         nqubits (int): Number of qubits in the circuit
-        excitation (Sequence[int]): Iterable of orbitals involved in the excitation; must have an even number of elements
+        excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements
             E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
         theta (float, optional): Rotation angle. Default: 0.0
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit ansatz for a single Givens rotation
@@ -232,16 +233,16 @@ def givens_excitation_circuit(nqubits: int, excitation: Sequence[int], theta: fl
         circuits for quantum chemistry*, Quantum, 2022, 6, 742.
         (`link <https://quantum-journal.org/papers/q-2022-06-20-742>`__)
     """
-    sorted_orbitals = sorted(excitation)
     n_orbitals = len(excitation)
     # Check excitation input
     if not n_orbitals:
-        raise_error(ValueError, f"No excitations given")
+        raise_error(ValueError, "No excitations given")
     if n_orbitals % 2 != 0:
         raise_error(ValueError, f"{excitation} must have an even number of items")
+    sorted_orbitals = sorted(excitation)
     qubits_in, qubits_out = sorted_orbitals[: (n_orbitals // 2)], sorted_orbitals[(n_orbitals // 2) :]
 
-    circuit = Circuit(nqubits)
+    circuit = Circuit(nqubits, **kwargs)
     if n_orbitals == 2:
         circuit.add(gates.GIVENS(qubits_in[0], qubits_out[0], theta))
     else:

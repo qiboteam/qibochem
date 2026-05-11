@@ -10,7 +10,13 @@ from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.ansatz._ansatz import _expi_pauli
-from qibochem.ansatz.ansatz import he_circuit, hf_circuit, qeb_circuit, ucc_circuit
+from qibochem.ansatz.ansatz import (
+    givens_circuit,
+    he_circuit,
+    hf_circuit,
+    qeb_circuit,
+    ucc_circuit,
+)
 from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
 from qibochem.driver import Molecule
 
@@ -161,10 +167,93 @@ def test_ucc_circuit(excitation, mapping, pauli_terms, coeffs):
         assert np.allclose(control_state, test_state)
 
 
-def test_ucc_errors():
-    """Validity of inputs to ucc_circuit and qeb_circuit"""
+def _givens_single_excitation(sorted_orbitals, theta):
+    """
+    Testing helper function: Decomposition of a Givens single excitation gate into single qubit rotations and CNOTs
+
+    Args:
+        sorted_orbitals (Sequence[int]): Sorted list of orbitals involved in the excitation
+        theta (float): Rotation angle
+
+    Returns:
+        (list[Gate]): Decomposition of the Givens' single excitation gate
+    """
+    result = []
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    result.append(gates.RY(sorted_orbitals[0], 0.5 * theta))
+    result.append(gates.CNOT(sorted_orbitals[1], sorted_orbitals[0]))
+    result.append(gates.RY(sorted_orbitals[0], -0.5 * theta))
+    result.append(gates.CNOT(sorted_orbitals[1], sorted_orbitals[0]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    return result
+
+
+def _givens_double_excitation(sorted_orbitals, theta):
+    """
+    Testing helper function: Decomposition of a Givens double excitation gate into single qubit rotations and CNOTs
+
+    Args:
+        sorted_orbitals (Sequence[int]): Sorted list of orbitals involved in the excitation
+        theta (float): Rotation angle
+
+    Returns:
+        (list[Gate]): Decomposition of the Givens' double excitation gate
+    """
+    result = []
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[3]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[2]))
+    result.append(gates.H(sorted_orbitals[0]))
+    result.append(gates.H(sorted_orbitals[3]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[3]))
+    result.append(gates.RY(sorted_orbitals[0], -0.125 * theta))
+    result.append(gates.RY(sorted_orbitals[1], 0.125 * theta))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[3]))
+    result.append(gates.H(sorted_orbitals[3]))
+    result.append(gates.CNOT(sorted_orbitals[3], sorted_orbitals[1]))
+    result.append(gates.RY(sorted_orbitals[0], -0.125 * theta))
+    result.append(gates.RY(sorted_orbitals[1], 0.125 * theta))
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[1]))
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[0]))
+    result.append(gates.RY(sorted_orbitals[0], 0.125 * theta))
+    result.append(gates.RY(sorted_orbitals[1], -0.125 * theta))
+    result.append(gates.CNOT(sorted_orbitals[3], sorted_orbitals[1]))
+    result.append(gates.H(sorted_orbitals[3]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[3]))
+    result.append(gates.RY(sorted_orbitals[0], 0.125 * theta))
+    result.append(gates.RY(sorted_orbitals[1], -0.125 * theta))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[1]))
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[0]))
+    result.append(gates.H(sorted_orbitals[0]))
+    result.append(gates.H(sorted_orbitals[3]))
+    result.append(gates.CNOT(sorted_orbitals[0], sorted_orbitals[2]))
+    result.append(gates.CNOT(sorted_orbitals[2], sorted_orbitals[3]))
+    return result
+
+
+def test_givens_circuit():
+    """Test givens_circuit using circuit decomposition given in reference paper"""
+    nqubits = 4
+    theta = 0.27183
+    for excitation, decomposition in zip(
+        ([0, 2], [0, 1, 2, 3]), (_givens_single_excitation, _givens_double_excitation)
+    ):
+        control_circuit = Circuit(nqubits)
+        control_circuit.add(decomposition(excitation, theta))
+        control_result = control_circuit()
+        control_state = control_result.state(True)
+
+        test_circuit = givens_circuit(nqubits, excitation, theta)
+        test_result = test_circuit()
+        test_state = test_result.state(True)
+
+        assert np.allclose(control_state, test_state)
+
+
+def test_ansatz_argument_cheks():
+    """Input validity of ucc_circuit, qeb_circuit, and givens_circuit"""
     # Excitation input errors
-    for circuit_func in (ucc_circuit, qeb_circuit):
+    for circuit_func in (ucc_circuit, qeb_circuit, givens_circuit):
         for excitation in ([], [1000]):
             with pytest.raises(ValueError):
                 circuit_func(2, excitation)
