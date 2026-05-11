@@ -2,7 +2,7 @@
 Circuit ansatzes for chemistry
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 import openfermion
@@ -11,7 +11,12 @@ from qibo.config import raise_error
 from qibo.gates import Gate
 from qibo.models.encodings import comp_basis_encoder, entangling_layer
 
-from qibochem.ansatz._ansatz import _bk_matrix, _expi_pauli
+from qibochem.ansatz._ansatz import (
+    _basis_rotation_unitary,
+    _bk_matrix,
+    _expi_pauli,
+    _qr_decompose_givens,
+)
 
 
 def he_circuit(
@@ -65,13 +70,13 @@ def he_circuit(
     return circuit
 
 
-def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str | None = None, **kwargs) -> Circuit:
+def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs) -> Circuit:
     """Circuit to prepare a Hartree-Fock state
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        ferm_qubit_map (str | None, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or
+        ferm_qubit_map (str, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or
             Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``.
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.
@@ -101,7 +106,7 @@ def ucc_circuit(
     excitation: Sequence[int],
     theta: float = 0.0,
     trotter_steps: int = 1,
-    ferm_qubit_map: str | None = None,
+    ferm_qubit_map: str = "jw",
     **kwargs: dict,
 ) -> Circuit:
     r"""
@@ -248,3 +253,38 @@ def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, 
     else:
         circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))  # phi parameter not used here
     return circuit
+
+
+def basis_rotation_circuit(
+    nqubits: int, nelectrons: int, thetas: Iterable[float] | float | None = None, **kwargs
+) -> Circuit:
+    """
+    Quantum circuit that performs a basis rotation of the occupied-virtual orbitals using Givens rotations
+
+    Args:
+        nqubits (int): Number of qubits in the quantum circuit
+        nelectrons (int): Number of electrons in the molecular system
+        thetas (np.ndarray | None, optional):
+            TODO:
+            Rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)`
+            elements. Defaults to a zero array
+
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`.
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit initialized as a HF reference, followed by basis rotation gates
+
+    """
+    unitary_matrix, kappa = _basis_rotation_unitary(range(0, nelectrons), range(nelectrons, nqubits), parameters=thetas)
+
+    gate_angles = _qr_decompose_givens(unitary_matrix)
+    # gate_layout = basis_rotation.basis_rotation_layout(nqubits)
+    # gate_list, _ordered_angles = basis_rotation.basis_rotation_gates(
+    #     gate_layout, gate_angles, kappa
+    # )
+
+    # circuit = hf_circuit(nqubits, nelectrons)
+    # circuit.add(gate_list)
+
+    # return circuit

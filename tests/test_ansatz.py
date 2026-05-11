@@ -9,7 +9,11 @@ import pytest
 from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
-from qibochem.ansatz._ansatz import _expi_pauli
+from qibochem.ansatz._ansatz import (
+    _basis_rotation_unitary,
+    _expi_pauli,
+    _qr_decompose_givens,
+)
 from qibochem.ansatz.ansatz import (
     givens_circuit,
     he_circuit,
@@ -24,7 +28,7 @@ from qibochem.driver import Molecule
 @pytest.mark.parametrize(
     "rotation_gates,entangling_gate",
     [
-        (None, None),
+        (None, gates.CNOT),
         (["RX"], "CNOT"),
         ([gates.RZ], gates.CZ),
     ],
@@ -33,9 +37,11 @@ def test_he_circuit(rotation_gates, entangling_gate):
     """Test hardware efficient circuit"""
     nqubits = 4
     nlayers = 1
+    # Test circuit first; convert the None arguments for the control circuit later
+    test_circuit = he_circuit(nqubits, nlayers, rotation_gates, entangling_gate)
+
     control_circuit = Circuit(nqubits)
     rotation_gates = rotation_gates if rotation_gates is not None else ["RY", gates.RZ]
-    entangling_gate = entangling_gate if entangling_gate is not None else gates.CNOT
     for _ in range(nlayers):
         # Rotation gates
         control_circuit.add(
@@ -48,8 +54,6 @@ def test_he_circuit(rotation_gates, entangling_gate):
             (getattr(gates, entangling_gate) if isinstance(entangling_gate, str) else entangling_gate)(_i, _i + 1)
             for _i in range(nqubits - 1)
         )
-    # Test function
-    test_circuit = he_circuit(nqubits, nlayers, rotation_gates, entangling_gate)
 
     for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
@@ -245,6 +249,88 @@ def test_givens_circuit():
         test_state = test_result.state(True)
 
         assert np.allclose(control_state, test_state)
+
+
+@pytest.mark.parametrize(
+    "parameters,test",
+    [
+        (
+            0.1,
+            np.array(
+                [
+                    [0.99001666, 0.0, 0.099667, 0.0, 0.099667, 0.0],
+                    [0.0, 0.99001666, 0.0, 0.099667, 0.0, 0.099667],
+                    [-0.099667, 0.0, 0.99500833, 0.0, -0.00499167, 0.0],
+                    [0.0, -0.099667, 0.0, 0.99500833, 0.0, -0.00499167],
+                    [-0.099667, 0.0, -0.00499167, 0.0, 0.99500833, 0.0],
+                    [0.0, -0.099667, 0.0, -0.00499167, 0.0, 0.99500833],
+                ]
+            ),
+        ),
+        (
+            (-0.1, -0.2, -0.3, -0.4),
+            np.array(
+                [
+                    [0.95041528, 0.0, -0.09834165, 0.0, -0.29502494, 0.0],
+                    [0.0, 0.9016556, 0.0, -0.19339968, 0.0, -0.38679937],
+                    [0.09834165, 0.0, 0.99504153, 0.0, -0.01487542, 0.0],
+                    [0.0, 0.19339968, 0.0, 0.98033112, 0.0, -0.03933776],
+                    [0.29502494, 0.0, -0.01487542, 0.0, 0.95537375, 0.0],
+                    [0.0, 0.38679937, 0.0, -0.03933776, 0.0, 0.92132448],
+                ]
+            ),
+        ),
+    ],
+)
+def test_basis_rotation_unitary(parameters, test):
+    occupied = range(0, 2)
+    virtual = range(2, 6)
+
+    unitary_matrix, _parameters = _basis_rotation_unitary(occupied, virtual, parameters=parameters)
+
+    identity = np.eye(6)
+    assert np.allclose(unitary_matrix @ unitary_matrix.T, identity)
+    assert np.allclose(unitary_matrix, test)
+
+    too_many_params = [0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12]
+    with pytest.raises(IndexError):
+        _, _ = _basis_rotation_unitary(occupied, virtual, parameters=too_many_params)
+
+
+def test_qr_decompose_givens():
+    # Test case from test_basis_rotation_unitary
+    unitary_matrix = np.array(
+        [
+            [0.99001666, 0.0, 0.099667, 0.0, 0.099667, 0.0],
+            [0.0, 0.99001666, 0.0, 0.099667, 0.0, 0.099667],
+            [-0.099667, 0.0, 0.99500833, 0.0, -0.00499167, 0.0],
+            [0.0, -0.099667, 0.0, 0.99500833, 0.0, -0.00499167],
+            [-0.099667, 0.0, -0.00499167, 0.0, 0.99500833, 0.0],
+            [0.0, -0.099667, 0.0, -0.00499167, 0.0, 0.99500833],
+        ]
+    )
+    z_angles = _qr_decompose_givens(unitary_matrix)
+    ref_z = np.array(
+        [
+            -np.pi,
+            -0.5 * np.pi,
+            -2.356194490192345,
+            0.0,
+            -0.5 * np.pi,
+            -1.5207546393123066,
+            -0.5 * np.pi,
+            -0.5 * np.pi,
+            -3.000171297352484,
+            -2.356194490192345,
+            0.0,
+            -0.5 * np.pi,
+            -0.5 * np.pi,
+            -0.09995829685982476,
+            -1.5207546393123068,
+        ]
+    )
+
+    assert np.allclose(z_angles, ref_z)
 
 
 def test_ansatz_argument_checks():

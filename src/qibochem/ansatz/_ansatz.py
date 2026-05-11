@@ -1,7 +1,13 @@
 """Helper functions for the `ansatz` module"""
 
+from collections.abc import Iterable
+
 import numpy as np
 from qibo import Circuit, gates
+from qibo.config import raise_error
+from scipy.linalg import expm
+
+from qibochem.ansatz.utils import generate_excitations, sort_excitations
 
 
 def _bk_matrix_power2(dims: int) -> np.ndarray:
@@ -83,3 +89,102 @@ def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs):
     # 3. Change back to the Z basis
     circuit.add(_gate.dagger() for _gate in reversed(basis_changes))
     return circuit
+
+
+def _basis_rotation_unitary(
+    occ_orbitals: Iterable[int], virt_orbitals: Iterable[int], parameters: Iterable[float] | float
+) -> np.ndarray:
+    r"""
+    Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied and virtual orbitals. Orbitals
+    are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as
+    [0a, 0b, 1a, 1b]. The current implementation of this function only accommodates systems with all electrons paired,
+    and an equal number of alpha and beta spin electrons.
+
+    Args:
+        occ_orbitals (Iterable[int]): Occupied orbitals
+        virt_orbitals (Iterable[int]): Virtual orbitals
+        parameters (Iterable[float] | float): Rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)` elements
+
+    Returns:
+        np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
+    """
+    # conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
+    ov_pairs = sort_excitations(generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True))
+    n_theta = len(ov_pairs)
+    if parameters is None:
+        parameters = np.zeros(n_theta)
+    elif isinstance(parameters, float):
+        parameters = np.full(n_theta, parameters)
+    else:
+        if len(parameters) != n_theta:
+            raise_error(IndexError, "parameter argument specified has bad size or type")
+
+    n_orbitals = len(occ_orbitals) + len(virt_orbitals)
+    kappa = np.zeros((n_orbitals, n_orbitals))
+
+    for _i, (_occ, _virt) in enumerate(ov_pairs):
+        kappa[_occ, _virt] = parameters[_i]
+        kappa[_virt, _occ] = -parameters[_i]
+
+    return expm(kappa), parameters
+
+
+def _qr_decompose_givens(unitary_matrix: np.ndarray):
+    r"""
+    Clements scheme to QR decompose a unitary matrix using Givens rotations. See arxiv:1603.08788
+
+    Args:
+        unitary_matrix (np.ndarray): Unitary rotation matrix
+
+    Returns:
+        np.ndarray: Rotation angles
+    """
+
+    def row_op(unitary_matrix, row, col):
+        """internal function to zero out a row using Givens rotation with angle z"""
+        srow = row - 1
+        angle = np.arctan2(-unitary_matrix[row][col], unitary_matrix[srow][col])
+        new_srow = np.cos(angle) * unitary_matrix[srow, :] - np.sin(angle) * unitary_matrix[row, :]
+        new_row = np.sin(angle) * unitary_matrix[srow, :] + np.cos(angle) * unitary_matrix[row, :]
+        unitary_matrix[srow, :] = new_srow
+        unitary_matrix[row, :] = new_row
+        return angle
+
+    def col_op(unitary_matrix, row, col):
+        """Zero out a column using Givens rotation; returns the rotation angle"""
+        scol = col + 1
+        angle = np.arctan2(-unitary_matrix[row][col], unitary_matrix[row][scol])
+        new_scol = np.cos(angle) * unitary_matrix[:, scol] - np.sin(angle) * unitary_matrix[:, col]
+        new_col = np.sin(angle) * unitary_matrix[:, scol] + np.cos(angle) * unitary_matrix[:, col]
+        unitary_matrix[:, scol] = new_scol
+        unitary_matrix[:, col] = new_col
+        return angle
+
+    dim = unitary_matrix.shape[0]
+
+    angles = []
+    # Start QR from bottom left element
+    row, col = (dim - 1, 0)
+    angles.append(col_op(unitary_matrix, row, col))
+    # Traverse the unitary_matrix in diagonal-zig-zag manner until the main diagonal is reached
+    # if move = up, do a row op
+    # if move = diagonal-down-right, do a row op
+    # if move = right, do a column op
+    # if move = diagonal-up-left, do a column op
+    while row != 1:
+        row += -1
+        angles.append(row_op(unitary_matrix, row, col))
+        while row < dim - 1:
+            row += 1
+            col += 1
+            angles.append(row_op(unitary_matrix, row, col))
+        if col != dim - 2:
+            col += 1
+            angles.append(col_op(unitary_matrix, row, col))
+        while col > 0:
+            row += -1
+            col += -1
+            angles.append(col_op(unitary_matrix, row, col))
+    if not np.allclose(unitary_matrix, np.eye(dim)):
+        raise_error(ValueError, "unitary_matrix is not identity matrix after QR decomposition")
+    return angles
