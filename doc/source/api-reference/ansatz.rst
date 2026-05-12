@@ -26,16 +26,15 @@ Unitary Coupled Cluster
 
 .. autofunction:: qibochem.ansatz.ansatz.qeb_circuit
 
-
-Basis rotation
---------------
-
-.. autofunction:: qibochem.ansatz.basis_rotation.basis_rotation_gates
-
 Givens Excitation
 -----------------
 
 .. autofunction:: qibochem.ansatz.ansatz.givens_circuit
+
+Basis rotation
+--------------
+
+.. autofunction:: qibochem.ansatz.ansatz.basis_rotation_circuit
 
 .. Comment out for now
   .. autofunction:: qibochem.ansatz.givens_excitation.givens_excitation_ansatz
