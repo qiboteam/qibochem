@@ -256,7 +256,7 @@ def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, 
 
 
 def basis_rotation_circuit(
-    nqubits: int, nelectrons: int, thetas: Iterable[float] | float | None = None, **kwargs
+    nqubits: int, nelectrons: int, parameters: Iterable[float] | float | None = None, include_hf: bool = True, **kwargs
 ) -> Circuit:
     """
     Quantum circuit that performs a basis rotation of the occupied-virtual orbitals using Givens rotations
@@ -264,27 +264,21 @@ def basis_rotation_circuit(
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        thetas (np.ndarray | None, optional):
+        parameters (np.ndarray | None, optional):
             TODO:
             Rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)`
             elements. Defaults to a zero array
-
+        include_hf (bool, optional): Initialise ansatz in a HF reference state if True (default)
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit initialized as a HF reference, followed by basis rotation gates
-
     """
-    unitary_matrix, kappa = _basis_rotation_unitary(range(0, nelectrons), range(nelectrons, nqubits), parameters=thetas)
-
-    gate_angles = _qr_decompose_givens(unitary_matrix)
-    gate_layout = _basis_rotation_layout(nqubits)
-    # gate_list, _ordered_angles = basis_rotation.basis_rotation_gates(
-    #     gate_layout, gate_angles, kappa
-    # )
-
-    circuit = hf_circuit(nqubits, nelectrons, **kwargs)
-    # circuit.add(gate_list)
-
+    unitary_matrix = _basis_rotation_unitary(range(0, nelectrons), range(nelectrons, nqubits), parameters=parameters)
+    z_angles = _qr_decompose_givens(unitary_matrix)
+    basis_rotation_layout = _basis_rotation_layout(nqubits, z_angles)
+    # Build circuit ansatz
+    circuit = hf_circuit(nqubits, nelectrons, **kwargs) if include_hf else Circuit(nqubits, **kwargs)
+    circuit.add(gates.GIVENS(_q1 + 1, _q1, rot_angle) for (_q1, _q2, rot_angle) in basis_rotation_layout)
     return circuit

@@ -287,7 +287,7 @@ def test_basis_rotation_unitary(parameters, test):
     occupied = range(0, 2)
     virtual = range(2, 6)
 
-    unitary_matrix, _parameters = _basis_rotation_unitary(occupied, virtual, parameters=parameters)
+    unitary_matrix = _basis_rotation_unitary(occupied, virtual, parameters=parameters)
 
     identity = np.eye(6)
     assert np.allclose(unitary_matrix @ unitary_matrix.T, identity)
@@ -311,45 +311,86 @@ def test_qr_decompose_givens():
         ]
     )
     z_angles = _qr_decompose_givens(unitary_matrix)
-    ref_z = np.array(
-        [
-            -np.pi,
-            -0.5 * np.pi,
-            -2.356194490192345,
-            0.0,
-            -0.5 * np.pi,
-            -1.5207546393123066,
-            -0.5 * np.pi,
-            -0.5 * np.pi,
-            -3.000171297352484,
-            -2.356194490192345,
-            0.0,
-            -0.5 * np.pi,
-            -0.5 * np.pi,
-            -0.09995829685982476,
-            -1.5207546393123068,
-        ]
-    )
-
+    ref_z = [
+        -np.pi,
+        -0.5 * np.pi,
+        -2.356194490192345,
+        0.0,
+        -0.5 * np.pi,
+        -1.5207546393123066,
+        -0.5 * np.pi,
+        -0.5 * np.pi,
+        -3.000171297352484,
+        -2.356194490192345,
+        0.0,
+        -0.5 * np.pi,
+        -0.5 * np.pi,
+        -0.09995829685982476,
+        -1.5207546393123068,
+    ]
     assert np.allclose(z_angles, ref_z)
 
 
-def test_basis_rotation_layout():
-    control = np.array(
-        [
-            [0, -1, 0, -1, 0, -1, 0, -1, 0, -1],
-            [1, 0, 6, 0, 15, 0, 28, 0, 45, 0],
-            [0, 5, 0, 14, 0, 27, 0, 44, 0, 29],
-            [4, 0, 13, 0, 26, 0, 43, 0, 30, 0],
-            [0, 12, 0, 25, 0, 42, 0, 31, 0, 16],
-            [11, 0, 24, 0, 41, 0, 32, 0, 17, 0],
-            [0, 23, 0, 40, 0, 33, 0, 18, 0, 7],
-            [22, 0, 39, 0, 34, 0, 19, 0, 8, 0],
-            [0, 38, 0, 35, 0, 20, 0, 9, 0, 2],
-            [37, -1, 36, -1, 21, -1, 10, -1, 3, -1],
-        ]
+@pytest.mark.parametrize(
+    "nqubits,control",
+    [
+        (
+            4,
+            [
+                (0, 0, -np.pi),
+                (2, 0, 0.0),
+                (1, 1, -0.5 * np.pi),
+                (0, 2, -1.5207546393123066),
+                (2, 2, -2.356194490192345),
+                (1, 3, -0.5 * np.pi),
+            ],
+        ),
+        (
+            6,
+            [
+                (0, 0, -np.pi),
+                (2, 0, 0.0),
+                (4, 0, 0.0),
+                (1, 1, -0.5 * np.pi),
+                (3, 1, -0.5 * np.pi),
+                (0, 2, -1.5207546393123066),
+                (2, 2, -0.5 * np.pi),
+                (4, 2, -2.356194490192345),
+                (1, 3, -0.09995829685982476),
+                (3, 3, -3.000171297352484),
+                (0, 4, -1.5207546393123068),
+                (2, 4, -0.5 * np.pi),
+                (4, 4, -2.356194490192345),
+                (1, 5, -0.5 * np.pi),
+                (3, 5, -0.5 * np.pi),
+            ],
+        ),
+    ],
+)
+def test_basis_rotation_layout(nqubits, control):
+    z_angles = [
+        -np.pi,
+        -0.5 * np.pi,
+        -2.356194490192345,
+        0.0,
+        -0.5 * np.pi,
+        -1.5207546393123066,
+        -0.5 * np.pi,
+        -0.5 * np.pi,
+        -3.000171297352484,
+        -2.356194490192345,
+        0.0,
+        -0.5 * np.pi,
+        -0.5 * np.pi,
+        -0.09995829685982476,
+        -1.5207546393123068,
+    ]
+    test = _basis_rotation_layout(nqubits, z_angles)
+    assert all(
+        (test_item[0] == control_item[0]) and (test_item[1] == control_item[1])
+        for test_item, control_item in zip(test, control)
     )
-    assert np.allclose(_basis_rotation_layout(10), control)
+    assert all(np.isclose(test_item[2], control_item[2]) for test_item, control_item in zip(test, control))
 
 
 def test_ansatz_argument_checks():

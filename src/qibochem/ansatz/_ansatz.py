@@ -1,6 +1,6 @@
 """Helper functions for the `ansatz` module"""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 from qibo import Circuit, gates
@@ -126,7 +126,7 @@ def _basis_rotation_unitary(
         kappa[_occ, _virt] = parameters[_i]
         kappa[_virt, _occ] = -parameters[_i]
 
-    return expm(kappa), parameters
+    return expm(kappa)
 
 
 def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
@@ -137,7 +137,7 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
         unitary_matrix (np.ndarray): Unitary rotation matrix
 
     Returns:
-        np.ndarray: Rotation angles
+        list[float]: Rotation angles
     """
 
     def row_op(unitary_matrix, row, col):
@@ -162,10 +162,10 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
 
     dim = unitary_matrix.shape[0]
 
-    angles = []
+    z_angles = []
     # Start QR from bottom left element
     row, col = (dim - 1, 0)
-    angles.append(col_op(unitary_matrix, row, col))
+    z_angles.append(col_op(unitary_matrix, row, col))
     # Traverse the unitary_matrix in diagonal-zig-zag manner until the main diagonal is reached
     # if move = up, do a row op
     # if move = diagonal-down-right, do a row op
@@ -173,31 +173,31 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
     # if move = diagonal-up-left, do a column op
     while row != 1:
         row += -1
-        angles.append(row_op(unitary_matrix, row, col))
+        z_angles.append(row_op(unitary_matrix, row, col))
         while row < dim - 1:
             row += 1
             col += 1
-            angles.append(row_op(unitary_matrix, row, col))
+            z_angles.append(row_op(unitary_matrix, row, col))
         if col != dim - 2:
             col += 1
-            angles.append(col_op(unitary_matrix, row, col))
+            z_angles.append(col_op(unitary_matrix, row, col))
         while col > 0:
             row += -1
             col += -1
-            angles.append(col_op(unitary_matrix, row, col))
-    return angles
+            z_angles.append(col_op(unitary_matrix, row, col))
+    return z_angles
 
 
-def _basis_rotation_layout(nqubits: int) -> np.ndarray:
+def _basis_rotation_layout(nqubits: int, z_angles: Sequence[float]) -> list[tuple[int, int, float]]:
     """
-    Generates the layout of the basis rotation circuit for Clements scheme QR decomposition
+    Get qubit indices and rotation angles for the Givens gates to be added to construct the basis rotation circuit
 
     Args:
         nqubits (int): Number of qubits/modes
+        z_angles (Sequence[float]): Rotation angles
 
     Returns:
-        np.ndarray: (nqubits, nqubits) matrix. -1 is null, 0 is the control and >1 is the index for angles in
-            Clements QR decomposition of the unitary basis rotation matrix
+        list[tuple[int, int, float]]: Qubits and rotation angles of Givens gates to be added
     """
 
     def assign_element(array, row, col, k):
@@ -238,5 +238,11 @@ def _basis_rotation_layout(nqubits: int) -> np.ndarray:
                 updown = 1
                 assign_element(array, row, col, k)
         k += 1
-
-    return array
+    # Collate the zero indices of array
+    zero_indices = np.where(array == 0)  # 2-tuple of 1D arrays
+    # Unpack the indices into 2-tuples (sorted by column), and add the corresponding rotation angles from z_angles
+    result = sorted(
+        ((int(_i1), int(_i2), float(z_angles[array[_i1 + 1, _i2] - 1])) for _i1, _i2 in zip(*zero_indices)),
+        key=lambda x: x[1],
+    )
+    return result
