@@ -16,6 +16,7 @@ from qibochem.ansatz._ansatz import (
     _qr_decompose_givens,
 )
 from qibochem.ansatz.ansatz import (
+    basis_rotation_circuit,
     givens_circuit,
     he_circuit,
     hf_circuit,
@@ -252,50 +253,23 @@ def test_givens_circuit():
         assert np.allclose(control_state, test_state)
 
 
-@pytest.mark.parametrize(
-    "parameters,test",
-    [
-        (
-            0.1,
-            np.array(
-                [
-                    [0.99001666, 0.0, 0.099667, 0.0, 0.099667, 0.0],
-                    [0.0, 0.99001666, 0.0, 0.099667, 0.0, 0.099667],
-                    [-0.099667, 0.0, 0.99500833, 0.0, -0.00499167, 0.0],
-                    [0.0, -0.099667, 0.0, 0.99500833, 0.0, -0.00499167],
-                    [-0.099667, 0.0, -0.00499167, 0.0, 0.99500833, 0.0],
-                    [0.0, -0.099667, 0.0, -0.00499167, 0.0, 0.99500833],
-                ]
-            ),
-        ),
-        (
-            (-0.1, -0.2, -0.3, -0.4),
-            np.array(
-                [
-                    [0.95041528, 0.0, -0.09834165, 0.0, -0.29502494, 0.0],
-                    [0.0, 0.9016556, 0.0, -0.19339968, 0.0, -0.38679937],
-                    [0.09834165, 0.0, 0.99504153, 0.0, -0.01487542, 0.0],
-                    [0.0, 0.19339968, 0.0, 0.98033112, 0.0, -0.03933776],
-                    [0.29502494, 0.0, -0.01487542, 0.0, 0.95537375, 0.0],
-                    [0.0, 0.38679937, 0.0, -0.03933776, 0.0, 0.92132448],
-                ]
-            ),
-        ),
-    ],
-)
-def test_basis_rotation_unitary(parameters, test):
-    occupied = range(0, 2)
-    virtual = range(2, 6)
-
-    unitary_matrix = _basis_rotation_unitary(occupied, virtual, parameters=parameters)
+def test_basis_rotation_unitary():
+    control = np.array(
+        [
+            [0.95041528, 0.0, -0.09834165, 0.0, -0.29502494, 0.0],
+            [0.0, 0.9016556, 0.0, -0.19339968, 0.0, -0.38679937],
+            [0.09834165, 0.0, 0.99504153, 0.0, -0.01487542, 0.0],
+            [0.0, 0.19339968, 0.0, 0.98033112, 0.0, -0.03933776],
+            [0.29502494, 0.0, -0.01487542, 0.0, 0.95537375, 0.0],
+            [0.0, 0.38679937, 0.0, -0.03933776, 0.0, 0.92132448],
+        ]
+    )
+    parameters = (-0.1, -0.2, -0.3, -0.4)
+    unitary_matrix = _basis_rotation_unitary([0, 1], [2, 3, 4, 5], parameters=parameters)
 
     identity = np.eye(6)
     assert np.allclose(unitary_matrix @ unitary_matrix.T, identity)
-    assert np.allclose(unitary_matrix, test)
-
-    too_many_params = [0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12]
-    with pytest.raises(IndexError):
-        _, _ = _basis_rotation_unitary(occupied, virtual, parameters=too_many_params)
+    assert np.allclose(unitary_matrix, control)
 
 
 def test_qr_decompose_givens():
@@ -393,8 +367,83 @@ def test_basis_rotation_layout(nqubits, control):
     assert all(np.isclose(test_item[2], control_item[2]) for test_item, control_item in zip(test, control))
 
 
+@pytest.mark.parametrize(
+    "parameters,include_hf,control_parameters",
+    [
+        (None, True, np.zeros(15)),
+        (
+            0.1,
+            False,
+            np.array(
+                [
+                    -np.pi,
+                    0.0,
+                    0.0,
+                    -0.5 * np.pi,
+                    -0.5 * np.pi,
+                    -1.5207546393123066,
+                    -0.5 * np.pi,
+                    -2.356194490192345,
+                    -0.09995829685982476,
+                    -3.000171297352484,
+                    -1.5207546393123068,
+                    -0.5 * np.pi,
+                    -2.356194490192345,
+                    -0.5 * np.pi,
+                    -0.5 * np.pi,
+                ]
+            ),
+        ),
+        (
+            (-0.1, -0.2, -0.3, -0.4),
+            False,
+            np.array(
+                [
+                    0.0,
+                    0.0,
+                    -np.pi,
+                    -0.5 * np.pi,
+                    -0.5 * np.pi,
+                    -1.5204181135485033,
+                    -0.5 * np.pi,
+                    -1.1071487177940904,
+                    -2.8417187725525745,
+                    -0.4472135954999578,
+                    -1.62117454004129,
+                    -0.5 * np.pi,
+                    -2.0344439357957027,
+                    -0.5 * np.pi,
+                    -0.5 * np.pi,
+                ]
+            ),
+        ),
+    ],
+)
+def test_basis_rotation(parameters, include_hf, control_parameters):
+    nqubits = 6
+    nelectrons = 2
+
+    # Generate the control circuit
+    control_circuit = Circuit(nqubits)
+    if include_hf:
+        control_circuit.add(gates.X(_i) for _i in range(nelectrons))
+    control_circuit.add(gates.GIVENS(_q + 1, _q, 0.0) for _ in range(3) for _q in (0, 2, 4, 1, 3))
+    control_circuit.set_parameters(control_parameters)
+    control_circuit.draw()
+
+    test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters, include_hf=include_hf)
+    test_circuit.draw()
+
+    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+        assert gate.__class__.__name__ == target.__class__.__name__
+        assert gate.qubits == target.qubits
+        assert gate.target_qubits == target.target_qubits
+        assert gate.control_qubits == target.control_qubits
+        assert np.allclose(gate.parameters, target.parameters)
+
+
 def test_ansatz_argument_checks():
-    """Input validity of hf_circuit, ucc_circuit, qeb_circuit, and givens_circuit"""
+    """Input validity tests"""
     # Fermion to qubit mapping checks
     for circuit_func in (hf_circuit, ucc_circuit):
         with pytest.raises(NotImplementedError):
@@ -406,6 +455,10 @@ def test_ansatz_argument_checks():
                 circuit_func(2, excitation)
     with pytest.raises(ValueError):  # Trotter steps
         ucc_circuit(2, [0, 1], trotter_steps=0)
+    # basis_rotation_circuit: Too many parameters
+    too_many_params = range(8)
+    with pytest.raises(ValueError):
+        _ = basis_rotation_circuit(6, 2, parameters=too_many_params)
 
 
 # Utility function tests

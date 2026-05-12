@@ -264,10 +264,8 @@ def basis_rotation_circuit(
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        parameters (np.ndarray | None, optional):
-            TODO:
-            Rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)`
-            elements. Defaults to a zero array
+        parameters (Iterable[float] | float | None, optional): Rotation parameters; must have
+            `nelectrons * (nqubits - nelectrons) // 2` elements. Defaults to a zero array if not given
         include_hf (bool, optional): Initialise ansatz in a HF reference state if True (default)
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.
@@ -275,7 +273,16 @@ def basis_rotation_circuit(
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit initialized as a HF reference, followed by basis rotation gates
     """
-    unitary_matrix = _basis_rotation_unitary(range(0, nelectrons), range(nelectrons, nqubits), parameters=parameters)
+    n_parameters = nelectrons * (nqubits - nelectrons) // 2
+    if parameters is None:
+        parameters = np.zeros(n_parameters)
+    elif isinstance(parameters, float):
+        parameters = np.full(n_parameters, parameters)
+    else:
+        if len(parameters) != n_parameters:
+            raise_error(ValueError, "Invalid number of parameters")
+
+    unitary_matrix = _basis_rotation_unitary(range(nelectrons), range(nelectrons, nqubits), parameters=parameters)
     z_angles = _qr_decompose_givens(unitary_matrix)
     basis_rotation_layout = _basis_rotation_layout(nqubits, z_angles)
     # Build circuit ansatz

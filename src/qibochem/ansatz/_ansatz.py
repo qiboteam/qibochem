@@ -4,7 +4,6 @@ from collections.abc import Iterable, Sequence
 
 import numpy as np
 from qibo import Circuit, gates
-from qibo.config import raise_error
 from scipy.linalg import expm
 
 from qibochem.ansatz.utils import generate_excitations, sort_excitations
@@ -51,7 +50,7 @@ def _bk_matrix(dims: int) -> np.ndarray:
     return min_bk_matrix[:dims, :dims]
 
 
-def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs):
+def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs) -> Circuit:
     """
     Build circuit representing exp(i*theta*pauli_string)
 
@@ -92,7 +91,7 @@ def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs):
 
 
 def _basis_rotation_unitary(
-    occ_orbitals: Iterable[int], virt_orbitals: Iterable[int], parameters: Iterable[float] | float
+    occ_orbitals: Iterable[int], virt_orbitals: Iterable[int], parameters: Iterable[float]
 ) -> np.ndarray:
     r"""
     Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied and virtual orbitals. Orbitals
@@ -103,25 +102,15 @@ def _basis_rotation_unitary(
     Args:
         occ_orbitals (Iterable[int]): Occupied orbitals
         virt_orbitals (Iterable[int]): Virtual orbitals
-        parameters (Iterable[float] | float): Rotation parameters; must have `len(occ_orbitals)*len(virt_orbitals)` elements
+        parameters (Iterable[float]): Rotation parameters
 
     Returns:
         np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
     """
-    # conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
+    # Conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
     ov_pairs = sort_excitations(generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True))
-    n_theta = len(ov_pairs)
-    if parameters is None:
-        parameters = np.zeros(n_theta)
-    elif isinstance(parameters, float):
-        parameters = np.full(n_theta, parameters)
-    else:
-        if len(parameters) != n_theta:
-            raise_error(IndexError, "parameter argument specified has bad size or type")
-
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
     kappa = np.zeros((n_orbitals, n_orbitals))
-
     for _i, (_occ, _virt) in enumerate(ov_pairs):
         kappa[_occ, _virt] = parameters[_i]
         kappa[_virt, _occ] = -parameters[_i]
@@ -129,7 +118,7 @@ def _basis_rotation_unitary(
     return expm(kappa)
 
 
-def _qr_decompose_givens(unitary_matrix: np.ndarray) -> np.ndarray:
+def _qr_decompose_givens(unitary_matrix: np.ndarray) -> list[float]:
     r"""
     Clements scheme to QR decompose a unitary matrix using Givens rotations. See arxiv:1603.08788
 
