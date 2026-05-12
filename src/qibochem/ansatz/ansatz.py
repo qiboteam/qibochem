@@ -3,6 +3,7 @@ Circuit ansatzes for chemistry
 """
 
 from collections.abc import Iterable, Sequence
+from math import factorial
 
 import numpy as np
 import openfermion
@@ -12,11 +13,14 @@ from qibo.gates import Gate
 from qibo.models.encodings import comp_basis_encoder, entangling_layer
 
 from qibochem.ansatz._ansatz import (
+    _a_gate,
+    _a_gate_indices,
     _basis_rotation_layout,
     _basis_rotation_unitary,
     _bk_matrix,
     _expi_pauli,
     _qr_decompose_givens,
+    _x_gate_indices,
 )
 
 
@@ -288,4 +292,54 @@ def basis_rotation_circuit(
     # Build circuit ansatz
     circuit = hf_circuit(nqubits, nelectrons, **kwargs) if include_hf else Circuit(nqubits, **kwargs)
     circuit.add(gates.GIVENS(_q1 + 1, _q1, rot_angle) for (_q1, _q2, rot_angle) in basis_rotation_layout)
+    return circuit
+
+
+def symm_preserving_circuit(
+    nqubits: int, nelectrons: int, parameters: Iterable[float] | float | None = None, **kwargs: dict
+) -> Circuit:
+    """
+    Symmetry-preserving circuit ansatz from Gard et al.
+
+    Args:
+        nqubits (int): Number of qubits in the quantum circuit
+        nelectrons (int): Number of electrons in the molecular system
+        parameters (Iterable[float] | float | None, optional): Rotation parameters; must have
+            :math:`{}^{\\text{nqubits}} C_{\\text{nelectrons}}` elements. Defaults to a zero array if not given
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`.
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the symmetry-preserving ansatz
+
+    References:
+        1. B. T. Gard, L. Zhu, G. S. Barron, N. J. Mayhall, S. E. Economou, and E. Barnes, *Efficient
+        symmetry-preserving state preparation circuits for the variational quantum eigensolver algorithm*, npj Quantum
+        Information, 2020, 6, 10. (`link <https://www.nature.com/articles/s41534-019-0240-1>`__)
+    """
+    # Default parameters:
+    n_parameters = 4 * factorial(nqubits) // (factorial(nqubits - nelectrons) * factorial(nelectrons))
+    if parameters is None:
+        parameters = np.zeros(n_parameters)
+    elif isinstance(parameters, float):
+        parameters = np.full(n_parameters, parameters)
+    else:
+        if len(parameters) != n_parameters:
+            raise_error(ValueError, "Invalid number of parameters")
+
+    circuit = Circuit(nqubits, **kwargs)
+    x_gates = _x_gate_indices(nqubits, nelectrons)
+    if len(x_gates) != nelectrons:
+        raise_error(ValueError, f"nelectrons ({nelectrons}) != Number of X gates given ({x_gates})")
+
+    circuit.add(gates.X(_i) for _i in x_gates)
+    # Generate the qubit pair indices for adding A gates
+    a_gate_qubits = _a_gate_indices(nqubits, nelectrons, x_gates)
+    param_iterator = iter(parameters)
+    a_gates = [
+        _a_gate(qubit1, qubit2, theta, phi)
+        for (qubit1, qubit2), (theta, phi) in zip(a_gate_qubits, zip(param_iterator, param_iterator))
+    ]
+    # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
+    circuit.add(_gate for a_gate in a_gates for _gate in a_gate)
     return circuit

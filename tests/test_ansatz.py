@@ -10,10 +10,13 @@ from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.ansatz._ansatz import (
+    _a_gate,
+    _a_gate_indices,
     _basis_rotation_layout,
     _basis_rotation_unitary,
     _expi_pauli,
     _qr_decompose_givens,
+    _x_gate_indices,
 )
 from qibochem.ansatz.ansatz import (
     basis_rotation_circuit,
@@ -21,6 +24,7 @@ from qibochem.ansatz.ansatz import (
     he_circuit,
     hf_circuit,
     qeb_circuit,
+    symm_preserving_circuit,
     ucc_circuit,
 )
 from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
@@ -433,6 +437,79 @@ def test_basis_rotation(parameters, include_hf, control_parameters):
 
     test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters, include_hf=include_hf)
     test_circuit.draw()
+
+    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+        assert gate.__class__.__name__ == target.__class__.__name__
+        assert gate.qubits == target.qubits
+        assert gate.target_qubits == target.target_qubits
+        assert gate.control_qubits == target.control_qubits
+        assert np.allclose(gate.parameters, target.parameters)
+
+
+@pytest.mark.parametrize(
+    "theta,phi,expected",
+    [
+        (0.5 * np.pi, 0.0, np.array([0.0, 1.0, 0.0, 00])),
+        (0.5 * np.pi, np.pi, np.array([0.0, -1.0, 0.0, 00])),
+    ],
+)
+def test_a_gate(theta, phi, expected):
+    circuit = Circuit(2)
+    circuit.add(gates.X(0))
+    a_gates = _a_gate(0, 1, theta=theta, phi=phi)
+    circuit.add(a_gates)
+
+    result = circuit(nshots=1)
+    state_ket = result.state()
+    assert np.allclose(state_ket, expected)
+
+
+@pytest.mark.parametrize(
+    "nqubits,nelectrons,expected",
+    [
+        (4, 2, [0, 2]),
+        (4, 3, [0, 1, 2]),
+        (4, 4, [0, 1, 2, 3]),
+    ],
+)
+def test_x_gate_indices(nqubits, nelectrons, expected):
+    test = _x_gate_indices(nqubits, nelectrons)
+    assert test == expected
+
+
+@pytest.mark.parametrize(
+    "nqubits,nelectrons,x_gates,expected",
+    [
+        (4, 2, [0, 2], 2 * [(0, 1), (2, 3), (1, 2)]),
+        (6, 4, [0, 1, 2, 4], 3 * [(2, 3), (4, 5), (3, 4), (1, 2), (0, 1)]),
+    ],
+)
+def test_a_gate_indices(nqubits, nelectrons, x_gates, expected):
+    test = _a_gate_indices(nqubits, nelectrons, x_gates)
+    assert test == expected
+
+
+@pytest.mark.parametrize(
+    "nqubits,nelectrons,parameters,control_parameters",
+    [
+        (4, 2, [0.31415 for _ in range(24)], 6 * [-0.31415, -0.31415, 0.31415, 0.31415]),
+        (4, 2, 0.1, 6 * [-0.1, -0.1, 0.1, 0.1]),
+        (6, 4, None, [0.0 for _ in range(60)]),
+    ],
+)
+def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parameters):
+    control_circuit = Circuit(nqubits)
+    x_gates = _x_gate_indices(nqubits, nelectrons)
+    control_circuit.add(gates.X(_i) for _i in x_gates)
+    a_gate_qubits = _a_gate_indices(nqubits, nelectrons, x_gates)
+    a_gates = [_a_gate(qubit1, qubit2, 0.2, 0.3) for qubit1, qubit2 in a_gate_qubits]
+    control_circuit.add(_gates for _a_gate in a_gates for _gates in _a_gate)
+    # Add 0.5*pi or pi to the control parameters
+    n_a_gates = len(control_parameters) // 4
+    control_parameters = np.array(control_parameters) + np.array(n_a_gates * [-np.pi, -0.5 * np.pi, 0.5 * np.pi, np.pi])
+    control_circuit.set_parameters(control_parameters)
+
+    test_circuit = symm_preserving_circuit(nqubits, nelectrons, parameters)
 
     for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
