@@ -42,4 +42,4 @@ Basis rotation
 Symmetry-Preserving
 -------------------
 
-.. autofunction:: qibochem.ansatz.symmetry.symm_preserving_circuit
+.. autofunction:: qibochem.ansatz.ansatz.symm_preserving_circuit

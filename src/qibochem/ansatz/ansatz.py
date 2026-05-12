@@ -329,9 +329,6 @@ def symm_preserving_circuit(
 
     circuit = Circuit(nqubits, **kwargs)
     x_gates = _x_gate_indices(nqubits, nelectrons)
-    if len(x_gates) != nelectrons:
-        raise_error(ValueError, f"nelectrons ({nelectrons}) != Number of X gates given ({x_gates})")
-
     circuit.add(gates.X(_i) for _i in x_gates)
     # Generate the qubit pair indices for adding A gates
     a_gate_qubits = _a_gate_indices(nqubits, nelectrons, x_gates)

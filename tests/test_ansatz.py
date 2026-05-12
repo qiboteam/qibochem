@@ -532,10 +532,11 @@ def test_ansatz_argument_checks():
                 circuit_func(2, excitation)
     with pytest.raises(ValueError):  # Trotter steps
         ucc_circuit(2, [0, 1], trotter_steps=0)
-    # basis_rotation_circuit: Too many parameters
-    too_many_params = range(8)
-    with pytest.raises(ValueError):
-        _ = basis_rotation_circuit(6, 2, parameters=too_many_params)
+    # basis_rotation_circuit: Wrong number of parameters
+    too_few_params = [1]
+    for circuit_func in (basis_rotation_circuit, symm_preserving_circuit):
+        with pytest.raises(ValueError):
+            _ = circuit_func(6, 2, parameters=too_few_params)
 
 
 # Utility function tests
