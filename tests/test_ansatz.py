@@ -27,7 +27,7 @@ from qibochem.ansatz.ansatz import (
     symm_preserving_circuit,
     ucc_circuit,
 )
-from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
+from qibochem.ansatz.utils import _sort_excitations, generate_excitations, mp2_amplitude
 from qibochem.driver import Molecule
 
 
@@ -555,30 +555,30 @@ def test_generate_excitations(order, excite_from, excite_to, expected):
 
 
 @pytest.mark.parametrize(
-    "order,excite_from,excite_to,expected",
+    "test,expected",
     [
-        (1, [0, 1], [2, 3, 4, 5], [[0, 2], [1, 3], [0, 4], [1, 5]]),
-        (2, [0, 1], [2, 3, 4, 5], [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4]]),
+        ([[0, 2], [0, 4], [1, 3], [1, 5]], [[0, 2], [1, 3], [0, 4], [1, 5]]),
+        (
+            [[0, 1, 2, 5], [0, 1, 2, 3], [0, 1, 3, 4], [0, 1, 4, 5]],
+            [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4]],
+        ),
     ],
 )
-def test_sort_excitations(order, excite_from, excite_to, expected):
-    test = sort_excitations(generate_excitations(order, excite_from, excite_to))
-    assert test == expected
+def test_sort_excitations(test, expected):
+    assert _sort_excitations(test) == expected
 
 
 def test_sort_excitations_triples():
     with pytest.raises(NotImplementedError):
-        sort_excitations([[1, 2, 3, 4, 5, 6]])
+        _sort_excitations([[1, 2, 3, 4, 5, 6]])
 
 
-def test_mp2_amplitude_singles():
+def test_mp2_amplitude():
+    # Single excitation
     assert mp2_amplitude([0, 2], np.random.rand(4), np.random.rand(4, 4)) == 0.0
-
-
-def test_mp2_amplitude_doubles():
+    # Double excitation
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
     l = mp2_amplitude([0, 1, 2, 3], h2.eps, h2.tei)
     ref_l = 0.06834019757197053
-
     assert np.isclose(l, ref_l)

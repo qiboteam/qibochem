@@ -8,7 +8,7 @@ from qibo import Circuit, gates
 from qibo.gates import Gate
 from scipy.linalg import expm
 
-from qibochem.ansatz.utils import generate_excitations, sort_excitations
+from qibochem.ansatz.utils import generate_excitations
 
 
 def _bk_matrix_power2(dims: int) -> np.ndarray:
@@ -110,7 +110,7 @@ def _basis_rotation_unitary(
         np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
     """
     # Conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
-    ov_pairs = sort_excitations(generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True))
+    ov_pairs = generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True)
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
     kappa = np.zeros((n_orbitals, n_orbitals))
     for _i, (_occ, _virt) in enumerate(ov_pairs):

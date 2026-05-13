@@ -7,4 +7,4 @@ from qibochem.ansatz.ansatz import (
     symm_preserving_circuit,
     ucc_circuit,
 )
-from qibochem.ansatz.utils import generate_excitations, mp2_amplitude, sort_excitations
+from qibochem.ansatz.utils import generate_excitations, mp2_amplitude

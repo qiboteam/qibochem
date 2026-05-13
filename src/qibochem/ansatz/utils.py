@@ -1,51 +1,11 @@
 """
-Utility functions that can be used by different ansatzes
+Qibochem also has a few utility functions related to the construction of circuit ansatzes.
 """
 
 from collections.abc import Sequence
 
 import numpy as np
 from qibo.config import raise_error
-
-
-def mp2_amplitude(excitation: Sequence[int], orbital_energies: Sequence[float], tei: np.ndarray) -> float:
-    r"""
-    Calculate MP2 guess amplitude for a fermionic excitation. Single excitation will be: 0.0, a double excitation
-    (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
-
-    Args:
-        excitation (Sequence[int]): Orbitals involved in the excitation. Must have either 2 or 4 elements, representing
-            a single or double excitation respectively
-        orbital_energies (Sequence[float]): Eigenvalues of the Fock operator, i.e. orbital energies
-        tei (np.ndarray): Two-electron integrals in MO basis and second quantization notation
-
-    Returns:
-        float: MP2 guess amplitude
-    """
-    # Check validity of excitation argument
-    if len(excitation) not in (2, 4):
-        raise_error(ValueError, f"{excitation} must have either 2 or 4 elements")
-    # Single excitation => Can just return 0.0 directly
-    if len(excitation) == 2:
-        return 0.0
-
-    # Convert orbital indices to be in MO basis
-    mo_orbitals = [orbital // 2 for orbital in excitation]
-    # Numerator: g_ijab - g_ijba
-    g_ijab = (
-        tei[tuple(mo_orbitals)]  # Can index directly using the MO TEIs
-        if (excitation[0] + excitation[3]) % 2 == 0 and (excitation[1] + excitation[2]) % 2 == 0
-        else 0.0
-    )
-    g_ijba = (
-        tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])]  # Reverse last two terms
-        if (excitation[0] + excitation[2]) % 2 == 0 and (excitation[1] + excitation[3]) % 2 == 0
-        else 0.0
-    )
-    numerator = g_ijab - g_ijba
-    # Denominator is directly from the orbital energies
-    denominator = sum(orbital_energies[mo_orbitals[:2]]) - sum(orbital_energies[mo_orbitals[2:]])
-    return numerator / denominator
 
 
 def generate_excitations(
@@ -152,3 +112,43 @@ def _sort_excitations(excitations: list[[list[int]]]) -> list[[list[int]]]:
             prev = copy_excitations.pop(0)
             result.append(prev)
     return result
+
+
+def mp2_amplitude(excitation: Sequence[int], orbital_energies: Sequence[float], tei: np.ndarray) -> float:
+    r"""
+    Calculate MP2 guess amplitude for a fermionic excitation. Single excitation will be: 0.0, a double excitation
+    (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
+
+    Args:
+        excitation (Sequence[int]): Orbitals involved in the excitation. Must have either 2 or 4 elements, representing
+            a single or double excitation respectively
+        orbital_energies (Sequence[float]): Eigenvalues of the Fock operator, i.e. orbital energies
+        tei (np.ndarray): Two-electron integrals in MO basis and second quantization notation
+
+    Returns:
+        float: MP2 guess amplitude
+    """
+    # Check validity of excitation argument
+    if len(excitation) not in (2, 4):
+        raise_error(ValueError, f"{excitation} must have either 2 or 4 elements")
+    # Single excitation => Can just return 0.0 directly
+    if len(excitation) == 2:
+        return 0.0
+
+    # Convert orbital indices to be in MO basis
+    mo_orbitals = [orbital // 2 for orbital in excitation]
+    # Numerator: g_ijab - g_ijba
+    g_ijab = (
+        tei[tuple(mo_orbitals)]  # Can index directly using the MO TEIs
+        if (excitation[0] + excitation[3]) % 2 == 0 and (excitation[1] + excitation[2]) % 2 == 0
+        else 0.0
+    )
+    g_ijba = (
+        tei[tuple(mo_orbitals[:2] + mo_orbitals[2:][::-1])]  # Reverse last two terms
+        if (excitation[0] + excitation[2]) % 2 == 0 and (excitation[1] + excitation[3]) % 2 == 0
+        else 0.0
+    )
+    numerator = g_ijab - g_ijba
+    # Denominator is directly from the orbital energies
+    denominator = sum(orbital_energies[mo_orbitals[:2]]) - sum(orbital_energies[mo_orbitals[2:]])
+    return numerator / denominator

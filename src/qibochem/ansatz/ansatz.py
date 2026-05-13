@@ -1,5 +1,31 @@
 """
-Circuit ansatzes for chemistry
+Qibochem provides functions to construct various chemistry circuit ansatzes.
+
+The easiest way to construct a circuit ansatz for a given :class:`qibochem.driver.Molecule` is by using the :func:`circuit_ansatz` function:
+
+.. code-block:: python
+
+    from qibochem.driver import Molecule
+    from qibochem.ansatz import circuit_ansatz
+
+    molecule = Molecule(xyz_file="ch4.xyz")
+    molecule.run_pyscf()
+    circuit = circuit_ansatz(molecule, "ucc")
+
+Alternatively, the individual functions can be called to manually construct a circuit ansatz:
+
+.. code-block:: python
+
+    from qibochem.driver import Molecule
+    from qibochem.ansatz import hf_circuit, ucc_circuit
+
+    molecule = Molecule(xyz_file="ch4.xyz")
+    molecule.run_pyscf()
+    circuit = hf_circuit(molecule.nso, molecule.nelec)
+    circuit += ucc_circuit(molecule.nso, [8, 9, 10, 11])
+
+More examples can be found in the :ref:`Ansatz tutorial` section of the documentation.
+
 """
 
 from collections.abc import Sequence

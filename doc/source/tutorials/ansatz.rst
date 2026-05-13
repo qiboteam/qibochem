@@ -1,3 +1,6 @@
+
+.. _Ansatz tutorial:
+
 Ansatz
 ======
 
