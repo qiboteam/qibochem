@@ -1,5 +1,5 @@
 """
-Qibochem also has a few utility functions related to the construction of circuit ansatzes.
+Qibochem also has a few utility functions to assist with the construction of circuit ansatzes.
 """
 
 from collections.abc import Sequence

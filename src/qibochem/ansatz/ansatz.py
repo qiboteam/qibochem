@@ -12,6 +12,7 @@ The easiest way to construct a circuit ansatz for a given :class:`qibochem.drive
     molecule.run_pyscf()
     circuit = circuit_ansatz(molecule, "ucc")
 
+
 Alternatively, the individual functions can be called to manually construct a circuit ansatz:
 
 .. code-block:: python
@@ -24,7 +25,7 @@ Alternatively, the individual functions can be called to manually construct a ci
     circuit = hf_circuit(molecule.nso, molecule.nelec)
     circuit += ucc_circuit(molecule.nso, [8, 9, 10, 11])
 
-More examples can be found in the :ref:`Ansatz tutorial` section of the documentation.
+More examples can be found in the :ref:`Tutorial <Ansatz tutorial>` section of the documentation.
 
 """
 
@@ -48,6 +49,61 @@ from qibochem.ansatz._ansatz import (
     _qr_decompose_givens,
     _x_gate_indices,
 )
+from qibochem.driver.molecule import Molecule
+
+
+def circuit_ansatz(
+    molecule: Molecule,
+    ansatz: str,
+    *,
+    excitation_level: str | None = None,
+    excitations: Sequence[Sequence[int]] | None = None,
+    thetas: Sequence[float] | None = None,
+    trotter_steps: int = 1,
+    ferm_qubit_map: str = "jw",
+    include_hf: bool = True,
+    use_mp2_guess: bool = True,
+    **kwargs: dict,
+):
+    """
+    Convenience function for constructing a parameterized quantum circuit ansatz to represent the electronic wave
+    function of a molecular system.
+
+    Args:
+        molecule (:class:`qibochem.driver.Molecule`):
+            Molecule of interest.
+        ansatz (str):
+            Circuit ansatz to be used for the molecule. The possible options are:
+
+            Options:
+                - ``"he"``: Hardware-efficient ansatz (:func:`details <qibochem.ansatz.ansatz.he_circuit>`)
+                - ``"ucc"``: Unitary coupled-cluster (UCC) ansatz (:func:`details <qibochem.ansatz.ansatz.ucc_circuit>`)
+                - ``"qeb"``: Alternative qubit-excitation-based formulation of the UCC ansatz with the Jordan-Wigner
+                  mapping (:func:`details <qibochem.ansatz.ansatz.qeb_circuit>`)
+                - ``"givens"``: Givens rotation ansatz (:func:`details <qibochem.ansatz.ansatz.givens_circuit>`)
+                - ``"br"``: Basis rotation ansatz (:func:`details <qibochem.ansatz.ansatz.basis_rotation_circuit>`)
+                - ``"symm"``: Symmetry-preserving ansatz
+                  (:func:`details <qibochem.ansatz.ansatz.symm_preserving_circuit>`)
+        excitation_level (str, optional):
+            Include up to singles (``"S"``) or doubles excitations (Default option, ``"D"``). Ignored if the
+            ``excitations`` argument is used
+        excitations (Sequence[Sequence[int]] | None, optional):
+            Fermionic excitations used to build the circuit. Overrides the ``excitation_level`` argument if both given
+        thetas (Sequence[float] | None, optional):
+            Initial parameters for the circuit ansatz. If not given, defaults to MP2 amplitudes if ``use_mp2_guess`` is
+            `True`; a zero array otherwise.
+        trotter_steps (int, optional): Number of Trotter steps if using a UCC ansatz. Default: `1`
+        ferm_qubit_map (str, optional): Fermion to qubit mapping. Must be either Jordan-Wigner (``"jw"``) or
+            Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``
+        include_hf (bool, optional): Initialise circuit ansatz in a HF reference state if `True` (default)
+        use_mp2_guess (bool, optional): If `True`, uses the MP2 amplitudes as the initial guess ansatz parameters.
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to an UCC ansatz
+    """
+    pass
 
 
 def he_circuit(

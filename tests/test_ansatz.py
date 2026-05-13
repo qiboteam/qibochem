@@ -568,9 +568,13 @@ def test_sort_excitations(test, expected):
     assert _sort_excitations(test) == expected
 
 
-def test_sort_excitations_triples():
+def test_sort_excitations_argument_checks():
+    # _sort_excitation: can't handle triplet excitation
     with pytest.raises(NotImplementedError):
         _sort_excitations([[1, 2, 3, 4, 5, 6]])
+    # _sort_excitation: Mix of different types of excitations
+    with pytest.raises(ValueError):
+        _sort_excitations([[0, 1], [0, 1, 2, 3]])
 
 
 def test_mp2_amplitude():
@@ -582,3 +586,6 @@ def test_mp2_amplitude():
     l = mp2_amplitude([0, 1, 2, 3], h2.eps, h2.tei)
     ref_l = 0.06834019757197053
     assert np.isclose(l, ref_l)
+    # Argument check
+    with pytest.raises(ValueError):
+        _ = mp2_amplitude([0, 1, 2], h2.eps, h2.tei)
