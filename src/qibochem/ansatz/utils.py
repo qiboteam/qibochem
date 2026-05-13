@@ -2,24 +2,30 @@
 Utility functions that can be used by different ansatzes
 """
 
+from collections.abc import Sequence
 
-def mp2_amplitude(excitation, orbital_energies, tei):
+import numpy as np
+from qibo.config import raise_error
+
+
+def mp2_amplitude(excitation: Sequence[int], orbital_energies: Sequence[float], tei: np.ndarray) -> float:
     r"""
-    Calculate the MP2 guess amplitude for a single UCC circuit: 0.0 for a single excitation.
-        for a double excitation (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
+    Calculate MP2 guess amplitude for a fermionic excitation. Single excitation will be: 0.0, a double excitation
+    (In SO basis): :math:`t_{ij}^{ab} = (g_{ijab} - g_{ijba}) / (e_i + e_j - e_a - e_b)`
 
     Args:
-        excitation: Iterable of spin-orbitals representing a excitation. Must have either 2 or 4 elements exactly,
-            representing a single or double excitation respectively.
-        orbital_energies: eigenvalues of the Fock operator, i.e. orbital energies
-        tei: Two-electron integrals in MO basis and second quantization notation
+        excitation (Sequence[int]): Orbitals involved in the excitation. Must have either 2 or 4 elements, representing
+            a single or double excitation respectively
+        orbital_energies (Sequence[float]): Eigenvalues of the Fock operator, i.e. orbital energies
+        tei (np.ndarray): Two-electron integrals in MO basis and second quantization notation
 
     Returns:
-        MP2 guess amplitude (float)
+        float: MP2 guess amplitude
     """
-    # Checks validity of excitation argument
-    assert len(excitation) % 2 == 0 and len(excitation) // 2 <= 2, f"{excitation} must have either 2 or 4 elements"
-    # If single excitation, can just return 0.0 directly
+    # Check validity of excitation argument
+    if len(excitation) not in (2, 4):
+        raise_error(ValueError, f"{excitation} must have either 2 or 4 elements")
+    # Single excitation => Can just return 0.0 directly
     if len(excitation) == 2:
         return 0.0
 
@@ -42,18 +48,20 @@ def mp2_amplitude(excitation, orbital_energies, tei):
     return numerator / denominator
 
 
-def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
+def generate_excitations(
+    order: int, excite_from: Sequence[int], excite_to: Sequence[int], conserve_spin: bool = True
+) -> list[list[int]]:
     """
     Generate all possible excitations between a list of occupied and virtual orbitals
 
     Args:
-        order: Order of excitations, i.e. 1 == single, 2 == double
-        excite_from: Iterable of integers
-        excite_to: Iterable of integers
-        conserve_spin: ensure that the total electronic spin is conserved
+        order (int): Order of excitations, i.e. 1 == single, 2 == double
+        excite_from (Sequence[int]): Occupied orbitals to excite from
+        excite_to (Sequence[int]): Virtual orbitals to excite to
+        conserve_spin (bool, optional): Whether total electronic spin is conserved when generating excitations
 
     Return:
-        List of lists, e.g. [[0, 1]]
+        list[list[int]]: Generated excitations
     """
     # If order of excitation > either number of electrons/orbitals, return list of empty list
     if order > min(len(excite_from), len(excite_to)):
@@ -73,41 +81,33 @@ def generate_excitations(order, excite_from, excite_to, conserve_spin=True):
             for _ex in all_excitations
             if sum(_ex) % 2 == 0 and (sum(_i % 2 for _i in _ex[:order]) == sum(_i % 2 for _i in _ex[order:]))
         ]
-    return all_excitations
+    return _sort_excitations(all_excitations)
 
 
-def sort_excitations(excitations):
+def _sort_excitations(excitations: list[[list[int]]]) -> list[[list[int]]]:
     """
-    Sorts a list of excitations according to some common-sense and empirical rules (see below).
-        The order of the excitations must be the same throughout.
+    Sorts excitations according to some common-sense and empirical rules (see below). Order of the excitations must be
+    the same throughout.
 
     Sorting order:
     1. (For double excitations only) All paired excitations between the same MOs first
     2. Pair up excitations between the same MOs, e.g. (0, 2) and (1, 3)
     3. Then count upwards from smallest MO
-
-    Args:
-        excitations: List of iterables, each representing an excitation; e.g. [[1, 5], [0, 4]]
-
-    Returns:
-        List of excitations after sorting
     """
     # Check that all excitations are of the same order and <= 2
     order = len(excitations[0]) // 2
     if order > 2:
-        raise NotImplementedError("Can only handle single and double excitations!")
-    assert all(len(_ex) // 2 == order for _ex in excitations), "Cannot handle excitations of different orders!"
+        raise_error(NotImplementedError, "Can only handle single and double excitations")
+    if not all(len(_ex) // 2 == order for _ex in excitations):
+        raise_error(ValueError, "Cannot handle excitations of different orders")
 
-    # Define variables for the while loop
+    def sorting_fn(x):
+        """Sorting function for double excitations; default sort is OK for single excitations"""
+        return sum((order + 1 - _i) * abs(x[2 * _i + 1] // 2 - x[2 * _i] // 2) for _i in range(0, order))
+
     copy_excitations = [list(_ex) for _ex in excitations]
     result = []
     prev = []
-
-    # No idea how I came up with this, but it seems to work for double excitations
-    def sorting_fn(x):
-        # Default sorting is OK for single excitations
-        return sum((order + 1 - _i) * abs(x[2 * _i + 1] // 2 - x[2 * _i] // 2) for _i in range(0, order))
-
     # Make a copy of the list of excitations, and use it populate a new list iteratively
     while copy_excitations:
         if not prev:

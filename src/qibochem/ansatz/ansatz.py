@@ -2,7 +2,7 @@
 Circuit ansatzes for chemistry
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from math import factorial
 
 import numpy as np
@@ -260,7 +260,7 @@ def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, 
 
 
 def basis_rotation_circuit(
-    nqubits: int, nelectrons: int, parameters: Iterable[float] | float | None = None, include_hf: bool = True, **kwargs
+    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, include_hf: bool = True, **kwargs
 ) -> Circuit:
     """
     Quantum circuit that performs a basis rotation of the occupied-virtual orbitals using Givens rotations
@@ -268,7 +268,7 @@ def basis_rotation_circuit(
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        parameters (Iterable[float] | float | None, optional): Rotation parameters; must have
+        parameters (Sequence[float] | float | None, optional): Rotation parameters; must have
             `nelectrons * (nqubits - nelectrons) // 2` elements. Defaults to a zero array if not given
         include_hf (bool, optional): Initialise ansatz in a HF reference state if True (default)
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
@@ -296,7 +296,7 @@ def basis_rotation_circuit(
 
 
 def symm_preserving_circuit(
-    nqubits: int, nelectrons: int, parameters: Iterable[float] | float | None = None, **kwargs: dict
+    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs: dict
 ) -> Circuit:
     """
     Symmetry-preserving circuit ansatz from Gard et al.
@@ -304,7 +304,7 @@ def symm_preserving_circuit(
     Args:
         nqubits (int): Number of qubits in the quantum circuit
         nelectrons (int): Number of electrons in the molecular system
-        parameters (Iterable[float] | float | None, optional): Rotation parameters; must have
+        parameters (Sequence[float] | float | None, optional): Rotation parameters; must have
             :math:`{}^{\\text{nqubits}} C_{\\text{nelectrons}}` elements. Defaults to a zero array if not given
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.

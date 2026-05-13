@@ -1,6 +1,6 @@
 """Helper functions for the `ansatz` module"""
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from math import factorial
 
 import numpy as np
@@ -93,7 +93,7 @@ def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs) -> Cir
 
 
 def _basis_rotation_unitary(
-    occ_orbitals: Iterable[int], virt_orbitals: Iterable[int], parameters: Iterable[float]
+    occ_orbitals: Sequence[int], virt_orbitals: Sequence[int], parameters: Sequence[float]
 ) -> np.ndarray:
     r"""
     Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied and virtual orbitals. Orbitals
@@ -102,9 +102,9 @@ def _basis_rotation_unitary(
     and an equal number of alpha and beta spin electrons.
 
     Args:
-        occ_orbitals (Iterable[int]): Occupied orbitals
-        virt_orbitals (Iterable[int]): Virtual orbitals
-        parameters (Iterable[float]): Rotation parameters
+        occ_orbitals (Sequence[int]): Occupied orbitals
+        virt_orbitals (Sequence[int]): Virtual orbitals
+        parameters (Sequence[float]): Rotation parameters
 
     Returns:
         np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
@@ -121,14 +121,9 @@ def _basis_rotation_unitary(
 
 
 def _qr_decompose_givens(unitary_matrix: np.ndarray) -> list[float]:
-    r"""
-    Clements scheme to QR decompose a unitary matrix using Givens rotations. See arxiv:1603.08788
-
-    Args:
-        unitary_matrix (np.ndarray): Unitary rotation matrix
-
-    Returns:
-        list[float]: Rotation angles
+    """
+    Clements scheme to QR decompose a unitary matrix using Givens rotations (see arxiv:1603.08788). Returns the
+    rotation angles for the Givens gates
     """
 
     def row_op(unitary_matrix, row, col):
@@ -259,7 +254,7 @@ def _a_gate(qubit1: int, qubit2: int, theta: float, phi: float) -> list[Gate]:
         phi (float): Second rotation angle. Default: 0.0
 
     Returns:
-        (list): List of gates representing the decomposition of the 'A' gate
+        (list[Gate]): List of gates representing the decomposition of the 'A' gate
     """
     # R(theta, phi) = R_z (phi + pi) R_y (theta + 0.5*pi)
     r_gate = [gates.RY(qubit2, theta + 0.5 * np.pi), gates.RZ(qubit2, phi + np.pi)]
