@@ -382,12 +382,11 @@ def test_basis_rotation_layout(nqubits, control):
 
 
 @pytest.mark.parametrize(
-    "parameters,include_hf,control_parameters",
+    "parameters,control_parameters",
     [
-        (None, True, np.zeros(15)),
+        (None, np.zeros(15)),
         (
             0.1,
-            False,
             np.array(
                 [
                     -np.pi,
@@ -410,7 +409,6 @@ def test_basis_rotation_layout(nqubits, control):
         ),
         (
             (-0.1, -0.2, -0.3, -0.4),
-            False,
             np.array(
                 [
                     0.0,
@@ -433,20 +431,16 @@ def test_basis_rotation_layout(nqubits, control):
         ),
     ],
 )
-def test_basis_rotation(parameters, include_hf, control_parameters):
+def test_basis_rotation_circuit(parameters, control_parameters):
     nqubits = 6
     nelectrons = 2
 
     # Generate the control circuit
     control_circuit = Circuit(nqubits)
-    if include_hf:
-        control_circuit.add(gates.X(_i) for _i in range(nelectrons))
     control_circuit.add(gates.GIVENS(_q + 1, _q, 0.0) for _ in range(3) for _q in (0, 2, 4, 1, 3))
     control_circuit.set_parameters(control_parameters)
-    control_circuit.draw()
 
-    test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters, include_hf=include_hf)
-    test_circuit.draw()
+    test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters)
 
     for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
@@ -536,9 +530,9 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
     "ansatz,ansatz_kwargs",
     [
         ("ucc", {"excitations": [[0, 1, 2, 3]]}),
-        ("qeb", {}),
+        ("qeb", {"include_hf": False}),
         ("givens", {"excitations": [[0, 1, 2, 3], [0, 2]], "thetas": [0.1, 0.2]}),
-        ("br", {"include_hf": False}),
+        ("br", {}),
         ("symm", {}),
     ],
 )
@@ -564,12 +558,11 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
         # Don't use MP2 amplitudes with HF embedding
         thetas = ansatz_kwargs.get("thetas", (0.1, 0.2) if molecule.nso == 12 else (0.0, 0.0))
         # Manually build the circuit ansatz
-        control_circuit += hf_circuit(nqubits, nelec)
+        if ansatz_kwargs.get("include_hf", True):
+            control_circuit += hf_circuit(nqubits, nelec)
         for excitation, theta in zip(excitations, thetas):
             theta = theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei)
-    elif ansatz == "br":
-        control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec, include_hf=False)
-    elif ansatz == "symm":
+    elif ansatz in ("br", "symm"):
         control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec)
     # Test circuit
     test_circuit = circuit_ansatz(molecule, ansatz, **ansatz_kwargs)

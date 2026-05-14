@@ -99,6 +99,13 @@ def circuit_ansatz(
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to an UCC ansatz
     """
+    circuit_fns = {
+        "ucc": ucc_circuit,
+        "qeb": qeb_circuit,
+        "givens": givens_circuit,
+        "br": basis_rotation_circuit,
+        "symm": symm_preserving_circuit,
+    }
     # Get the number of electrons and spin-orbitals from the molecule
     nqubits = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
     nelec = molecule.nelec if molecule.n_active_e is None else molecule.n_active_e
@@ -128,13 +135,9 @@ def circuit_ansatz(
         if include_hf:
             circuit += hf_circuit(nqubits, nelec, **kwargs)
         for excitation, theta in zip(excitations, thetas):
-            circuit += {"ucc": ucc_circuit, "qeb": qeb_circuit, "givens": givens_circuit}[ansatz](
-                nqubits, excitation, theta, **kwargs
-            )
-    elif ansatz == "br":
-        circuit += basis_rotation_circuit(nqubits, nelec, thetas, include_hf=include_hf, **kwargs)
-    elif ansatz == "symm":
-        circuit += symm_preserving_circuit(nqubits, nelec, thetas, **kwargs)
+            circuit += circuit_fns[ansatz](nqubits, excitation, theta, **kwargs)
+    elif ansatz in ("br", "symm"):
+        circuit += circuit_fns[ansatz](nqubits, nelec, thetas, **kwargs)
     else:
         raise_error(ValueError, 'Invalid argument for "ansatz"')
     return circuit
@@ -377,7 +380,7 @@ def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, 
 
 
 def basis_rotation_circuit(
-    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, include_hf: bool = True, **kwargs
+    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs
 ) -> Circuit:
     """
     Quantum circuit that performs a basis rotation between the occupied-virtual orbitals using Givens rotations
@@ -387,7 +390,6 @@ def basis_rotation_circuit(
         nelectrons (int): Number of electrons in the molecular system
         parameters (Sequence[float] | float | None, optional): Rotation parameters; must have
             `nelectrons * (nqubits - nelectrons) // 2` elements. Defaults to a zero array if not given
-        include_hf (bool, optional): Initialise ansatz in a HF reference state if True (default)
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`.
 
@@ -411,7 +413,7 @@ def basis_rotation_circuit(
     z_angles = _qr_decompose_givens(unitary_matrix)
     basis_rotation_layout = _basis_rotation_layout(nqubits, z_angles)
     # Build circuit ansatz
-    circuit = hf_circuit(nqubits, nelectrons, **kwargs) if include_hf else Circuit(nqubits, **kwargs)
+    circuit = Circuit(nqubits, **kwargs)
     circuit.add(gates.GIVENS(_q1 + 1, _q1, rot_angle) for (_q1, _q2, rot_angle) in basis_rotation_layout)
     return circuit
 
