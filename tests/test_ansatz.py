@@ -595,12 +595,13 @@ def test_ansatz_argument_checks():
             _ = circuit_func(6, 2, parameters=too_few_params)
     # circuit_ansatz checks
     molecule = Molecule((("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))))
+    molecule.run_pyscf()
+    with pytest.raises(ValueError):
+        _ = circuit_ansatz(molecule, "zc")
     with pytest.raises(ValueError):
         _ = circuit_ansatz(molecule, "ucc", excitations=[[0]])
     with pytest.raises(ValueError):
         _ = circuit_ansatz(molecule, "ucc", excitations=[[0, 1]], thetas=[0.1, 0.2])
-    with pytest.raises(ValueError):
-        _ = circuit_ansatz(molecule, "zc")
 
 
 # Utility function tests

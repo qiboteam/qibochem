@@ -36,7 +36,7 @@ For the H\ :sub:`2` case discussed in previous sections, a possible hardware eff
 
 The energy of the state generated from the hardware efficient ansatz for the fermionic two-body Hamiltonian can then be estimated, using state vectors or samples.
 
-The following example demonstrates how the energy of the H2 molecule is affected with respect to the rotational parameters:
+The following example demonstrates how the energy of the H\ :sub:`2` molecule is affected with respect to the rotational parameters:
 
 .. code-block:: python
 
@@ -102,7 +102,7 @@ The UCC wave function is a parameterized unitary transformation of a reference w
 Similar to the process for the molecular Hamiltonian, the fermionic excitation operators :math:`\hat{T}` and :math:`\hat{T}^\dagger` are mapped using e.g. Jordan-Wigner mapping into Pauli operators.
 This is typically followed by a Suzuki-Trotter decomposition of the exponentials of these Pauli operators, which allows the UCC ansatz to be implemented on quantum computers. [#f5]_
 
-An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` molecule is given as:
+An example of how to build a UCC doubles circuit ansatz for the H\ :sub:`2` molecule is given as:
 
 .. code-block:: python
 
@@ -114,12 +114,12 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     hamiltonian = mol.hamiltonian()
 
     # Set parameters for the rest of the experiment
-    n_qubits = mol.nso
-    n_electrons = mol.nelec
+    nqubits = mol.nso
+    nelectrons = mol.nelec
 
     # Build UCCD circuit
-    circuit = hf_circuit(n_qubits, n_electrons) # Start with HF circuit
-    circuit += ucc_circuit(n_qubits, [0, 1, 2, 3]) # Then add the double excitation circuit ansatz
+    circuit = hf_circuit(nqubits, nelectrons) # Start with HF circuit
+    circuit += ucc_circuit(nqubits, [0, 1, 2, 3]) # Then add the double excitation circuit ansatz
 
     circuit.draw()
 
@@ -141,12 +141,12 @@ An example of how to build a UCC doubles circuit ansatz for the :math:`H_2` mole
     3: ... ─────o─H─S─SDG─H─o────────────o─H─S───SDG─H─o────────────o─H─S─
 
 
-UCC with Qubit-Excitation-Based n-tuple Excitation
---------------------------------------------------
+UCC with Qubit-Excitation-Based :math:`n`-tuple Excitation
+----------------------------------------------------------
 
 A CNOT depth-efficient quantum circuit for employing the UCC ansatz, dubbed the Qubit-Excitation-Based (QEB) n-tuple excitations for UCC, was constructed by Yordanov et al. [#f6]_ and Magoulas et al. [#f7]_, avoiding the exponential number of CNOT cascades in those developed before. [#f5]_ The quantum circuits generated for :math:`N` qubits have a reduction of CNOTs from :math:`(2N-1)2^{2N}` to :math:`2^{2N-1}+4N-2`.
 
-An example for the :math:`H_2` molecule is given here:
+An example for the H\ :sub:`2` molecule is given here:
 
 
 .. code-block:: python
@@ -199,26 +199,7 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
     from qibo.models import VQE
 
     from qibochem.driver import Molecule
-    from qibochem.ansatz import hf_circuit, basis_rotation
-
-
-    def basis_rotation_circuit(mol, parameters=0.0):
-
-        nqubits = mol.nso
-        occ = range(0, mol.nelec)
-        vir = range(mol.nelec, mol.nso)
-
-        U, kappa = basis_rotation.unitary(occ, vir, parameters=parameters)
-        gate_angles, _final_U = basis_rotation.givens_qr_decompose(U)
-        gate_layout = basis_rotation.basis_rotation_layout(nqubits)
-        gate_list, _ordered_angles = basis_rotation.basis_rotation_gates(
-            gate_layout, gate_angles, kappa
-        )
-
-        circuit = hf_circuit(nqubits, mol.nelec)
-        circuit.add(gate_list)
-
-        return circuit, gate_angles
+    from qibochem.ansatz import hf_circuit, basis_rotation_circuit
 
     h3p = Molecule(
         [
@@ -234,15 +215,16 @@ The orthonormal molecular orbitals :math:`\phi` are optimized by a direct minimi
     e_init = h3p.e_hf
     h3p_sym_ham = h3p.hamiltonian("sym", h3p.oei, h3p.tei, 0.0, "jw")
 
-    circuit, qubit_parameters = basis_rotation_circuit(h3p, parameters=0.1)
+    circuit = basis_rotation_circuit(h3p.nso, h3p.nelec, parameters=0.1)
+    circuit_parameters = [param for _param in circuit.get_parameters() for param in _param]  # Flatten list
 
     circuit.draw()
 
     vqe = VQE(circuit, h3p_sym_ham)
-    res = vqe.minimize(qubit_parameters)
+    result = vqe.minimize(circuit_parameters)
 
     print("energy of initial guess: ", e_init)
-    print("energy after vqe       : ", res[0])
+    print("energy after vqe       : ", result[0])
 
 .. code-block:: output
 
