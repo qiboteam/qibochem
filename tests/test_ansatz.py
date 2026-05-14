@@ -567,19 +567,12 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
         control_circuit += hf_circuit(nqubits, nelec)
         for excitation, theta in zip(excitations, thetas):
             theta = theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei)
-            # print(f"{theta = }")
-            # control_circuit += CIRCUIT_FNS[ansatz](nqubits, excitation, theta)
-            # control_circuit += CIRCUIT_FNS[ansatz](nqubits, excitation, theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei))
     elif ansatz == "br":
         control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec, include_hf=False)
     elif ansatz == "symm":
         control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec)
-    # print(f"f{control_circuit.get_parameters() = }")
-    # control_circuit.draw()
     # Test circuit
     test_circuit = circuit_ansatz(molecule, ansatz, **ansatz_kwargs)
-    # print(f"f{test_circuit.get_parameters() = }")
-    # test_circuit.draw()
 
     for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
@@ -607,6 +600,14 @@ def test_ansatz_argument_checks():
     for circuit_func in (basis_rotation_circuit, symm_preserving_circuit):
         with pytest.raises(ValueError):
             _ = circuit_func(6, 2, parameters=too_few_params)
+    # circuit_ansatz checks
+    molecule = Molecule((("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))))
+    with pytest.raises(ValueError):
+        _ = circuit_ansatz(molecule, "ucc", excitations=[[0]])
+    with pytest.raises(ValueError):
+        _ = circuit_ansatz(molecule, "ucc", excitations=[[0, 1]], thetas=[0.1, 0.2])
+    with pytest.raises(ValueError):
+        _ = circuit_ansatz(molecule, "zc")
 
 
 # Utility function tests

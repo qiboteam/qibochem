@@ -1,5 +1,6 @@
 from qibochem.ansatz.ansatz import (
     basis_rotation_circuit,
+    circuit_ansatz,
     givens_circuit,
     he_circuit,
     hf_circuit,
