@@ -128,7 +128,9 @@ def circuit_ansatz(
         if include_hf:
             circuit += hf_circuit(nqubits, nelec, **kwargs)
         for excitation, theta in zip(excitations, thetas):
-            circuit += ucc_circuit(nqubits, excitation, theta, **kwargs)
+            circuit += {"ucc": ucc_circuit, "qeb": qeb_circuit, "givens": givens_circuit}[ansatz](
+                nqubits, excitation, theta, **kwargs
+            )
     elif ansatz == "br":
         circuit += basis_rotation_circuit(nqubits, nelec, thetas, include_hf=include_hf, **kwargs)
     elif ansatz == "symm":

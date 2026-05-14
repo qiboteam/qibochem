@@ -20,6 +20,7 @@ from qibochem.ansatz._ansatz import (
 )
 from qibochem.ansatz.ansatz import (
     basis_rotation_circuit,
+    circuit_ansatz,
     givens_circuit,
     he_circuit,
     hf_circuit,
@@ -29,6 +30,15 @@ from qibochem.ansatz.ansatz import (
 )
 from qibochem.ansatz.utils import _sort_excitations, generate_excitations, mp2_amplitude
 from qibochem.driver import Molecule
+
+# Global dict for selecting circuit functions to test circuit_ansatz
+CIRCUIT_FNS = {
+    "ucc": ucc_circuit,
+    "qeb": qeb_circuit,
+    "givens": givens_circuit,
+    "br": basis_rotation_circuit,
+    "symm": symm_preserving_circuit,
+}
 
 
 @pytest.mark.parametrize(
@@ -510,6 +520,66 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
     control_circuit.set_parameters(control_parameters)
 
     test_circuit = symm_preserving_circuit(nqubits, nelectrons, parameters)
+
+    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+        assert gate.__class__.__name__ == target.__class__.__name__
+        assert gate.qubits == target.qubits
+        assert gate.target_qubits == target.target_qubits
+        assert gate.control_qubits == target.control_qubits
+        assert np.allclose(gate.parameters, target.parameters)
+
+
+@pytest.mark.parametrize(
+    "mol_geom", [(("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))), (("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4)))]
+)
+@pytest.mark.parametrize(
+    "ansatz,ansatz_kwargs",
+    [
+        ("ucc", {"excitations": [[0, 1, 2, 3]]}),
+        ("qeb", {}),
+        ("givens", {"excitations": [[0, 1, 2, 3], [0, 2]], "thetas": [0.1, 0.2]}),
+        ("br", {"include_hf": False}),
+        ("symm", {}),
+    ],
+)
+def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
+    """Test circuit_ansatz function with H2 and LiH (with embedding)"""
+    molecule = Molecule(mol_geom)
+    molecule.run_pyscf()
+    # Run HF embedding for LiH
+    if molecule.nso == 12:
+        molecule.hf_embedding(active=[1, 2])
+
+    # Build control circuit
+    nqubits, nelec = 4, 2
+    control_circuit = Circuit(nqubits)
+    if ansatz in ("ucc", "qeb", "givens"):
+        excitations = ansatz_kwargs.get("excitations")
+        if excitations is None:
+            # Generate all possible excitations
+            excitations = [generate_excitations(order, [0, 1], [2, 3]) for order in (2, 1)]
+            excitations = [
+                excitation for order_ex in excitations for excitation in order_ex
+            ]  # Flatten the excitations list
+        # Don't use MP2 amplitudes with HF embedding
+        thetas = ansatz_kwargs.get("thetas", (0.1, 0.2) if molecule.nso == 12 else (0.0, 0.0))
+        # Manually build the circuit ansatz
+        control_circuit += hf_circuit(nqubits, nelec)
+        for excitation, theta in zip(excitations, thetas):
+            theta = theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei)
+            # print(f"{theta = }")
+            # control_circuit += CIRCUIT_FNS[ansatz](nqubits, excitation, theta)
+            # control_circuit += CIRCUIT_FNS[ansatz](nqubits, excitation, theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei))
+    elif ansatz == "br":
+        control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec, include_hf=False)
+    elif ansatz == "symm":
+        control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec)
+    # print(f"f{control_circuit.get_parameters() = }")
+    # control_circuit.draw()
+    # Test circuit
+    test_circuit = circuit_ansatz(molecule, ansatz, **ansatz_kwargs)
+    # print(f"f{test_circuit.get_parameters() = }")
+    # test_circuit.draw()
 
     for gate, target in zip(control_circuit.queue, test_circuit.queue):
         assert gate.__class__.__name__ == target.__class__.__name__
