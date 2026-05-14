@@ -49,6 +49,7 @@ from qibochem.ansatz._ansatz import (
     _qr_decompose_givens,
     _x_gate_indices,
 )
+from qibochem.ansatz.utils import generate_excitations, mp2_amplitude
 from qibochem.driver.molecule import Molecule
 
 
@@ -56,18 +57,14 @@ def circuit_ansatz(
     molecule: Molecule,
     ansatz: str,
     *,
-    excitation_level: str | None = None,
     excitations: Sequence[Sequence[int]] | None = None,
     thetas: Sequence[float] | None = None,
-    trotter_steps: int = 1,
-    ferm_qubit_map: str = "jw",
     include_hf: bool = True,
-    use_mp2_guess: bool = True,
     **kwargs: dict,
 ):
     """
     Convenience function for constructing a parameterized quantum circuit ansatz to represent the electronic wave
-    function of a molecular system.
+    function (using the the Jordan-Wigner fermion to qubit mapping) of a molecular system.
 
     Args:
         molecule (:class:`qibochem.driver.Molecule`):
@@ -76,34 +73,69 @@ def circuit_ansatz(
             Circuit ansatz to be used for the molecule. The possible options are:
 
             Options:
-                - ``"he"``: Hardware-efficient ansatz (:func:`details <qibochem.ansatz.ansatz.he_circuit>`)
-                - ``"ucc"``: Unitary coupled-cluster (UCC) ansatz (:func:`details <qibochem.ansatz.ansatz.ucc_circuit>`)
-                - ``"qeb"``: Alternative qubit-excitation-based formulation of the UCC ansatz with the Jordan-Wigner
-                  mapping (:func:`details <qibochem.ansatz.ansatz.qeb_circuit>`)
+                - ``"ucc"``: Unitary coupled-cluster (UCC) ansatz with a single Trotter step
+                  (:func:`details <qibochem.ansatz.ansatz.ucc_circuit>`)
+                - ``"qeb"``: Alternative qubit-excitation-based formulation of the UCC ansatz
+                  (:func:`details <qibochem.ansatz.ansatz.qeb_circuit>`)
                 - ``"givens"``: Givens rotation ansatz (:func:`details <qibochem.ansatz.ansatz.givens_circuit>`)
                 - ``"br"``: Basis rotation ansatz (:func:`details <qibochem.ansatz.ansatz.basis_rotation_circuit>`)
                 - ``"symm"``: Symmetry-preserving ansatz
                   (:func:`details <qibochem.ansatz.ansatz.symm_preserving_circuit>`)
-        excitation_level (str, optional):
-            Include up to singles (``"S"``) or doubles excitations (Default option, ``"D"``). Ignored if the
-            ``excitations`` argument is used
+
+            Note:
+                The hardware-efficient circuit ansatz (:func:`details <qibochem.ansatz.ansatz.he_circuit>`) is not
+                included here
         excitations (Sequence[Sequence[int]] | None, optional):
-            Fermionic excitations used to build the circuit. Overrides the ``excitation_level`` argument if both given
+            Fermionic excitations used to build the circuit. If not given, will include all singles and doubles
+            excitations in the circuit by default.
         thetas (Sequence[float] | None, optional):
-            Initial parameters for the circuit ansatz. If not given, defaults to MP2 amplitudes if ``use_mp2_guess`` is
-            `True`; a zero array otherwise.
-        trotter_steps (int, optional): Number of Trotter steps if using a UCC ansatz. Default: `1`
-        ferm_qubit_map (str, optional): Fermion to qubit mapping. Must be either Jordan-Wigner (``"jw"``) or
-            Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``
+            Initial parameters for the circuit ansatz. If not given, defaults to MP2 amplitudes for ansatzes involving
+            fermionic excitations (``"ucc"``, ``"qeb"``, or ``"givens"``), or a zero array otherwise.
         include_hf (bool, optional): Initialise circuit ansatz in a HF reference state if `True` (default)
-        use_mp2_guess (bool, optional): If `True`, uses the MP2 amplitudes as the initial guess ansatz parameters.
         kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
             documentation of :class:`qibo.models.circuit.Circuit`
+
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit corresponding to an UCC ansatz
     """
-    pass
+    # Get the number of electrons and spin-orbitals from the molecule
+    nqubits = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
+    nelec = molecule.nelec if molecule.n_active_e is None else molecule.n_active_e
+
+    circuit = Circuit(nqubits, **kwargs)
+    if ansatz in ("ucc", "qeb", "givens"):
+        # Build the list of excitations if not given
+        if excitations is None:
+            # Generate and sort all the possible excitations
+            excitations = []
+            for order in range(2, 0, -1):  # Up to double excitations and reversed to get higher excitations first
+                excitations += generate_excitations(order, range(0, nelec), range(nelec, nqubits))
+        else:
+            # Some checks to ensure the input excitations are valid
+            if not all(len(_ex) % 2 == 0 for _ex in excitations):
+                raise_error(ValueError, "Excitation with an odd number of orbitals found!")
+
+        # Check if thetas argument given. If not, define to be MP2 amplitudes
+        if thetas is None:
+            thetas = np.array([mp2_amplitude(excitation, molecule.eps, molecule.tei) for excitation in excitations])
+        else:
+            # Check that the number of parameters matches the number of excitations
+            if len(thetas) != len(excitations):
+                raise_error(ValueError, "Number of input parameters doesn't match the number of excitations")
+
+        # Build the circuit
+        if include_hf:
+            circuit += hf_circuit(nqubits, nelec, **kwargs)
+        for excitation, theta in zip(excitations, thetas):
+            circuit += ucc_circuit(nqubits, excitation, theta, **kwargs)
+    elif ansatz == "br":
+        circuit += basis_rotation_circuit(nqubits, nelec, thetas, include_hf=include_hf, **kwargs)
+    elif ansatz == "symm":
+        circuit += symm_preserving_circuit(nqubits, nelec, thetas, **kwargs)
+    else:
+        raise_error(ValueError, 'Invalid argument for "ansatz"')
+    return circuit
 
 
 def he_circuit(
@@ -158,7 +190,8 @@ def he_circuit(
 
 
 def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs) -> Circuit:
-    """Circuit to prepare a Hartree-Fock state
+    """
+    Quantum circuit to prepare a Hartree-Fock state
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
@@ -197,7 +230,7 @@ def ucc_circuit(
     **kwargs: dict,
 ) -> Circuit:
     r"""
-    Circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
+    Quantum circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
@@ -306,7 +339,7 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
 
 def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
     """
-    Circuit ansatz corresponding to the Givens rotation from Arrazola et al.
+    Quantum circuit performing fermionic excitations using Givens rotations.
 
     Args:
         nqubits (int): Number of qubits in the circuit
@@ -345,7 +378,7 @@ def basis_rotation_circuit(
     nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, include_hf: bool = True, **kwargs
 ) -> Circuit:
     """
-    Quantum circuit that performs a basis rotation of the occupied-virtual orbitals using Givens rotations
+    Quantum circuit that performs a basis rotation between the occupied-virtual orbitals using Givens rotations
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
@@ -358,6 +391,10 @@ def basis_rotation_circuit(
 
     Returns:
         :class:`qibo.models.circuit.Circuit`: Circuit initialized as a HF reference, followed by basis rotation gates
+
+    References:
+        1. Google AI Quantum and Collaborators, *Hartree-Fock on a superconducting qubit quantum computer*, Science, 2020,
+        369 (6507), 1084-1089 (`link <https://www.science.org/doi/10.1126/science.abb9811>`__)
     """
     n_parameters = nelectrons * (nqubits - nelectrons) // 2
     if parameters is None:
@@ -381,7 +418,8 @@ def symm_preserving_circuit(
     nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs: dict
 ) -> Circuit:
     """
-    Symmetry-preserving circuit ansatz from Gard et al.
+    Quantum circuit that preserves particle number, total spin, spin projection, and time-reversal symmetries of the
+    simulated system
 
     Args:
         nqubits (int): Number of qubits in the quantum circuit
