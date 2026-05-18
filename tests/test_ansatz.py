@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from qibo import Circuit, gates, symbols
 from qibo.hamiltonians import SymbolicHamiltonian
+from qibo.models.encodings import hamming_weight_encoder
 
 from qibochem.ansatz._ansatz import (
     _a_gate,
@@ -38,6 +39,7 @@ CIRCUIT_FNS = {
     "givens": givens_circuit,
     "br": basis_rotation_circuit,
     "symm": symm_preserving_circuit,
+    "ham": hamming_weight_encoder,
 }
 
 
@@ -534,6 +536,7 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
         ("givens", {"excitations": [[0, 1, 2, 3], [0, 2]], "thetas": [0.1, 0.2]}),
         ("br", {}),
         ("symm", {}),
+        ("ham", {}),
     ],
 )
 def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
@@ -562,7 +565,7 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
             control_circuit += hf_circuit(nqubits, nelec)
         for excitation, theta in zip(excitations, thetas):
             theta = theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei)
-    elif ansatz in ("br", "symm"):
+    elif ansatz in ("br", "symm", "ham"):
         control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec)
     # Test circuit
     test_circuit = circuit_ansatz(molecule, ansatz, **ansatz_kwargs)

@@ -37,7 +37,11 @@ import openfermion
 from qibo import Circuit, gates
 from qibo.config import raise_error
 from qibo.gates import Gate
-from qibo.models.encodings import comp_basis_encoder, entangling_layer
+from qibo.models.encodings import (
+    comp_basis_encoder,
+    entangling_layer,
+    hamming_weight_encoder,
+)
 
 from qibochem.ansatz._ansatz import (
     _a_gate,
@@ -81,6 +85,8 @@ def circuit_ansatz(
                 - ``"br"``: Basis rotation ansatz (:func:`details <qibochem.ansatz.ansatz.basis_rotation_circuit>`)
                 - ``"symm"``: Symmetry-preserving ansatz
                   (:func:`details <qibochem.ansatz.ansatz.symm_preserving_circuit>`)
+                - ``"ham"``: Fixed Hamming-weight ansatz
+                  (:func:`details <qibochem.ansatz.ansatz.hamming_weight_circuit>`)
 
             Note:
                 The hardware-efficient circuit ansatz (:func:`details <qibochem.ansatz.ansatz.he_circuit>`) is not
@@ -105,6 +111,7 @@ def circuit_ansatz(
         "givens": givens_circuit,
         "br": basis_rotation_circuit,
         "symm": symm_preserving_circuit,
+        "ham": hamming_weight_circuit,
     }
     # Get the number of electrons and spin-orbitals from the molecule
     nqubits = molecule.nso if molecule.n_active_orbs is None else molecule.n_active_orbs
@@ -138,6 +145,8 @@ def circuit_ansatz(
             circuit += circuit_fns[ansatz](nqubits, excitation, theta, **kwargs)
     elif ansatz in ("br", "symm"):
         circuit += circuit_fns[ansatz](nqubits, nelec, thetas, **kwargs)
+    elif ansatz == "ham":
+        circuit += circuit_fns[ansatz](nqubits, nelec, **kwargs)
     else:
         raise_error(ValueError, 'Invalid argument for "ansatz"')
     return circuit
@@ -394,7 +403,8 @@ def basis_rotation_circuit(
             documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit initialized as a HF reference, followed by basis rotation gates
+        :class:`qibo.models.circuit.Circuit`: Circuit that performs a unitary rotation between the occupied-virtual
+            orbitals
 
     References:
         1. Google AI Quantum and Collaborators, *Hartree-Fock on a superconducting qubit quantum computer*, Science, 2020,
@@ -464,3 +474,28 @@ def symm_preserving_circuit(
     # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
     circuit.add(_gate for a_gate in a_gates for _gate in a_gate)
     return circuit
+
+
+def hamming_weight_circuit(nqubits: int, nelectrons: int, **kwargs: dict) -> Circuit:
+    """
+    Quantum circuit that preserves the Hamming weight (particle number) of the simulated system
+
+    Note:
+        This function is a wrapper for the original :func:`qibo.models.encodings.hamming_weight_encoder` function in
+        the main Qibo repository.
+
+    Args:
+        nqubits (int): Number of qubits in the quantum circuit
+        nelectrons (int): Number of electrons in the molecular system
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`.
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit restricted to a fixed Hamming-weight subspace
+
+    References:
+        1. R. M. S. Farias, T. O. Maciel, G. Camilo, R. Lin, S. Ramos-Calderer, and L. Aolita,
+        *Quantum encoder for fixed-Hamming-weight subspaces*
+        `Phys. Rev. Applied 23, 044014 (2025) <https://doi.org/10.1103/PhysRevApplied.23.044014>`_.
+    """
+    return hamming_weight_encoder(nqubits, weight=nelectrons, phase_correction=False, **kwargs)
