@@ -2,6 +2,7 @@ from qibochem.ansatz.ansatz import (
     basis_rotation_circuit,
     circuit_ansatz,
     givens_circuit,
+    hamming_weight_circuit,
     he_circuit,
     hf_circuit,
     qeb_circuit,
