@@ -73,7 +73,9 @@ Contents
     Qibosoq docs <https://qibo.science/qibosoq/stable/>
     Qibochem docs <https://qibo.science/qibochem/stable/>
     Qibotn docs <https://qibo.science/qibotn/stable/>
+    Qibo-client docs <https://qibo.science/qibo-client/stable/>
     Qibo-cloud-backends docs <https://qibo.science/qibo-cloud-backends/stable/>
+    Qiboopt docs <https://qibo.science/qiboopt/stable/>
 
 Indices and tables
 ==================

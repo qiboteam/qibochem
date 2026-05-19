@@ -12,7 +12,7 @@ from qibo.symbols import X, Y, Z
 from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
-from qibochem.ansatz.ucc import expi_pauli
+from qibochem.ansatz._ansatz import _expi_pauli
 from qibochem.measurement.util import (
     _binary_gaussian_elimination,
     _binary_nullspace,
@@ -36,7 +36,7 @@ def _term_to_string(term: Expr) -> str:
 def _u_circuit(tau_terms: list[str], sigma_terms: list[str], nqubits: int) -> Circuit:
     """
     Circuit formulation by Izmaylov and co-workers for measuring generally commuting terms simultaneously.
-    TODO: Consider using the gates from Qibo directly, instead of expi_pauli
+    TODO: Consider using the gates from Qibo directly, instead of _expi_pauli
     """
     circuit = Circuit(nqubits)
     for _tau, _sigma in zip(tau_terms, sigma_terms):
@@ -46,9 +46,9 @@ def _u_circuit(tau_terms: list[str], sigma_terms: list[str], nqubits: int) -> Ci
 
         theta = 0.25 * np.pi
         # Build up the circuit
-        circuit += expi_pauli(nqubits, sigma_i, theta)
-        circuit += expi_pauli(nqubits, tau_i, theta)
-        circuit += expi_pauli(nqubits, sigma_i, theta)
+        circuit += _expi_pauli(nqubits, sigma_i, theta)
+        circuit += _expi_pauli(nqubits, tau_i, theta)
+        circuit += _expi_pauli(nqubits, sigma_i, theta)
 
     return circuit
 
