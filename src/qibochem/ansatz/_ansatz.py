@@ -52,12 +52,12 @@ def _bk_matrix(dims: int) -> np.ndarray:
     return min_bk_matrix[:dims, :dims]
 
 
-def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs) -> Circuit:
+def _expi_pauli(nqubits: int, pauli_string: str, theta: float, **kwargs) -> Circuit:
     """
     Build circuit representing exp(i*theta*pauli_string)
 
     Args:
-        n_qubits (int): Number of qubits in the quantum circuit
+        nqubits (int): Number of qubits in the quantum circuit
         pauli_string (str): Single Pauli term in the format: ``"X0 Y3 Z11 X1"``
         theta (float): Rotation parameter
         kwargs (dict, optional): Qibo Circuit keyword arguments
@@ -78,7 +78,7 @@ def _expi_pauli(n_qubits: int, pauli_string: str, theta: float, **kwargs) -> Cir
             basis_changes.append(gates.H(qubit))
 
     # Build the circuit
-    circuit = Circuit(n_qubits, **kwargs)
+    circuit = Circuit(nqubits, **kwargs)
     # 1. Change to X/Y where necessary
     circuit.add(basis_changes)
     # 2. Add CNOTs to all pairs of qubits in pauli_ops, starting from the last letter
