@@ -43,7 +43,6 @@ The following example demonstrates how the energy of the H\ :sub:`2` molecule is
     import numpy as np
 
     from qibochem.driver import Molecule
-    from qibochem.measurement import expectation
     from qibochem.ansatz import he_circuit
 
     mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.74804))])
@@ -64,7 +63,7 @@ The following example demonstrates how the energy of the H\ :sub:`2` molecule is
     for theta in thetas:
         params = np.full(ntheta, theta)
         circuit.set_parameters(params)
-        electronic_energy = expectation(circuit, hamiltonian)
+        electronic_energy = hamiltonian.expectation(circuit)
         print(f"| {theta:5.1f} | {electronic_energy:^18.12f}|")
     print("-----------------------------")
 

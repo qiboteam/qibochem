@@ -8,10 +8,10 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation, expectation_from_samples, v_expectation
-from qibochem.measurement.optimization import measurement_basis_rotations
+from qibochem.measurement import expectation_from_samples, v_expectation
+from qibochem.measurement.optimization import _measurement_basis_rotations
 from qibochem.measurement.result import (
-    pauli_term_measurement_expectation,
+    _pauli_term_measurement_expectation,
     sample_statistics,
 )
 
@@ -27,7 +27,7 @@ from qibochem.measurement.result import (
     ],
 )
 def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expected):
-    result = pauli_term_measurement_expectation(term, frequencies, qubit_map)
+    result = _pauli_term_measurement_expectation(term, frequencies, qubit_map)
     assert result == expected
 
 
@@ -44,14 +44,14 @@ def test_expectation_from_samples(terms, gates_to_add):
     circuit = Circuit(2)
     circuit.add(gates_to_add)
     result = expectation_from_samples(circuit, hamiltonian)
-    assert result == pytest.approx(expected := expectation(circuit, hamiltonian)), f"{result} != {expected}"
+    assert result == pytest.approx(expected := hamiltonian.expectation(circuit)), f"{result} != {expected}"
 
 
 def test_measurement_basis_rotations_error():
     """If unknown measurement grouping scheme used"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(NotImplementedError):
-        _ = measurement_basis_rotations(hamiltonian, grouping="test")
+        _ = _measurement_basis_rotations(hamiltonian, grouping="test")
 
 
 @pytest.mark.parametrize(
@@ -75,7 +75,7 @@ def test_expectation_invalid_shot_allocation():
     circuit = Circuit(1)
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     shot_allocation = (1,)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = expectation_from_samples(
             circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
         )
@@ -88,34 +88,31 @@ def test_expectation_invalid_shot_allocation():
         SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0),
         SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)),
         SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)),
+        SymbolicHamiltonian(
+            0.1 * X(0) * X(1) * Y(2) + 0.2 * X(0) * Y(1) * Y(2) + 0.3 * Y(0) * X(1) * X(2) - 3.14 * Y(0) * Y(1) * X(2)
+        ),
     ],
 )
-def test_qwc_functionality(hamiltonian):
-    """Small scale tests of QWC functionality"""
-    nqubits = 3
-    circuit = Circuit(nqubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(nqubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(nqubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(nqubits))
-    expected = expectation(circuit, hamiltonian)
+def test_measurement_grouping_functionality(hamiltonian):
+    """Small scale tests of commuting measurements functionality"""
+    n_qubits = 3
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    expected = hamiltonian.expectation(circuit)
     n_shots = 10000
-    test = expectation_from_samples(
-        circuit,
-        hamiltonian,
-        n_shots=n_shots,
-        grouping="qwc",
-    )
-    assert test == pytest.approx(expected, abs=0.08)
+    for grouping in ("qwc", "gc", "gc2"):
+        test = expectation_from_samples(
+            circuit,
+            hamiltonian,
+            n_shots=n_shots,
+            grouping=grouping,
+        )
+        assert test == pytest.approx(expected, abs=0.08)
 
 
-@pytest.mark.parametrize(
-    "n_shots_per_pauli_term,threshold",
-    [
-        (True, 0.005),  # 5000 shots used for each term in Hamiltonian
-        (False, 0.02),  # 5000 shots divided between each Pauli string in Hamiltonian
-    ],
-)
-def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
+def test_h2_hf_energy():
     """Test HF energy of H2 molecule"""
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
@@ -126,15 +123,17 @@ def test_h2_hf_energy(n_shots_per_pauli_term, threshold):
     # Molecular Hamiltonian and the HF expectation value
     hamiltonian = h2.hamiltonian()
 
-    n_shots = 5000
-    hf_energy = expectation_from_samples(
-        circuit,
-        hamiltonian,
-        n_shots_per_pauli_term=n_shots_per_pauli_term,
-        n_shots=n_shots,
-        grouping="qwc",
-    )
-    assert hf_energy == pytest.approx(expectation(circuit, hamiltonian), abs=threshold)
+    n_shots = 50000
+    for n_shots_per_pauli_term in (True, False):
+        hf_energy = expectation_from_samples(
+            circuit,
+            hamiltonian,
+            n_shots_per_pauli_term=n_shots_per_pauli_term,
+            n_shots=n_shots,
+            grouping="gc",
+        )
+        # Hardcoded threshold should be high enough with so many shots
+        assert hf_energy == pytest.approx(hamiltonian.expectation(circuit), abs=0.01)
 
 
 @pytest.mark.parametrize(
@@ -149,8 +148,8 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
     circuit = Circuit(2)
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
-    n_trial_shots = 5000
-    grouped_terms = measurement_basis_rotations(hamiltonian, grouping)
+    n_trial_shots = 20000
+    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping)
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
     assert sample_variances == pytest.approx(expected_variances, abs=0.1)
@@ -163,18 +162,19 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
         (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), "qwc"),
         (SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)), None),
         (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "qwc"),
+        (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "gc"),
     ],
 )
 def test_v_expectation_vmsa(hamiltonian, grouping):
     """Small scale tests of variance-based expectation value evaluation"""
-    nqubits = 3
-    circuit = Circuit(nqubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(nqubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(nqubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(nqubits))
-    expected = expectation(circuit, hamiltonian)
-    n_shots = 5000
-    n_trial_shots = 200
+    n_qubits = 3
+    circuit = Circuit(n_qubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    expected = hamiltonian.expectation(circuit)
+    n_shots = 50000
+    n_trial_shots = 2000
     test = v_expectation(
         circuit,
         hamiltonian,

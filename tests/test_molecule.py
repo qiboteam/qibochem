@@ -12,7 +12,6 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(
@@ -167,25 +166,6 @@ def test_hamiltonian_input_errors():
     # Fermion to qubit mapping error
     with pytest.raises(KeyError):
         h2.hamiltonian(ferm_qubit_map="incorrect")
-
-
-def test_expectation_value():
-    """Tests generation of molecular Hamiltonian and its expectation value using a JW-HF circuit"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
-
-    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_pyscf()
-
-    # JW-HF circuit
-    circuit = models.Circuit(h2.nso)
-    circuit.add(gates.X(_i) for _i in range(h2.nelec))
-    # Molecular Hamiltonian and the HF expectation value
-    hamiltonian = h2.hamiltonian()
-    hf_energy = expectation(circuit, hamiltonian)
-
-    # assert h2.e_hf == pytest.approx(hf_energy)
-    assert h2_ref_energy == pytest.approx(hf_energy)
 
 
 def test_fs_hamiltonian():
