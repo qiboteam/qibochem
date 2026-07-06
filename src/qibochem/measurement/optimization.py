@@ -142,9 +142,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
     if method == "chong":
         x_result = _solve_linear_system(v_basis, v_subspace)
         # Map the solution onto the original set of qubits
-        qubit_map = {
-            q: initial_q for q, initial_q in zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits)
-        }
+        qubit_map = dict(zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits))
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
         u_gates = _synthesise_circuit(v_basis)
         mapping = {
@@ -155,9 +153,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         v_basis = _sort_tau_terms(v_basis)
         new_tau_terms, sigma_terms = _get_sigma_terms(v_basis)
         x_result = _solve_linear_system(new_tau_terms, v_subspace)
-        qubit_map = {
-            q: initial_q for q, initial_q in zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits)
-        }
+        qubit_map = dict(zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits))
         phase_factors = [_phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
         tau_term_str = [_symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
         sigma_term_str = [_symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]

@@ -2,7 +2,6 @@
 Test functionality to reduce the measurement cost of running VQE
 """
 
-import numpy as np
 import pytest
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
