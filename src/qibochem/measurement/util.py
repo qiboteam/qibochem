@@ -185,7 +185,11 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
                 )
                 space_to_orthogonalize = space_to_orthogonalize % 2
 
-        cp_vector_space = np.append([anticommuting_vectors[0]], space_to_orthogonalize, axis=0)
+        # Preferentially select Z over X
+        first_nonzero_col = np.argmax(anticommuting_vectors, axis=1)
+        selected_vector = anticommuting_vectors[np.argmax(first_nonzero_col)]
+
+        cp_vector_space = np.append([selected_vector], space_to_orthogonalize, axis=0)
         cp_vector_space = _binary_gaussian_elimination(cp_vector_space)
 
     return cp_vector_space
