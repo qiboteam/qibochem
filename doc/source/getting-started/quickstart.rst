@@ -1,7 +1,7 @@
 Quick start
 -----------
 
-To quickly install and run Qibochem, open a terminal with ``python >= 3.9`` and type:
+To quickly install and run Qibochem, open a terminal with ``python >= 3.11`` and type:
 
 .. code-block::
 

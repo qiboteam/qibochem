@@ -9,10 +9,9 @@ import openfermion
 import pytest
 from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import Z
+from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(
@@ -111,6 +110,33 @@ def test_hf_embedding():
     assert np.allclose(mol.embed_tei, mol.tei[:dim, :dim, :dim, :dim])
 
 
+def test_mp2_natorbs():
+    reference_eps = [
+        -0.59193188,
+        0.15640376,
+        0.24284549,
+        0.24284549,
+        0.29490387,
+        0.38721998,
+        0.38721998,
+        0.4537677,
+        0.62540995,
+        1.25163459,
+        1.64696417,
+        1.64696417,
+        2.13602309,
+        2.34539023,
+        2.34539023,
+        3.79150695,
+    ]
+    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD")
+    mol.run_pyscf(do_mp2=True)
+    # Check that eps tally
+    assert np.allclose(mol.eps, reference_eps)
+    # Check that length of eps is right
+    assert len(mol.eps) == 16
+
+
 @pytest.mark.parametrize(
     "option,expected",
     [
@@ -142,23 +168,29 @@ def test_hamiltonian_input_errors():
         h2.hamiltonian(ferm_qubit_map="incorrect")
 
 
-def test_expectation_value():
-    """Tests generation of molecular Hamiltonian and its expectation value using a JW-HF circuit"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
+def test_fs_hamiltonian():
+    """Test folded spectrum Hamiltonian method"""
+    mol = Molecule()  # Dummy molecule
+    hamiltonian = SymbolicHamiltonian(0.5 * Z(0) + 0.3 * X(1), nqubits=2)
+    omega = 1.1
+    folded = mol.fs_hamiltonian(omega, hamiltonian)
+    # Check matrix of the folded Hamiltonian (H - omega*I)^2
+    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(np.eye(2), X(1).matrix)
+    folded_matrix = (original_ham - omega * np.eye(4)) @ (original_ham - omega * np.eye(4))
+    assert np.allclose(folded.matrix, folded_matrix)
 
-    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_pyscf()
 
-    # JW-HF circuit
-    circuit = models.Circuit(h2.nso)
-    circuit.add(gates.X(_i) for _i in range(h2.nelec))
-    # Molecular Hamiltonian and the HF expectation value
-    hamiltonian = h2.hamiltonian()
-    hf_energy = expectation(circuit, hamiltonian)
+def test_fs_hamiltonian_default():
+    """Test use of molecular Hamiltonian as the default if not given"""
+    dummy = Molecule()
+    dummy.e_nuc = 0.0
+    dummy.oei = np.diag((-1.0, 0.0))
+    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
+    dummy_ham = dummy.hamiltonian()
 
-    # assert h2.e_hf == pytest.approx(hf_energy)
-    assert h2_ref_energy == pytest.approx(hf_energy)
+    omega = 0.0
+    folded = dummy.fs_hamiltonian(omega)
+    assert np.allclose(folded.matrix, dummy_ham.matrix @ dummy_ham.matrix)
 
 
 @pytest.mark.parametrize(
