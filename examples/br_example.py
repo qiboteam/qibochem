@@ -6,7 +6,7 @@ and runs the VQE to obtain the HF energy.
 import numpy as np
 from qibo.models import VQE
 
-from qibochem.ansatz import basis_rotation, hf_circuit
+from qibochem.ansatz import circuit_ansatz, hf_circuit
 from qibochem.driver import Molecule
 
 
@@ -23,24 +23,6 @@ def guess_mo_coeffs(hcore, overlap):
     # Transform C_p back into AO basis
     mo_coeff = A.dot(C_p)  # MO coefficients using a H_core guess
     return mo_coeff
-
-
-def basis_rotation_circuit(mol, parameters=0.0):
-    """Construct the basis rotation circuit"""
-    nqubits = mol.nso
-    occ = range(0, mol.nelec)
-    vir = range(mol.nelec, mol.nso)
-
-    U, theta = basis_rotation.unitary(occ, vir, parameters=parameters)
-
-    gate_angles, _final_U = basis_rotation.givens_qr_decompose(U)
-    gate_layout = basis_rotation.basis_rotation_layout(nqubits)
-    gate_list, _ordered_angles = basis_rotation.basis_rotation_gates(gate_layout, gate_angles, theta)
-
-    circuit = hf_circuit(nqubits, mol.nelec)
-    circuit.add(gate_list)
-
-    return circuit, gate_angles
 
 
 def main():
@@ -60,8 +42,9 @@ def main():
     print(f"Electronic energy: {hamiltonian.expectation(circuit):.8f} (From the H_core guess)")
     print(f"        HF energy: {mol.e_hf:.8f} (Hartree-Fock energy from PySCF)")
 
-    br_circuit, qubit_parameters = basis_rotation_circuit(mol, parameters=0.1)
-    vqe = VQE(br_circuit, hamiltonian)
+    circuit += circuit_ansatz(mol, ansatz="br", include_hf=False)
+    qubit_parameters = np.random.rand(len(circuit.get_parameters()))
+    vqe = VQE(circuit, hamiltonian)
     vqe_result = vqe.minimize(qubit_parameters)
 
     print(f"VQE energy: {vqe_result[0]:.8f} (Basis rotation ansatz)")

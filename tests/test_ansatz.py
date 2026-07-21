@@ -25,6 +25,7 @@ from qibochem.ansatz.ansatz import (
     givens_circuit,
     he_circuit,
     hf_circuit,
+    pche_circuit,
     qeb_circuit,
     symm_preserving_circuit,
     ucc_circuit,
@@ -79,6 +80,36 @@ def test_he_circuit(rotation_gates, entangling_gate):
         assert gate.target_qubits == target.target_qubits
         assert gate.control_qubits == target.control_qubits
         assert gate.parameters == target.parameters
+
+
+def test_pche_circuit():
+    """Test Physics-Constrained HEA"""
+    nqubits = 4
+    nlayers = 2
+    # Test circuit first; convert the None arguments for the control circuit later
+    test_circuit = pche_circuit(nqubits, nlayers)
+
+    # Expected gates: U1 (RY, RX), U2 (RY, fSim, RY), RZ, U2^\dag, U1^\dag
+    names = (
+        nqubits * ["RY"]
+        + nqubits * ["RX"]
+        + (nqubits - 1) * ["RY", "fSim", "RY"]
+        + nqubits * ["RZ"]
+        + (nqubits - 1) * ["RY", "fSim", "RY"]
+        + nqubits * ["RX"]
+        + nqubits * ["RY"]
+    )
+    qubits = [(i,) for i in range(nqubits)]
+    gate_qubits = (
+        2 * qubits
+        + [qubits for i in range(nqubits - 1) for qubits in ((i,), (i, i + 1), (i,))]
+        + qubits
+        + [qubits for i in range(nqubits - 1, 0, -1) for qubits in ((i - 1,), (i, i - 1), (i - 1,))]
+        + 2 * qubits
+    )
+    for gate, (control_gate, control_qubits) in zip(test_circuit.queue, zip(names, gate_qubits)):
+        assert gate.__class__.__name__ == control_gate
+        assert gate.qubits == control_qubits
 
 
 @pytest.mark.parametrize(

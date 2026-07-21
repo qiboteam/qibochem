@@ -5,7 +5,8 @@ Sample script of how to build and run the UCCSD ansatz with HF embedding for LiH
 import numpy as np
 from qibo.optimizers import optimize
 
-from qibochem.ansatz import generate_excitations, sort_excitations, ucc_ansatz
+from qibochem.ansatz import circuit_ansatz
+from qibochem.ansatz.utils import generate_excitations
 from qibochem.driver import Molecule
 
 
@@ -59,15 +60,14 @@ def main():
     # UCCSD: Get the list of excitations for constructing the circuit ansatz
     excitations = []
     for order in range(2, 0, -1):  # Reversed to get higher excitations first
-        excitations += sort_excitations(
-            generate_excitations(order, range(0, n_electrons), range(n_electrons, n_qubits))
-        )
+        excitations += generate_excitations(order, range(0, n_electrons), range(n_electrons, n_qubits))
+
     print(f"Excitations: {excitations}\n")
     # Output: [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4], [0, 2], [1, 3], (0, 4), (1, 5)]
     # Note that there are strictly only 5 distinct excitations w.r.t. the MOs. We can use this to speed up the VQE
 
     # Construct the UCCSD circuit. This can be built using the ucc_ansatz function
-    circuit = ucc_ansatz(mol, excitations=excitations)
+    circuit = circuit_ansatz(mol, "ucc", excitations=excitations)
 
     # Draw the circuit if interested
     # circuit.draw()

@@ -203,6 +203,53 @@ def he_circuit(
     return circuit
 
 
+def pche_circuit(
+    nqubits: int,
+    nlayers: int,
+    **kwargs,
+) -> Circuit:
+    """
+    Physics-constrained Hardware-Efficient Ansatz
+
+    Args:
+        nqubits (int): Number of qubits in the quantum circuit.
+        nlayers (int): Number of layers used to construct the circuit ansatz
+        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
+            documentation of :class:`qibo.models.circuit.Circuit`
+
+    Returns:
+        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the Physics-Constrained Hardware-Efficient ansatz
+
+    References:
+        1. X. Xiao, H. Zhao, J. Ren, W. Fang, and Z. Li, *Physics-Constrained Hardware-Efficient Ansatz on Quantum
+        Computers That Is Universal, Systematically Improvable, and Size-Consistent*, Journal of Chemical Theory and
+        Computation, 2024, 20, 1912-1922.
+        (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.3c00966>`__ or
+        on `arXiv <https://arxiv.org/abs/2307.03563>`__)
+    """
+    circuit = Circuit(nqubits, **kwargs)
+    for _ in range(nlayers):
+        # Add U1 to each qunit
+        circuit.add(gates.RY(i, 0.0) for i in range(nqubits))
+        circuit.add(gates.RX(i, 0.0) for i in range(nqubits))
+        # Add U2 to entangle each qubit
+        for i in range(nqubits - 1):
+            circuit.add(gates.RY(i, 0.0))
+            circuit.add(gates.fSim(i, i + 1, 0.0, 0.0))
+            circuit.add(gates.RY(i, 0.0))
+        # Add RZ gates
+        circuit.add(gates.RZ(i, 0.0) for i in range(nqubits))
+        # Add U2 to entangle each qubit
+        for i in range(nqubits - 1, 0, -1):
+            circuit.add(gates.RY(i - 1, 0.0).dagger())
+            circuit.add(gates.fSim(i, i - 1, 0.0, 0.0).dagger())
+            circuit.add(gates.RY(i - 1, 0.0).dagger())
+        # Add U1 to each qunit
+        circuit.add(gates.RX(i, 0.0).dagger() for i in range(nqubits))
+        circuit.add(gates.RY(i, 0.0).dagger() for i in range(nqubits))
+    return circuit
+
+
 def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs) -> Circuit:
     """
     Quantum circuit to prepare a Hartree-Fock state
