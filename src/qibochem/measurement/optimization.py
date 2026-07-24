@@ -136,6 +136,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         nullspace = _binary_nullspace(v_basis)
         # Interchange the 1st/2nd half of the indices to get nullspace in a symplectic sense
         nullspace = np.concatenate((nullspace[:, dim_symplectic:], nullspace[:, :dim_symplectic]), axis=1)
+        nullspace = _binary_gaussian_elimination(nullspace)
         v_basis = _lagrangian_subspace(nullspace)
 
     # Different methods of circuit synthesis

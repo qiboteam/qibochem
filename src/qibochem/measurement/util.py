@@ -175,7 +175,6 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
 
         if cp_vector_space.shape[0] == (cp_vector_space.shape[1] // 2):
             break
-
         # Remove the two anti-commuting vectors from the basis
         space_to_orthogonalize = np.delete(cp_vector_space, anticommuting_vector_indices, axis=0)
         for _i1, vector in enumerate(space_to_orthogonalize):
@@ -202,6 +201,12 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     will return
     [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
     """
+    # Check to see if sorting needed
+    dim = v_basis.shape[0]
+    if all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
+        return v_basis
+
+    # TODO: Can refactor this?
     # Convert the basis set to strings for easier sorting
     pauli_terms = [_symplectic_to_pauli(vector) for vector in v_basis]
     dim = len(pauli_terms)

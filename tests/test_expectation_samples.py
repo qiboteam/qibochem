@@ -2,6 +2,7 @@
 Test expectation functionality
 """
 
+import numpy as np
 import pytest
 from qibo import Circuit, gates
 from qibo.hamiltonians import SymbolicHamiltonian
@@ -110,6 +111,24 @@ def test_measurement_grouping_functionality(hamiltonian):
             grouping=grouping,
         )
         assert test == pytest.approx(expected, abs=0.08)
+
+
+def test_measurement_grouping_extra_tests():
+    """Additional tests for some previously undiscovered bugs"""
+    for method in ("gc", "gc2"):
+        hamiltonian = SymbolicHamiltonian(0.5 * X(0) * Y(1) + Z(0) * Z(1) * Z(2), nqubits=3)
+        circuit = Circuit(3)
+        circuit.add(gates.H(0))  # <X0> = +1
+        circuit.add(gates.RX(1, theta=-np.pi / 2))  # <Y1> = +1  ->  exact <H> = +0.5
+        result = expectation_from_samples(circuit, hamiltonian, n_shots=100_000, grouping=method)
+        assert result == pytest.approx(hamiltonian.expectation(circuit), abs=0.01)
+
+        hamiltonian = SymbolicHamiltonian(0.5 * Y(0) * X(1) * Z(3) * Z(4) + Z(0) * Z(1) * X(2) * Z(3) * Z(4), nqubits=5)
+        circuit = Circuit(5)
+        circuit.add(gates.RX(0, theta=-np.pi / 2))  # <Y0> = +1
+        circuit.add(gates.H(1))  # <X1> = +1; q3,q4 in |0>  ->  exact <H> = +0.5
+        result = expectation_from_samples(circuit, hamiltonian, n_shots=100_000, grouping=method)
+        assert result == pytest.approx(hamiltonian.expectation(circuit), abs=0.01)
 
 
 def test_h2_hf_energy():
