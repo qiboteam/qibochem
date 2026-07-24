@@ -169,7 +169,7 @@ def test_lagrangian_subspace():
 def test_sort_tau_terms():
     # Using the example given in the function docstring
     test_terms = (["X0", "X2"], ["Z1", "X3", "Z4", "X5"], ["Z0", "Z2"], ["Z1"], ["Z3", "Z5"], ["Z4"])
-    test_symplectic_form = [_pauli_to_symplectic(term, nqubits=6) for term in test_terms]
+    test_symplectic_form = np.array([_pauli_to_symplectic(term, nqubits=6) for term in test_terms])
     result_symplectic = _sort_tau_terms(test_symplectic_form)
     result_pauli = [_symplectic_to_pauli(term) for term in result_symplectic]
     assert result_pauli == [["X0", "X2"], ["Z1"], ["Z0", "Z2"], ["Z3", "Z5"], ["Z4"], ["Z1", "X3", "Z4", "X5"]]
