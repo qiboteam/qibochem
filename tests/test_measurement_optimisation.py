@@ -2,7 +2,6 @@
 Test functionality to reduce the measurement cost of running VQE
 """
 
-import numpy as np
 import pytest
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -19,6 +18,12 @@ from qibochem.measurement.shot_allocation import (
 
 def test_gc_measurement_mapping():
     """Remaining coverage tests for _gc_measurement_mapping"""
+    # Check that qubits to measure remain unchanged
+    ham = SymbolicHamiltonian(X(2) * X(3) + Y(2) * Y(3) + Z(2) * Z(3), nqubits=4)
+    mapping, m_gates = _gc_measurement_mapping(ham.form, ham.nqubits, "chong")
+    assert {term.target_qubit for term in mapping.values() if hasattr(term, "target_qubit")} == {2, 3}
+
+    # Single term Hamiltonian
     ham = SymbolicHamiltonian(Z(2))
     mapping, m_gates = _gc_measurement_mapping(ham.form, 2, "izmaylov")
     assert mapping == {"Z2": ham.form}  # Single term expression should remain unchanged
