@@ -195,37 +195,22 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
 
 
 def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
-    """
-    Sorts v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
-    [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
-    will return
-    [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
-    """
-    # Check to see if sorting needed
+    """Sorts the rows of v_basis s.t. the (i, i) and (i, i+dim) entries are not 0, i.e. i'th basis vector i is NOT I"""
     dim = v_basis.shape[0]
-    if all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
-        return v_basis
-
-    # TODO: Can refactor this?
-    # Convert the basis set to strings for easier sorting
-    pauli_terms = [_symplectic_to_pauli(vector) for vector in v_basis]
-    dim = len(pauli_terms)
-    sorted_terms = {}
-    remaining = list(pauli_terms)
-
-    while remaining:
-        qubit_terms = {
-            qubit: [term for term in remaining if any(_get_qubit(_op) == qubit for _op in term)]
-            for qubit in range(dim)
-            if qubit not in sorted_terms
+    while True:
+        # Sorting done
+        if all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
+            break
+        # Sort unmatched qubits
+        unmatched_qubits = [i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])]
+        matches_for_unmatched_qubits = {
+            i: [qubit for qubit in range(dim) if v_basis[i, qubit] or v_basis[i, qubit + dim]] for i in unmatched_qubits
         }
         # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
-        qubit = min(qubit_terms, key=lambda x: (len(qubit_terms[x]), x))
-        selected_term = min(qubit_terms[qubit], key=len)
-        sorted_terms[qubit] = selected_term
-        remaining.remove(selected_term)
-    # Convert the strings back to symplectic vectors and return the whole array
-    return np.array([_pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
+        row_to_swap = min(matches_for_unmatched_qubits, key=lambda x: (len(matches_for_unmatched_qubits[x]), x))
+        target = min(matches_for_unmatched_qubits[row_to_swap])
+        v_basis[[row_to_swap, target]] = v_basis[[target, row_to_swap]]
+    return v_basis
 
 
 def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
