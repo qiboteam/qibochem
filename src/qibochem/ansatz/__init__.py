@@ -5,6 +5,7 @@ from qibochem.ansatz.ansatz import (
     hamming_weight_circuit,
     he_circuit,
     hf_circuit,
+    pche_circuit,
     qeb_circuit,
     symm_preserving_circuit,
     ucc_circuit,
