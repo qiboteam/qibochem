@@ -146,6 +146,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         qubit_map = dict(zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits))
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
         u_gates = _synthesise_circuit(v_basis)
+        u_gates += [gates.SWAP(i, j) for i, j in qubit_map.items() if i != j]
         mapping = {
             term: phase * prod(Z(qubit_map[_i]) for _i in soln)
             for term, phase, soln in zip(term_list, phase_factors, x_result)

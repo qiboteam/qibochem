@@ -325,34 +325,39 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
         list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
     """
     gates_list = []
-    dim, _dim_space = stabiliser_matrix.shape
-    dim_space = _dim_space // 2
+    dim, dim_space = stabiliser_matrix.shape
+    dim_space = dim_space // 2
 
+    pivot_col = 0
     # Paper used row reduction, but should be column reduction in our context
-    for _i in range(dim_space):
-        if _i >= dim:
+    for row in range(dim):
+        if pivot_col >= dim_space:
             break
-        # Get columns with row _i != 0
-        nonzero_cols = np.nonzero(stabiliser_matrix[_i, :dim_space])[0]
+        # Get columns at row i with 1
+        nonzero_cols = np.where(stabiliser_matrix[row, pivot_col:dim_space] == 1)[0]
 
-        # Always take the first nonzero row to sort
-        _col = [_j for _j in nonzero_cols if _j >= _i][0]
-        if _i not in nonzero_cols:
-            stabiliser_matrix[:, [_i, _col, _i + dim_space, _col + dim_space]] = stabiliser_matrix[
-                :, [_col, _i, _col + dim_space, _i + dim_space]
+        col = pivot_col + nonzero_cols[0]
+
+        # Move pivot column of X matrix into position
+        if col != pivot_col:
+            stabiliser_matrix[:, [pivot_col, col, pivot_col + dim_space, col + dim_space]] = stabiliser_matrix[
+                :, [col, pivot_col, col + dim_space, pivot_col + dim_space]
             ]
-            gates_list.append(gates.SWAP(_i, _col))
-        nonzero_cols = np.nonzero(stabiliser_matrix[_i, :dim_space])[0]
+            gates_list.append(gates.SWAP(col, pivot_col))
+
+        # Eliminate other 1's in the present row
+        nonzero_cols = np.where(stabiliser_matrix[row, :dim_space] == 1)[0]
+        nonzero_cols = nonzero_cols[nonzero_cols != pivot_col]
+
         # Remove all nonzero entries on row _i using CNOT gates
-        for _col in nonzero_cols:  # Ignore first entry of nonzero_cols since effectively should be 0 now
-            if _col != _i:
-                # Add j^th column to i^th column
-                stabiliser_matrix[:, _col] += stabiliser_matrix[:, _i]
-                # Add (i+dim_space)^th column to (j+dim_space)^th column
-                # RHS of stabiliser matrix should be 0 matrix, so I think can ignore...?
-                stabiliser_matrix[:, dim_space + _i] += stabiliser_matrix[:, _col + dim_space]
-                stabiliser_matrix %= 2
-                gates_list.append(gates.CNOT(_i, _col))
+        for col in nonzero_cols:
+            # X matrix: Add pivot column to column with 1
+            stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
+            # Z matrix: Add (column with 1)^th column to pivot column
+            stabiliser_matrix[:, pivot_col + dim_space] += stabiliser_matrix[:, col + dim_space]
+            stabiliser_matrix %= 2
+            gates_list.append(gates.CNOT(col, pivot_col))
+        pivot_col += 1
 
     return gates_list
 
@@ -397,10 +402,13 @@ def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
     rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix)
+    print("Matrix:\n", stabiliser_matrix)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
     rotation_gates += _col_reduce_x_matrix(stabiliser_matrix)
+    print("Matrix:\n", stabiliser_matrix)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
     rotation_gates += _zero_z_matrix(stabiliser_matrix)
+    print("Matrix:\n", stabiliser_matrix)
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
     return rotation_gates
