@@ -32,22 +32,6 @@ def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expect
     assert result == expected
 
 
-# @pytest.mark.parametrize(
-#     "terms,gates_to_add",
-#     [
-#         (Z(0), [gates.X(0)]),
-#         (Z(0) * Z(1), [gates.X(0)]),
-#         (X(0), [gates.H(0)]),
-#     ],
-# )
-# def test_expectation_from_samples(terms, gates_to_add):
-#     hamiltonian = SymbolicHamiltonian(terms, nqubits=2)
-#     circuit = Circuit(2)
-#     circuit.add(gates_to_add)
-#     result = expectation_from_samples(circuit, hamiltonian)
-#     assert result == pytest.approx(expected := hamiltonian.expectation(circuit)), f"{result} != {expected}"
-
-
 def test_measurement_basis_rotations_error():
     """If unknown measurement grouping scheme used"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
@@ -158,18 +142,19 @@ def test_h2_hf_energy():
 
 
 @pytest.mark.parametrize(
-    "hamiltonian,grouping,expected_means,expected_variances",
+    "terms,grouping,expected_means,expected_variances",
     [
-        (SymbolicHamiltonian(X(0), nqubits=2), None, [1.0], [0.0]),
-        (SymbolicHamiltonian(X(0) + Z(0), nqubits=2), None, [1.0, 0.0], [0.0, 0.0]),
-        (SymbolicHamiltonian(Z(0) + X(0) * Z(1), nqubits=2), "qwc", [-1.0, 0.0], [0.0, 0.0]),
+        (X(0), None, [1.0], [0.0]),
+        (X(0) + Z(0), None, [1.0, 0.0], [0.0, 0.0]),
+        (Z(0) + X(0) * Z(1), "qwc", [-1.0, 0.0], [0.0, 0.0]),
     ],
 )
-def test_sample_statistics(hamiltonian, grouping, expected_means, expected_variances):
+def test_sample_statistics(terms, grouping, expected_means, expected_variances):
     circuit = Circuit(2)
     circuit.add(gates.H(0))
     circuit.add(gates.X(1))
-    n_trial_shots = 20000
+    n_trial_shots = 20_000
+    hamiltonian = SymbolicHamiltonian(terms, nqubits=2)
     grouped_terms = _measurement_basis_rotations(hamiltonian, grouping)
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
@@ -177,24 +162,25 @@ def test_sample_statistics(hamiltonian, grouping, expected_means, expected_varia
 
 
 @pytest.mark.parametrize(
-    "hamiltonian,grouping",
+    "terms,grouping",
     [
-        (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), None),
-        (SymbolicHamiltonian(0.2 * X(0) + Y(2) + 13.0), "qwc"),
-        (SymbolicHamiltonian(Z(0) + X(0) * Y(1) + Z(0) * Y(2)), None),
-        (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "qwc"),
-        (SymbolicHamiltonian(Y(0) + Z(1) + X(0) * Z(2)), "gc"),
+        (0.2 * X(0) + Y(2) + 13.0, None),
+        (0.2 * X(0) + Y(2) + 13.0, "qwc"),
+        (Z(0) + X(0) * Y(1) + Z(0) * Y(2), None),
+        (Y(0) + Z(1) + X(0) * Z(2), "qwc"),
+        (Y(0) + Z(1) + X(0) * Z(2), "gc"),
     ],
 )
-def test_v_expectation_vmsa(hamiltonian, grouping):
+def test_v_expectation_vmsa(terms, grouping):
     """Small scale tests of variance-based expectation value evaluation"""
-    n_qubits = 3
-    circuit = Circuit(n_qubits)
-    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(n_qubits))
-    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(n_qubits - 1))
-    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(n_qubits))
+    nqubits = 3
+    circuit = Circuit(nqubits)
+    circuit.add(gates.RX(_i, 0.1 * _i) for _i in range(nqubits))
+    circuit.add(gates.CNOT(_i, _i + 1) for _i in range(nqubits - 1))
+    circuit.add(gates.RZ(_i, 0.2 * _i) for _i in range(nqubits))
+    hamiltonian = SymbolicHamiltonian(terms, nqubits=nqubits)
     expected = hamiltonian.expectation(circuit)
-    n_shots = 50000
+    n_shots = 50_000
     n_trial_shots = 2000
     test = v_expectation(
         circuit,
