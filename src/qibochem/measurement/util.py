@@ -5,6 +5,7 @@ Utility functions for optimising measurements and calculation of expectation val
 import networkx as nx
 import numpy as np
 from qibo import gates
+from qibo.config import raise_error
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
@@ -117,65 +118,41 @@ def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
-    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces vector_space
-    in-place to its (unique) reduced row echelon form, and removes any zero rows as well
+    Performs Gaussian elimination on a binary vector_space. Returns the (unique) reduced row echelon form, and removes
+    any zero rows as well
     """
-    cp_vector_space = np.array(vector_space, dtype=np.uint8)
-    # rows, cols = vector_space.shape
+    vector_space = np.array(vector_space)  # Create a copy for returning
+    rows, cols = vector_space.shape
 
-    # pivot_row = 0
-    # for col in range(cols):
-    #     # Find a pivot row with a 1 in current column.
-    #     pivot_candidates = np.where(vector_space[pivot_row:, col] == 1)[0]
-    #     if pivot_candidates.size == 0:
-    #         continue
+    pivot_row = 0
+    for col in range(cols):
+        # Find a pivot row with a 1 in current column.
+        pivot_candidates = np.where(vector_space[pivot_row:, col] == 1)[0]
+        if pivot_candidates.size == 0:
+            continue
 
-    #     row = pivot_row + pivot_candidates[0]
+        row = pivot_row + pivot_candidates[0]
 
-    #     # Swap current row with pivot row if needed.
-    #     if pivot_row != row:
-    #         vector_space[[row, pivot_row]] = vector_space[[pivot_row, row]]
+        # Swap current row with pivot row if needed.
+        if pivot_row != row:
+            vector_space[[row, pivot_row]] = vector_space[[pivot_row, row]]
 
-    #     # Eliminate all other rows
-    #     rows_to_reduce = np.where(vector_space[:, col] == 1)[0]
-    #     rows_to_reduce = rows_to_reduce[rows_to_reduce != row]
+        # Eliminate all other rows
+        rows_to_reduce = np.where(vector_space[:, col] == 1)[0]
+        rows_to_reduce = rows_to_reduce[rows_to_reduce != pivot_row]
 
-    #     # In GF(2), elimination is XOR with the pivot row.
-    #     vector_space[rows_to_reduce] += vector_space[row]
-    #     vector_space %= 2
+        # In GF(2), elimination is XOR with the pivot row.
+        vector_space[rows_to_reduce] += vector_space[pivot_row]
+        vector_space %= 2
 
-    #     row += 1
-    #     if row == rows:
-    #         break
-
-    dim = vector_space.shape[0]
-    # Swap the rows in the vector space to get its row echelon form
-    for _i in range(dim):
-        subspace_to_sort = cp_vector_space[_i:, :]
-        if not np.any(subspace_to_sort):
+        pivot_row += 1
+        if pivot_row == rows:
             break
 
-        # Always take the first nonzero column to sort
-        nonzero_cols = np.nonzero(np.any(subspace_to_sort, axis=0))[0]
-        _col = nonzero_cols[0]
-
-        col_indices = subspace_to_sort[:, _col].argsort()[::-1]
-        subspace_to_sort[:, :] = subspace_to_sort[col_indices]
-
-        # Other than row _i, find which rows have 1 in column _i
-        rows_to_reduce = [_j for _j, _row in enumerate(cp_vector_space) if _j != _i and cp_vector_space[_j, _col] == 1]
-
-        # Add row _i to each of the rows with 1 in the same column
-        cp_vector_space[[rows_to_reduce]] += cp_vector_space[_i]
-        cp_vector_space %= 2
-
     # Remove all zero rows from the obtained basis
-    zero_vector_indices = np.all(cp_vector_space == 0, axis=1)
-    cp_vector_space = cp_vector_space[~zero_vector_indices]
-
-    return cp_vector_space
-
-    # return vector_space
+    zero_vector_indices = np.all(vector_space == 0, axis=1)
+    vector_space = vector_space[~zero_vector_indices]
+    return vector_space
 
 
 def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
@@ -228,10 +205,7 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
 def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     """Sorts the rows of v_basis s.t. the (i, i) and (i, i+dim) entries are not 0, i.e. i'th basis vector i is NOT I"""
     dim = v_basis.shape[0]
-    while True:
-        # Sorting done
-        if all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
-            break
+    while not all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
         # Sort unmatched qubits
         unmatched_qubits = [i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])]
         matches_for_unmatched_qubits = {
@@ -275,7 +249,7 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         )
         new_tau_terms = new_tau_terms % 2
 
-    return new_tau_terms, np.array(sigma_terms)
+    return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
 
 
 def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[np.ndarray]:
@@ -284,7 +258,7 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
     aug_matrix = np.concatenate((binary_matrix, vector), axis=0).T
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     # Get non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
-    return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + _i])[0].tolist() for _i in range(vector.shape[0])]
+    return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist() for i in range(vector.shape[0])]
 
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
@@ -332,20 +306,19 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     dim_space = stabiliser_matrix.shape[1] // 2
     x_matrix = stabiliser_matrix[:, :dim_space]
     z_matrix = stabiliser_matrix[:, dim_space:]
+
     # Need to find full rank submatrix in Z matrix for each of the zero rows in the X matrix
-    zero_row_indices = [_i for _i, is_zero in enumerate(np.all(x_matrix == 0, axis=1)) if is_zero]
-    # Only need to do anything if there are zero rows in the X matrix
-    while zero_row_indices:
-        nonzero_cols_by_row = {row: list(np.nonzero(z_matrix[row, :])[0]) for row in zero_row_indices}
-        # See if there are any single-element lists in the values of nonzero_cols_by_row
-        no_choice_rows = [row for row, possible_cols in nonzero_cols_by_row.items() if len(possible_cols) == 1]
-        chosen_row = no_choice_rows[0] if no_choice_rows else zero_row_indices[0]
-        chosen_qubit = nonzero_cols_by_row[chosen_row][0]
-        stabiliser_matrix[:, [chosen_qubit, chosen_qubit + dim_space]] = stabiliser_matrix[
-            :, [chosen_qubit + dim_space, chosen_qubit]
-        ]
-        gates_list.append(gates.H(chosen_qubit))
-        zero_row_indices.remove(chosen_row)
+    zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
+    prev_swap = []  # To avoid swapping the same column twice
+    while zero_row_indices.size > 0:
+        # Select the first possible column for the first zero row
+        for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
+            if qubit not in prev_swap:
+                stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
+                gates_list.append(gates.H(qubit))
+                prev_swap.append(qubit)
+                break
+        zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
     return gates_list
 
 
