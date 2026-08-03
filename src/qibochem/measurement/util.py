@@ -87,7 +87,9 @@ def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
     pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(nqubits)]), shape=2 * nqubits, order="F"
+        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+        shape=2 * nqubits,
+        order="F",
     )
     return sym_vector
 
@@ -115,10 +117,36 @@ def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
-    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces and returns
-    vector_space to its (unique) reduced row echelon form, and removes any zero rows as well
+    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces vector_space
+    in-place to its (unique) reduced row echelon form, and removes any zero rows as well
     """
-    cp_vector_space = np.array(vector_space)
+    cp_vector_space = np.array(vector_space, dtype=np.uint8)
+    # rows, cols = vector_space.shape
+
+    # pivot_row = 0
+    # for col in range(cols):
+    #     # Find a pivot row with a 1 in current column.
+    #     pivot_candidates = np.where(vector_space[pivot_row:, col] == 1)[0]
+    #     if pivot_candidates.size == 0:
+    #         continue
+
+    #     row = pivot_row + pivot_candidates[0]
+
+    #     # Swap current row with pivot row if needed.
+    #     if pivot_row != row:
+    #         vector_space[[row, pivot_row]] = vector_space[[pivot_row, row]]
+
+    #     # Eliminate all other rows
+    #     rows_to_reduce = np.where(vector_space[:, col] == 1)[0]
+    #     rows_to_reduce = rows_to_reduce[rows_to_reduce != row]
+
+    #     # In GF(2), elimination is XOR with the pivot row.
+    #     vector_space[rows_to_reduce] += vector_space[row]
+    #     vector_space %= 2
+
+    #     row += 1
+    #     if row == rows:
+    #         break
 
     dim = vector_space.shape[0]
     # Swap the rows in the vector space to get its row echelon form
@@ -144,7 +172,10 @@ def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     # Remove all zero rows from the obtained basis
     zero_vector_indices = np.all(cp_vector_space == 0, axis=1)
     cp_vector_space = cp_vector_space[~zero_vector_indices]
+
     return cp_vector_space
+
+    # return vector_space
 
 
 def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
@@ -222,7 +253,7 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     sigma_terms = []
     dim = tau_terms[0].shape[0] // 2
     # Make a copy of the original basis set for orthogonalization
-    new_tau_terms = np.array(tau_terms)
+    new_tau_terms = np.array(tau_terms, dtype=np.uint8)
     # Iterate over the original tau_i to make changes to new_tau_i
     for _i in range(dim):
         tau_i = new_tau_terms[_i]
@@ -239,8 +270,9 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
                 _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
                 # symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j > _i else np.zeros(2 * dim)
                 for _j in range(dim)
-            ]
-        ).astype(int)
+            ],
+            dtype=np.uint8,
+        )
         new_tau_terms = new_tau_terms % 2
 
     return new_tau_terms, np.array(sigma_terms)
@@ -402,13 +434,10 @@ def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
     rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix)
-    print("Matrix:\n", stabiliser_matrix)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
     rotation_gates += _col_reduce_x_matrix(stabiliser_matrix)
-    print("Matrix:\n", stabiliser_matrix)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
     rotation_gates += _zero_z_matrix(stabiliser_matrix)
-    print("Matrix:\n", stabiliser_matrix)
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
     return rotation_gates

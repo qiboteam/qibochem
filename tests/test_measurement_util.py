@@ -57,9 +57,9 @@ def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
     # "pauli_string,n_qubits,expected",
     "function_args,expected",
     [
-        ({"pauli_string": ["X0", "Y1", "Z2"], "nqubits": 4}, np.array([1, 1, 0, 0, 0, 1, 1, 0])),
-        ({"pauli_string": ["Z1", "X3"], "nqubits": 4}, np.array([0, 0, 0, 1, 0, 1, 0, 0])),
-        ({"pauli_string": [], "nqubits": 4}, np.array([0, 0, 0, 0, 0, 0, 0, 0])),
+        ({"pauli_string": ["X0", "Y1", "Z2"], "nqubits": 4}, np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)),
+        ({"pauli_string": ["Z1", "X3"], "nqubits": 4}, np.array([0, 0, 0, 1, 0, 1, 0, 0], dtype=np.uint8)),
+        ({"pauli_string": [], "nqubits": 4}, np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)),
     ],
 )
 def test_pauli_to_symplectic(function_args, expected):
@@ -70,8 +70,8 @@ def test_pauli_to_symplectic(function_args, expected):
 @pytest.mark.parametrize(
     "function_args,expected",
     [
-        ({"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0])}, ["X0", "Y1", "Z2"]),
-        ({"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0])}, ["Y1", "X3"]),
+        ({"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)}, ["X0", "Y1", "Z2"]),
+        ({"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0], dtype=np.uint8)}, ["Y1", "X3"]),
     ],
 )
 def test_symplectic_to_pauli(function_args, expected):
@@ -82,8 +82,8 @@ def test_symplectic_to_pauli(function_args, expected):
 @pytest.mark.parametrize(
     "u,v",
     [
-        (np.array([1, 1, 0, 0, 0, 1, 1, 0]), np.array([1, 1, 0, 0, 0, 1, 1, 0])),
-        (np.array([1, 0, 0, 0, 1, 1, 1, 1]), np.array([1, 1, 0, 0, 0, 1, 1, 0])),
+        (np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8), np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)),
+        (np.array([1, 0, 0, 0, 1, 1, 1, 1], dtype=np.uint8), np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)),
     ],
 )
 def test_symplectic_inner_product(u, v):
@@ -91,12 +91,12 @@ def test_symplectic_inner_product(u, v):
     dim = u.shape[0] // 2
     j_matrix = np.concatenate(
         (
-            np.concatenate((np.zeros((dim, dim)), np.identity(dim, dtype=int)), axis=1),
-            np.concatenate((np.identity(dim, dtype=int), np.zeros((dim, dim))), axis=1),
+            np.concatenate((np.zeros((dim, dim), dtype=np.uint8), np.identity(dim, dtype=np.uint8)), axis=1),
+            np.concatenate((np.identity(dim, dtype=np.uint8), np.zeros((dim, dim), dtype=np.uint8)), axis=1),
         ),
         axis=0,
     )
-    assert _symplectic_inner_product(u, v) == (np.dot(u, np.dot(j_matrix, v)).astype(int) % 2)
+    assert _symplectic_inner_product(u, v) == (np.dot(u, np.dot(j_matrix, v)) % 2)
 
 
 @pytest.mark.parametrize(
@@ -104,30 +104,49 @@ def test_symplectic_inner_product(u, v):
     [
         (
             np.array(
-                [[0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]]
+                [[0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]],
+                dtype=np.uint8,
             ),
-            np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]]),
+            np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 1, 1]], dtype=np.uint8),
         ),
         (
             np.array(
-                [[1, 1, 1, 1, 0, 1, 1, 0], [1, 1, 1, 1, 1, 0, 0, 1], [1, 1, 1, 1, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1, 0, 0]]
+                [
+                    [1, 1, 1, 1, 0, 1, 1, 0],
+                    [1, 1, 1, 1, 1, 0, 0, 1],
+                    [1, 1, 1, 1, 0, 0, 1, 1],
+                    [1, 1, 1, 1, 1, 1, 0, 0],
+                ],
+                dtype=np.uint8,
             ),
-            np.array([[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]]),
+            np.array([[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]], dtype=np.uint8),
         ),
         (
-            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 0, 1]]),
-            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]]),
+            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 0, 1]], dtype=np.uint8),
+            np.array([[0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]], dtype=np.uint8),
         ),
         (
-            np.array([[0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]]),
-            np.array([[0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]]),
+            np.array([[0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]], dtype=np.uint8),
+            np.array([[0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 1, 0]], dtype=np.uint8),
         ),
         (
             np.array(
-                [[1, 1, 1, 1, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 1, 1], [1, 1, 1, 1, 0, 1, 0, 1], [1, 1, 1, 1, 1, 0, 0, 1]]
+                [
+                    [1, 1, 1, 1, 0, 0, 0, 0],
+                    [1, 1, 1, 1, 0, 0, 1, 1],
+                    [1, 1, 1, 1, 0, 1, 0, 1],
+                    [1, 1, 1, 1, 1, 0, 0, 1],
+                ],
+                dtype=np.uint8,
             ),
             np.array(
-                [[1, 1, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 0, 0, 0, 1, 0, 1], [0, 0, 0, 0, 0, 0, 1, 1]]
+                [
+                    [1, 1, 1, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 0, 0, 1],
+                    [0, 0, 0, 0, 0, 1, 0, 1],
+                    [0, 0, 0, 0, 0, 0, 1, 1],
+                ],
+                dtype=np.uint8,
             ),
         ),
     ],
@@ -139,9 +158,13 @@ def test_binary_gaussian_elimination(test, result):
 
 
 def test_binary_nullspace():
-    test_space = np.array([[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]])
+    test_space = np.array(
+        [[1, 1, 1, 1, 0, 0, 1, 1], [0, 0, 0, 0, 1, 0, 1, 0], [0, 0, 0, 0, 0, 1, 0, 1]], dtype=np.uint8
+    )
     nullspace = _binary_nullspace(test_space)
-    assert all(np.allclose((test_space @ vector) % 2, np.zeros(test_space.shape[0])) for vector in nullspace)
+    assert all(
+        np.allclose((test_space @ vector) % 2, np.zeros(test_space.shape[0], dtype=np.uint8)) for vector in nullspace
+    )
 
 
 def test_lagrangian_subspace():
@@ -154,7 +177,7 @@ def test_lagrangian_subspace():
             [0, 0, 0, 1, 0, 1, 0, 1],
             [0, 0, 0, 0, 1, 1, 1, 1],
         ],
-        dtype=int,
+        dtype=np.uint8,
     )
     subspace = _lagrangian_subspace(test_space)
     # Vectors in subspace should all be symplectically orthogonal to each other
