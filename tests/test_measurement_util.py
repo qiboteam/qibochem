@@ -254,7 +254,8 @@ def test_col_reduce_x_matrix():
         [
             [1, 1, 0, 0, 0, 1, 0, 1],
             [0, 1, 0, 0, 1, 0, 1, 0],
-        ]
+        ],
+        dtype=np.uint8,
     )
     gates_list = _col_reduce_x_matrix(stabiliser_matrix)
     # Single column operation, should have only CNOT gate
@@ -268,7 +269,8 @@ def test_zero_z_matrix():
             [0, 1, 0, 0, 0, 0, 0, 0],
             [0, 0, 1, 0, 0, 0, 0, 0],
             [0, 0, 0, 1, 0, 0, 0, 0],
-        ]
+        ],
+        dtype=np.uint8,
     )
     gates_list = _zero_z_matrix(stabiliser_matrix)
     # Single column operation, should have only CNOT gate
