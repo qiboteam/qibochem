@@ -5,7 +5,6 @@ Utility functions for optimising measurements and calculation of expectation val
 import networkx as nx
 import numpy as np
 from qibo import gates
-from qibo.config import raise_error
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
@@ -167,28 +166,25 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
 
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
     """Find Lagrangian subspace of the given vector space; the symplectic nullspace in this context"""
-    cp_vector_space = np.array(vector_space)
-    # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
-    while True:
+    # Remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
+    while vector_space.shape[0] > (vector_space.shape[1] // 2):
         anticommuting_vector_indices, anticommuting_vectors = None, None
         # Find a pair of anti-commuting vectors in vector_space
-        for _i1, _v1 in enumerate(cp_vector_space):
-            for _i2, _v2 in enumerate(cp_vector_space):
-                if _i2 > _i1 and _symplectic_inner_product(_v1, _v2) == 1:
-                    anticommuting_vector_indices = [_i1, _i2]
-                    anticommuting_vectors = cp_vector_space[anticommuting_vector_indices]
+        for i1, v1 in enumerate(vector_space):
+            for i2, v2 in enumerate(vector_space):
+                if i2 > i1 and _symplectic_inner_product(v1, v2) == 1:
+                    anticommuting_vector_indices = [i1, i2]
+                    anticommuting_vectors = vector_space[anticommuting_vector_indices]
                     break
             if anticommuting_vector_indices is not None:
                 break
 
-        if cp_vector_space.shape[0] == (cp_vector_space.shape[1] // 2):
-            break
         # Remove the two anti-commuting vectors from the basis
-        space_to_orthogonalize = np.delete(cp_vector_space, anticommuting_vector_indices, axis=0)
-        for _i1, vector in enumerate(space_to_orthogonalize):
-            for _i2, anticommuting_vector in enumerate(anticommuting_vectors):
-                space_to_orthogonalize[_i1] += (
-                    _symplectic_inner_product(vector, anticommuting_vectors[1 - _i2]) * anticommuting_vector
+        space_to_orthogonalize = np.delete(vector_space, anticommuting_vector_indices, axis=0)
+        for i1, vector in enumerate(space_to_orthogonalize):
+            for i2, anticommuting_vector in enumerate(anticommuting_vectors):
+                space_to_orthogonalize[i1] += (
+                    _symplectic_inner_product(vector, anticommuting_vectors[1 - i2]) * anticommuting_vector
                 )
                 space_to_orthogonalize = space_to_orthogonalize % 2
 
@@ -196,10 +192,10 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
         first_nonzero_col = np.argmax(anticommuting_vectors, axis=1)
         selected_vector = anticommuting_vectors[np.argmax(first_nonzero_col)]
 
-        cp_vector_space = np.append([selected_vector], space_to_orthogonalize, axis=0)
-        cp_vector_space = _binary_gaussian_elimination(cp_vector_space)
+        vector_space = np.append([selected_vector], space_to_orthogonalize, axis=0)
+        vector_space = _binary_gaussian_elimination(vector_space)
 
-    return cp_vector_space
+    return vector_space
 
 
 def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
