@@ -106,6 +106,7 @@ def test_measurement_grouping_functionality(grouping, terms):
             (gates.RX(0, theta=-np.pi / 2), gates.H(1)),
         ),
         (Y(1) * Y(2) + X(0) * X(1) * Z(2), 3, (gates.H(0), gates.H(1))),
+        (Y(0) * X(1) + X(0) * Y(1) * Z(2), 3, (gates.H(0), gates.S(0), gates.H(1), gates.X(2), gates.H(2))),
     ],
 )
 def test_measurement_grouping_extra_tests(grouping, terms, nqubits, gates_to_add):
