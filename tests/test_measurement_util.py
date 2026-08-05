@@ -274,4 +274,4 @@ def test_zero_z_matrix():
     )
     gates_list = _zero_z_matrix(stabiliser_matrix)
     # Single column operation, should have only CNOT gate
-    assert len(gates_list) == 1 and gates_list[0].name == "sdg"
+    assert len(gates_list) == 1 and gates_list[0].name == "s"
