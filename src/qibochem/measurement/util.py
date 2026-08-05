@@ -304,15 +304,15 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     z_matrix = stabiliser_matrix[:, dim_space:]
 
     # Need to find full rank submatrix in Z matrix for each of the zero rows in the X matrix
+    qubits = []
     zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
-    prev_swap = []  # To avoid swapping the same column twice
     while zero_row_indices.size > 0:
         # Select the first possible column for the first zero row
         for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
-            if qubit not in prev_swap:
+            if qubit not in qubits:
                 stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
                 gates_list.append(gates.H(qubit))
-                prev_swap.append(qubit)
+                qubits.append(qubit)
                 break
         zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
     return gates_list
@@ -374,13 +374,13 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     """
     s_gates = []
     cz_gates = []
-    dim, _dim_space = stabiliser_matrix.shape
-    dim_space = _dim_space // 2
+    dim, dim_space = stabiliser_matrix.shape
+    dim_space = dim_space // 2
     # Following the algorithm in the paper, zero out the diagonal entries first
     for _i in range(dim):
         if stabiliser_matrix[_i, dim_space + _i] == 1:
             stabiliser_matrix[_i, dim_space + _i] = 0
-            s_gates.append(gates.S(_i).dagger())  # Paper says S gate, but should be S.dagger?
+            s_gates.append(gates.S(_i))
         # Then remove the off-diagonal terms in each row
         for _j in range(dim_space):
             if _j > _i and stabiliser_matrix[_i, dim_space + _j] == 1:
@@ -403,10 +403,13 @@ def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
     rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
     rotation_gates += _col_reduce_x_matrix(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
     rotation_gates += _zero_z_matrix(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
     return rotation_gates
