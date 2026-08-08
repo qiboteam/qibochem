@@ -10,7 +10,7 @@ from qibo import gates
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
-SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
+SYMPLECTIC_PHASE_TABLE = [1.0, -1.0j, 1.0j]
 SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
 
 
@@ -87,7 +87,9 @@ def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
     pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(_i, "I")] for _i in range(nqubits)]), shape=2 * nqubits, order="F"
+        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+        shape=2 * nqubits,
+        order="F",
     )
     return sym_vector
 
@@ -115,36 +117,41 @@ def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
-    Carries out Gaussian elimination on a binary vector_space to obtain a basis for vector_space. Reduces and returns
-    vector_space to its (unique) reduced row echelon form, and removes any zero rows as well
+    Performs Gaussian elimination on a binary vector_space. Returns the (unique) reduced row echelon form, and removes
+    any zero rows as well
     """
-    cp_vector_space = np.array(vector_space)
+    vector_space = np.array(vector_space)  # Create a copy for returning
+    rows, cols = vector_space.shape
 
-    dim = vector_space.shape[0]
-    # Swap the rows in the vector space to get its row echelon form
-    for _i in range(dim):
-        subspace_to_sort = cp_vector_space[_i:, :]
-        if not np.any(subspace_to_sort):
+    pivot_row = 0
+    for col in range(cols):
+        # Find a pivot row with a 1 in current column.
+        pivot_candidates = np.where(vector_space[pivot_row:, col] == 1)[0]
+        if pivot_candidates.size == 0:
+            continue
+
+        row = pivot_row + pivot_candidates[0]
+
+        # Swap current row with pivot row if needed.
+        if pivot_row != row:
+            vector_space[[row, pivot_row]] = vector_space[[pivot_row, row]]
+
+        # Eliminate all other rows
+        rows_to_reduce = np.where(vector_space[:, col] == 1)[0]
+        rows_to_reduce = rows_to_reduce[rows_to_reduce != pivot_row]
+
+        # In GF(2), elimination is XOR with the pivot row.
+        vector_space[rows_to_reduce] += vector_space[pivot_row]
+        vector_space %= 2
+
+        pivot_row += 1
+        if pivot_row == rows:
             break
 
-        # Always take the first nonzero column to sort
-        nonzero_cols = np.nonzero(np.any(subspace_to_sort, axis=0))[0]
-        _col = nonzero_cols[0]
-
-        col_indices = subspace_to_sort[:, _col].argsort()[::-1]
-        subspace_to_sort[:, :] = subspace_to_sort[col_indices]
-
-        # Other than row _i, find which rows have 1 in column _i
-        rows_to_reduce = [_j for _j, _row in enumerate(cp_vector_space) if _j != _i and cp_vector_space[_j, _col] == 1]
-
-        # Add row _i to each of the rows with 1 in the same column
-        cp_vector_space[[rows_to_reduce]] += cp_vector_space[_i]
-        cp_vector_space %= 2
-
     # Remove all zero rows from the obtained basis
-    zero_vector_indices = np.all(cp_vector_space == 0, axis=1)
-    cp_vector_space = cp_vector_space[~zero_vector_indices]
-    return cp_vector_space
+    zero_vector_indices = np.all(vector_space == 0, axis=1)
+    vector_space = vector_space[~zero_vector_indices]
+    return vector_space
 
 
 def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
@@ -159,64 +166,52 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
 
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
     """Find Lagrangian subspace of the given vector space; the symplectic nullspace in this context"""
-    cp_vector_space = np.array(vector_space)
-    # While loop to remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
-    while True:
+    # Remove rows from cp_vector_space until cp_vector_space.shape matches (N, 2N)
+    while vector_space.shape[0] > (vector_space.shape[1] // 2):
         anticommuting_vector_indices, anticommuting_vectors = None, None
         # Find a pair of anti-commuting vectors in vector_space
-        for _i1, _v1 in enumerate(cp_vector_space):
-            for _i2, _v2 in enumerate(cp_vector_space):
-                if _i2 > _i1 and _symplectic_inner_product(_v1, _v2) == 1:
-                    anticommuting_vector_indices = [_i1, _i2]
-                    anticommuting_vectors = cp_vector_space[anticommuting_vector_indices]
+        for i1, v1 in enumerate(vector_space):
+            for i2, v2 in enumerate(vector_space):
+                if i2 > i1 and _symplectic_inner_product(v1, v2) == 1:
+                    anticommuting_vector_indices = [i1, i2]
+                    anticommuting_vectors = vector_space[anticommuting_vector_indices]
                     break
             if anticommuting_vector_indices is not None:
                 break
 
-        if cp_vector_space.shape[0] == (cp_vector_space.shape[1] // 2):
-            break
-
         # Remove the two anti-commuting vectors from the basis
-        space_to_orthogonalize = np.delete(cp_vector_space, anticommuting_vector_indices, axis=0)
-        for _i1, vector in enumerate(space_to_orthogonalize):
-            for _i2, anticommuting_vector in enumerate(anticommuting_vectors):
-                space_to_orthogonalize[_i1] += (
-                    _symplectic_inner_product(vector, anticommuting_vectors[1 - _i2]) * anticommuting_vector
+        space_to_orthogonalize = np.delete(vector_space, anticommuting_vector_indices, axis=0)
+        for i1, vector in enumerate(space_to_orthogonalize):
+            for i2, anticommuting_vector in enumerate(anticommuting_vectors):
+                space_to_orthogonalize[i1] += (
+                    _symplectic_inner_product(vector, anticommuting_vectors[1 - i2]) * anticommuting_vector
                 )
                 space_to_orthogonalize = space_to_orthogonalize % 2
 
-        cp_vector_space = np.append([anticommuting_vectors[0]], space_to_orthogonalize, axis=0)
-        cp_vector_space = _binary_gaussian_elimination(cp_vector_space)
+        # Preferentially select Z over X
+        first_nonzero_col = np.argmax(anticommuting_vectors, axis=1)
+        selected_vector = anticommuting_vectors[np.argmax(first_nonzero_col)]
 
-    return cp_vector_space
+        vector_space = np.append([selected_vector], space_to_orthogonalize, axis=0)
+        vector_space = _binary_gaussian_elimination(vector_space)
+
+    return vector_space
 
 
 def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
-    """
-    Sorts v_basis s.t. the i'th term of basis vector i is NOT I, e.g.
-    [['X0', 'X2'], ['Z1', 'X3', 'Z4', 'X5'], ['Z0', 'Z2'], ['Z1'], ['Z3', 'Z5'], ['Z4']]
-    will return
-    [['X0', 'X2'], ['Z1'], ['Z0', 'Z2'], ['Z3', 'Z5'], ['Z4'], ['Z1', 'X3', 'Z4', 'X5']]
-    """
-    # Convert the basis set to strings for easier sorting
-    pauli_terms = [_symplectic_to_pauli(vector) for vector in v_basis]
-    dim = len(pauli_terms)
-    sorted_terms = {}
-    remaining = list(pauli_terms)
-
-    while remaining:
-        qubit_terms = {
-            qubit: [term for term in remaining if any(_get_qubit(_op) == qubit for _op in term)]
-            for qubit in range(dim)
-            if qubit not in sorted_terms
+    """Sorts the rows of v_basis s.t. the (i, i) and (i, i+dim) entries are not 0, i.e. i'th basis vector i is NOT I"""
+    dim = v_basis.shape[0]
+    while not all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
+        # Sort unmatched qubits
+        unmatched_qubits = [i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])]
+        matches_for_unmatched_qubits = {
+            i: [qubit for qubit in range(dim) if v_basis[i, qubit] or v_basis[i, qubit + dim]] for i in unmatched_qubits
         }
         # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
-        qubit = min(qubit_terms, key=lambda x: (len(qubit_terms[x]), x))
-        selected_term = min(qubit_terms[qubit], key=len)
-        sorted_terms[qubit] = selected_term
-        remaining.remove(selected_term)
-    # Convert the strings back to symplectic vectors and return the whole array
-    return np.array([_pauli_to_symplectic(sorted_terms[_i], dim) for _i in range(dim)])
+        row_to_swap = min(matches_for_unmatched_qubits, key=lambda x: (len(matches_for_unmatched_qubits[x]), x))
+        target = min(matches_for_unmatched_qubits[row_to_swap])
+        v_basis[[row_to_swap, target]] = v_basis[[target, row_to_swap]]
+    return v_basis
 
 
 def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -228,7 +223,7 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     sigma_terms = []
     dim = tau_terms[0].shape[0] // 2
     # Make a copy of the original basis set for orthogonalization
-    new_tau_terms = np.array(tau_terms)
+    new_tau_terms = np.array(tau_terms, dtype=np.uint8)
     # Iterate over the original tau_i to make changes to new_tau_i
     for _i in range(dim):
         tau_i = new_tau_terms[_i]
@@ -245,11 +240,12 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
                 _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
                 # symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j > _i else np.zeros(2 * dim)
                 for _j in range(dim)
-            ]
-        ).astype(int)
+            ],
+            dtype=np.uint8,
+        )
         new_tau_terms = new_tau_terms % 2
 
-    return new_tau_terms, np.array(sigma_terms)
+    return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
 
 
 def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[np.ndarray]:
@@ -258,19 +254,22 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
     aug_matrix = np.concatenate((binary_matrix, vector), axis=0).T
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     # Get non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
-    return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + _i])[0].tolist() for _i in range(vector.shape[0])]
+    return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist() for i in range(vector.shape[0])]
 
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-    coeff, current_pauli_op = 1.0, np.zeros(2)
+    coeff, current_pauli_op = 1.0, None
     for pauli_op in pauli_ops:
         # If I, just skip
-        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
+        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
+            continue
+        if current_pauli_op is None:
             current_pauli_op = pauli_op
             continue
-        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
+        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
+            current_pauli_op = pauli_op
             continue
         # Multiply by some phase factor depending on what Pauli operators are involved
         coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
@@ -306,20 +305,19 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     dim_space = stabiliser_matrix.shape[1] // 2
     x_matrix = stabiliser_matrix[:, :dim_space]
     z_matrix = stabiliser_matrix[:, dim_space:]
+
     # Need to find full rank submatrix in Z matrix for each of the zero rows in the X matrix
-    zero_row_indices = [_i for _i, is_zero in enumerate(np.all(x_matrix == 0, axis=1)) if is_zero]
-    # Only need to do anything if there are zero rows in the X matrix
-    while zero_row_indices:
-        nonzero_cols_by_row = {row: list(np.nonzero(z_matrix[row, :])[0]) for row in zero_row_indices}
-        # See if there are any single-element lists in the values of nonzero_cols_by_row
-        no_choice_rows = [row for row, possible_cols in nonzero_cols_by_row.items() if len(possible_cols) == 1]
-        chosen_row = no_choice_rows[0] if no_choice_rows else zero_row_indices[0]
-        chosen_qubit = nonzero_cols_by_row[chosen_row][0]
-        stabiliser_matrix[:, [chosen_qubit, chosen_qubit + dim_space]] = stabiliser_matrix[
-            :, [chosen_qubit + dim_space, chosen_qubit]
-        ]
-        gates_list.append(gates.H(chosen_qubit))
-        zero_row_indices.remove(chosen_row)
+    qubits = []
+    zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
+    while zero_row_indices.size > 0:
+        # Select the first possible column for the first zero row
+        for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
+            if qubit not in qubits:
+                stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
+                gates_list.append(gates.H(qubit))
+                qubits.append(qubit)
+                break
+        zero_row_indices = np.where(np.all(x_matrix == 0, axis=1))[0]
     return gates_list
 
 
@@ -331,34 +329,39 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
         list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
     """
     gates_list = []
-    dim, _dim_space = stabiliser_matrix.shape
-    dim_space = _dim_space // 2
+    dim, dim_space = stabiliser_matrix.shape
+    dim_space = dim_space // 2
 
+    pivot_col = 0
     # Paper used row reduction, but should be column reduction in our context
-    for _i in range(dim_space):
-        if _i >= dim:
+    for row in range(dim):
+        if pivot_col >= dim_space:
             break
-        # Get columns with row _i != 0
-        nonzero_cols = np.nonzero(stabiliser_matrix[_i, :dim_space])[0]
+        # Get columns at row i with 1
+        nonzero_cols = np.where(stabiliser_matrix[row, pivot_col:dim_space] == 1)[0]
 
-        # Always take the first nonzero row to sort
-        _col = [_j for _j in nonzero_cols if _j >= _i][0]
-        if _i not in nonzero_cols:
-            stabiliser_matrix[:, [_i, _col, _i + dim_space, _col + dim_space]] = stabiliser_matrix[
-                :, [_col, _i, _col + dim_space, _i + dim_space]
+        col = pivot_col + nonzero_cols[0]
+
+        # Move pivot column of X matrix into position
+        if col != pivot_col:
+            stabiliser_matrix[:, [pivot_col, col, pivot_col + dim_space, col + dim_space]] = stabiliser_matrix[
+                :, [col, pivot_col, col + dim_space, pivot_col + dim_space]
             ]
-            gates_list.append(gates.SWAP(_i, _col))
-        nonzero_cols = np.nonzero(stabiliser_matrix[_i, :dim_space])[0]
+            gates_list.append(gates.SWAP(col, pivot_col))
+
+        # Eliminate other 1's in the present row
+        nonzero_cols = np.where(stabiliser_matrix[row, :dim_space] == 1)[0]
+        nonzero_cols = nonzero_cols[nonzero_cols != pivot_col]
+
         # Remove all nonzero entries on row _i using CNOT gates
-        for _col in nonzero_cols:  # Ignore first entry of nonzero_cols since effectively should be 0 now
-            if _col != _i:
-                # Add j^th column to i^th column
-                stabiliser_matrix[:, _col] += stabiliser_matrix[:, _i]
-                # Add (i+dim_space)^th column to (j+dim_space)^th column
-                # RHS of stabiliser matrix should be 0 matrix, so I think can ignore...?
-                stabiliser_matrix[:, dim_space + _i] += stabiliser_matrix[:, _col + dim_space]
-                stabiliser_matrix %= 2
-                gates_list.append(gates.CNOT(_i, _col))
+        for col in nonzero_cols:
+            # X matrix: Add pivot column to column with 1
+            stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
+            # Z matrix: Add (column with 1)^th column to pivot column
+            stabiliser_matrix[:, pivot_col + dim_space] += stabiliser_matrix[:, col + dim_space]
+            stabiliser_matrix %= 2
+            gates_list.append(gates.CNOT(col, pivot_col))
+        pivot_col += 1
 
     return gates_list
 
@@ -374,13 +377,13 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     """
     s_gates = []
     cz_gates = []
-    dim, _dim_space = stabiliser_matrix.shape
-    dim_space = _dim_space // 2
+    dim, dim_space = stabiliser_matrix.shape
+    dim_space = dim_space // 2
     # Following the algorithm in the paper, zero out the diagonal entries first
     for _i in range(dim):
         if stabiliser_matrix[_i, dim_space + _i] == 1:
             stabiliser_matrix[_i, dim_space + _i] = 0
-            s_gates.append(gates.S(_i).dagger())  # Paper says S gate, but should be S.dagger?
+            s_gates.append(gates.S(_i))
         # Then remove the off-diagonal terms in each row
         for _j in range(dim_space):
             if _j > _i and stabiliser_matrix[_i, dim_space + _j] == 1:
@@ -403,10 +406,13 @@ def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
     rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
     rotation_gates += _col_reduce_x_matrix(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
     rotation_gates += _zero_z_matrix(stabiliser_matrix)
+    # print("Matrix:\n", stabiliser_matrix)
     # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
     rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
     return rotation_gates
