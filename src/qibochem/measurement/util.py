@@ -10,7 +10,7 @@ from qibo import gates
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
-SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
+SYMPLECTIC_PHASE_TABLE = [1.0, -1.0j, 1.0j]
 SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
 
 
