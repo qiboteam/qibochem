@@ -256,20 +256,27 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
     # Get non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
     return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist() for i in range(vector.shape[0])]
 
+PAULI_MULTIPLICATION_PHASE = {
+    ((1, 0), (0, 1)): 1.0j,   # X * Z = iY
+    ((0, 1), (1, 0)): -1.0j,  # Z * X = -iY
+    ((1, 0), (1, 1)): -1.0j,  # X * Y = -iZ
+    ((1, 1), (1, 0)): 1.0j,   # Y * X = iZ
+    ((0, 1), (1, 1)): 1.0j,   # Z * Y = iX
+    ((1, 1), (0, 1)): -1.0j,  # Y * Z = -iX
+}
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
-    """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
-    # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
     coeff, current_pauli_op = 1.0, None
     for pauli_op in pauli_ops:
-        # If I, just skip
-        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
+        key = tuple(pauli_op)
+        if SYMPLECTIC_INDEX[key] == 0:
             continue
         if current_pauli_op is None:
             current_pauli_op = pauli_op
             continue
-        # Multiply by some phase factor depending on what Pauli operators are involved
-        coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
+
+        current_key = tuple(current_pauli_op)
+        coeff *= PAULI_MULTIPLICATION_PHASE[(current_key, key)]
         current_pauli_op = (current_pauli_op + pauli_op) % 2
     return coeff
 
