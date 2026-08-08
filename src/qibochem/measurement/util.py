@@ -260,13 +260,16 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-    coeff, current_pauli_op = 1.0, np.zeros(2)
+    coeff, current_pauli_op = 1.0, None
     for pauli_op in pauli_ops:
         # If I, just skip
-        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
+        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
+            continue
+        if current_pauli_op is None:
             current_pauli_op = pauli_op
             continue
-        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
+        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
+            current_pauli_op = pauli_op
             continue
         # Multiply by some phase factor depending on what Pauli operators are involved
         coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
