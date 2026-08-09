@@ -265,7 +265,7 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
         b_x, b_z = int(pauli_op[0]), int(pauli_op[1])
         exponent = (exponent + r_x * b_z - r_z * b_x) % 4
         r_x, r_z = r_x ^ b_x, r_z ^ b_z
-    return 1j ** exponent
+    return 1j**exponent
 
 
 def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
