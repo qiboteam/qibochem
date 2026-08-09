@@ -10,7 +10,7 @@ from qibo import gates
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
-SYMPLECTIC_PHASE_TABLE = [1.0, -1.0j, 1.0j]
+SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
 SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
 
 
@@ -259,34 +259,20 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
-    # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-    coeff, current_pauli_op = 1.0, None
+    exponent = 0  # power of i, tracked mod 4
+    r_x, r_z = 0, 0  # running product in symplectic form, starts at I = (0, 0)
     for pauli_op in pauli_ops:
-        # If I, just skip
-        if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
-            continue
-        if current_pauli_op is None:
-            current_pauli_op = pauli_op
-            continue
-        if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
-            current_pauli_op = pauli_op
-            continue
-        # Multiply by some phase factor depending on what Pauli operators are involved
-        coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
-        current_pauli_op = (current_pauli_op + pauli_op) % 2
-    return coeff
+        b_x, b_z = int(pauli_op[0]), int(pauli_op[1])
+        exponent = (exponent + r_x * b_z - r_z * b_x) % 4
+        r_x, r_z = r_x ^ b_x, r_z ^ b_z
+    return 1j ** exponent
 
 
 def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
     """Compute phase factor of a product of mutually commuting Pauli terms (in symplectic form). Returns: 1 or -1"""
-    # Singleton case is trivial: 1
-    if len(pauli_terms) == 1:
-        return 1
-    # >1 term:
     dim = pauli_terms[0].shape[0] // 2
     coefficient = 1.0
     for qubit in range(dim):
-        # Get all Pauli operators for a particular qubit
         pauli_ops = [pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms]
         coefficient *= _single_qubit_phase_factor(pauli_ops)
     return int(np.real_if_close(coefficient))
