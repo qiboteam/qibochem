@@ -262,6 +262,20 @@ def test_col_reduce_x_matrix():
     # Single column operation, should have only CNOT gate
     assert len(gates_list) == 1 and gates_list[0].name == "cx"
     assert phases[0] == 1
+    # Code coverage for Gaussian elimination. Note: Input matrix isn't a commuting set, so shouldn't ever need
+    control = np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+        ],
+        dtype=np.uint8,
+    )
+    stabiliser_matrix = np.array(control, dtype=np.uint8)
+    phases = np.array([0, 0], dtype=np.uint8)
+    _gates = _col_reduce_x_matrix(stabiliser_matrix, phases)
+    # No change to stabiliser matrix
+    assert np.array_equal(control, stabiliser_matrix)
 
 
 def test_zero_z_matrix():
