@@ -289,9 +289,9 @@ def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
     return int(np.real_if_close(coefficient))
 
 
-def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
+def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
     """
-    Modifies stabiliser_matrix (in-place) to transform 'X matrix' to full rank, with H gates representing each 'swap'
+    Modifies stabiliser_matrix and phases in-place to transform 'X matrix' to full rank, with H gates representing each 'swap'
     of columns between the 'Z' and 'X' matrices. Note: stabiliser_matrix should already be in reduced row echelon form
 
     Returns:
@@ -310,6 +310,8 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
         # Select the first possible column for the first zero row
         for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
             if qubit not in qubits:
+                # For S(a)/H(a): r_i := r_i + x_{i,a} z_{i,a} for all i
+                phases += stabiliser_matrix[:, qubit] * stabiliser_matrix[:, qubit + dim_space]
                 stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
                 gates_list.append(gates.H(qubit))
                 qubits.append(qubit)
@@ -318,9 +320,9 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     return gates_list
 
 
-def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
+def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
     """
-    Modifies stabiliser_matrix in-place to transform the X matrix to I, using CNOT/SWAP gates
+    Modifies stabiliser_matrix and phases in-place to transform the X matrix to I, using CNOT/SWAP gates
 
     Returns:
         list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
@@ -352,22 +354,27 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
 
         # Remove all nonzero entries on row _i using CNOT gates
         for col in nonzero_cols:
+            # For CNOT(a, b): r_i := r_i + x_{i,a} z_{i,b} (x_{i,b} + z_{i,a} + 1), for all i
+            phase_changes = stabiliser_matrix[:, col] + stabiliser_matrix[:, pivot_col] + 1
+            phase_changes %= 2
+            phase_changes *= stabiliser_matrix[:, pivot_col] * stabiliser_matrix[:, col]
+            phases += phase_changes
             # X matrix: Add pivot column to column with 1
             stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
             # Z matrix: Add (column with 1)^th column to pivot column
             stabiliser_matrix[:, pivot_col + dim_space] += stabiliser_matrix[:, col + dim_space]
             stabiliser_matrix %= 2
-            gates_list.append(gates.CNOT(col, pivot_col))
+            gates_list.append(gates.CNOT(pivot_col, col))
         pivot_col += 1
 
     return gates_list
 
 
-def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
+def _zero_z_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
     """
-    Modifies stabiliser_matrix in-place to transform the Z matrix to a zero matrix.
-    1. S gates used to set diagonal entries on Z matrix
-    2. CZ gates used to remove off-diagonal entries on Z matrix
+    Modifies stabiliser_matrix and phases in-place to transform the Z matrix to a zero matrix.
+    1. S gates used to set diagonal entries on Z matrix (Phases updated)
+    2. CZ gates used to remove off-diagonal entries on Z matrix (Phases not updated)
 
     Returns:
         list[gates.Gate]: List of S and CZ gates to be added to the circuit
@@ -377,39 +384,43 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray) -> list[gates.Gate]:
     dim, dim_space = stabiliser_matrix.shape
     dim_space = dim_space // 2
     # Following the algorithm in the paper, zero out the diagonal entries first
-    for _i in range(dim):
-        if stabiliser_matrix[_i, dim_space + _i] == 1:
-            stabiliser_matrix[_i, dim_space + _i] = 0
-            s_gates.append(gates.S(_i))
+    for i in range(dim):
+        if stabiliser_matrix[i, dim_space + i] == 1:
+            # For S(a)/H(a): r_i := r_i + x_{i,a} z_{i,a} for all i
+            phases += stabiliser_matrix[:, i] * stabiliser_matrix[:, i + dim_space]
+            stabiliser_matrix[i, dim_space + i] = 0
+            s_gates.append(gates.S(i))
         # Then remove the off-diagonal terms in each row
-        for _j in range(dim_space):
-            if _j > _i and stabiliser_matrix[_i, dim_space + _j] == 1:
-                stabiliser_matrix[_i, dim_space + _j] = 0
-                stabiliser_matrix[_j, dim_space + _i] = 0
-                cz_gates.append(gates.CZ(_i, _j))
+        for j in range(dim_space):
+            if j > i and stabiliser_matrix[i, dim_space + j] == 1:
+                # Note: Not updating the phases w.r.t. CZ
+                stabiliser_matrix[i, dim_space + j] = 0
+                stabiliser_matrix[j, dim_space + i] = 0
+                cz_gates.append(gates.CZ(i, j))
     return s_gates + cz_gates
 
 
-def _synthesise_circuit(v_basis: np.ndarray) -> list[gates.Gate]:
+def _synthesise_circuit(v_basis: np.ndarray) -> tuple[list[gates.Gate], list[int]]:
     """
     Gets the basis rotation gates for rotating the initial measurement basis into the computational basis.
     The stabiliser matrix (v_basis) follows the format of (X|Z) matrices.
 
     Returns:
         list[gates.Gate]: Gates to be added after the circuit ansatz
+        list[int]: Phases of the measured basis terms
     """
-    stabiliser_matrix = np.array(v_basis)
-    n_qubits = stabiliser_matrix.shape[1] // 2
+    stabiliser_matrix = np.array(v_basis, dtype=np.uint8)
+    nqubits = stabiliser_matrix.shape[0]
+    phases = np.array([[0 for _ in range(nqubits)]], dtype=np.uint8)  # To keep track of phases
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
-    rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix)
-    # print("Matrix:\n", stabiliser_matrix)
+    rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix, phases)
     # 2. Row-reduce 'X matrix' to I using CNOT/SWAP gates
-    rotation_gates += _col_reduce_x_matrix(stabiliser_matrix)
-    # print("Matrix:\n", stabiliser_matrix)
+    rotation_gates += _col_reduce_x_matrix(stabiliser_matrix, phases)
     # 3. Remove all non-zero entries on 'Z matrix' using S and CZ gates
-    rotation_gates += _zero_z_matrix(stabiliser_matrix)
-    # print("Matrix:\n", stabiliser_matrix)
-    # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices
-    rotation_gates += [gates.H(_i) for _i in range(n_qubits)]
-    return rotation_gates
+    rotation_gates += _zero_z_matrix(stabiliser_matrix, phases)
+    # 4. Apply H to each qubit to swap the 'X' and 'Z' matrices. Note: Not gonna update phases here
+    rotation_gates += [gates.H(i) for i in range(nqubits)]
+    # Update circuit phase factors to be 1 or -1
+    phases = [-1 if x else 1 for x in phases[0]]
+    return rotation_gates, phases
