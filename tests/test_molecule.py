@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import openfermion
 import pytest
-from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Z
 
@@ -29,7 +28,7 @@ def test_pyscf_driver(xyz_file, expected):
         file_path = Path("tests", "data") / Path(xyz_file)
         # In case .xyz files somehow not found
         if not file_path.is_file():
-            with open(file_path, "w") as file_handler:
+            with open(file_path, "w", encoding="utf-8") as file_handler:
                 if xyz_file == "lih.xyz":
                     file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
                 elif xyz_file == "h2.xyz":
