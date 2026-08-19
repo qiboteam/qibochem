@@ -99,6 +99,7 @@ def test_measurement_grouping_functionality(grouping, terms):
 @pytest.mark.parametrize(
     "terms,nqubits,gates_to_add",
     [
+        (X(0) * X(1) + Y(0) * Z(1), 2, (gates.H(0), gates.H(1))),
         (0.5 * X(0) * Y(1) + Z(0) * Z(1) * Z(2), 3, (gates.H(0), gates.RX(1, theta=-np.pi / 2))),
         (
             0.5 * Y(0) * X(1) * Z(3) * Z(4) + Z(0) * Z(1) * X(2) * Z(3) * Z(4),
