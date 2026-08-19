@@ -148,8 +148,8 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         u_gates, phases = _synthesise_circuit(v_basis)
         u_gates += [gates.SWAP(i, j) for i, j in qubit_map.items() if i != j]
         mapping = {
-            term: circuit_phase * phase * prod(Z(qubit_map[_i]) for _i in soln)
-            for term, circuit_phase, phase, soln in zip(term_list, phases, phase_factors, x_result)
+            term: phase * prod(phases[i] * Z(qubit_map[i]) for i in soln)
+            for term, phase, soln in zip(term_list, phase_factors, x_result)
         }
     elif method == "izmaylov":
         v_basis = _sort_tau_terms(v_basis)

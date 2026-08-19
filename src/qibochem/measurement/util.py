@@ -355,9 +355,9 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
         # Remove all nonzero entries on row _i using CNOT gates
         for col in nonzero_cols:
             # For CNOT(a, b): r_i := r_i + x_{i,a} z_{i,b} (x_{i,b} + z_{i,a} + 1), for all i
-            phase_changes = stabiliser_matrix[:, col] + stabiliser_matrix[:, pivot_col] + 1
+            phase_changes = stabiliser_matrix[:, col] + stabiliser_matrix[:, pivot_col + dim_space] + 1
             phase_changes %= 2
-            phase_changes *= stabiliser_matrix[:, pivot_col] * stabiliser_matrix[:, col]
+            phase_changes *= stabiliser_matrix[:, pivot_col] * stabiliser_matrix[:, col + dim_space]
             phases += phase_changes
             # X matrix: Add pivot column to column with 1
             stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
@@ -373,7 +373,7 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
 def _zero_z_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
     """
     Modifies stabiliser_matrix and phases in-place to transform the Z matrix to a zero matrix.
-    1. S gates used to set diagonal entries on Z matrix (Phases updated)
+    1. S gates used to set diagonal entries on Z matrix
     2. CZ gates used to remove off-diagonal entries on Z matrix (Phases not updated)
 
     Returns:
@@ -393,7 +393,7 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[ga
         # Then remove the off-diagonal terms in each row
         for j in range(dim_space):
             if j > i and stabiliser_matrix[i, dim_space + j] == 1:
-                # Note: Not updating the phases w.r.t. CZ
+                # Note: Not updating phases here
                 stabiliser_matrix[i, dim_space + j] = 0
                 stabiliser_matrix[j, dim_space + i] = 0
                 cz_gates.append(gates.CZ(i, j))
