@@ -113,7 +113,7 @@ def test_pche_circuit():
 
 
 @pytest.mark.parametrize(
-    "mapping,",
+    "mapping",
     [
         None,  # JW mapping
         "bk",  # BK mapping
