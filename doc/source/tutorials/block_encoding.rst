@@ -25,11 +25,11 @@ block encode the qubit Hamiltonian into a circuit with unitary
 
     from qibochem.driver import Molecule
     import numpy as np
-    
+
     # perform the PySCF calculation to get the integrals and thus, second-quantized Hamiltonian
     h2 = Molecule([('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))])
     h2.run_pyscf()
-    
+
     # retrieve the symbolic qubit hamiltonian, which is already a linear combination of unitaries (LCU)
     sym_hamiltonian = h2.hamiltonian('sym')
 
@@ -45,11 +45,11 @@ block encode the qubit Hamiltonian into a circuit with unitary
     coeffs = sym_hamiltonian.simple_terms[0]
     raw_opp = sym_hamiltonian.simple_terms[1]
     raw_opq = sym_hamiltonian.simple_terms[2]
-    
+
     # reverse the order of the Pauli operations for each term to effect their order of application on the input state
     opp = [p[::-1] for p in raw_opp]
     opq = [q[::-1] for q in raw_opq]
-    
+
     # append the constant term:
     coeffs.append(sym_hamiltonian.constant)
     opp.append('I')
@@ -80,7 +80,7 @@ We need to:
 
     lcu_norm = np.sum(np.abs(coeffs))
     alphas = np.sqrt(np.abs(coeffs)/lcu_norm)
-    
+
     # ensure that the state |k> will be normalized
     print('Norm of |k> = ', np.linalg.norm(alphas))
     print('Number of terms in |k> = ', len(alphas))
@@ -96,7 +96,7 @@ We need to:
 
     # determine qubits needed
     nq1 = int(np.ceil(np.log2(len(alphas))))
-    
+
     # pad the alpha vector such that it has the exact number of terms for nq1 qubits
     pad_size = (2 ** nq1) - len(alphas)
     temp1 = np.array(alphas, dtype=complex)
@@ -105,10 +105,10 @@ We need to:
 
 .. code:: ipython3
 
-    # encode this state vector into the circuit. 
-    
+    # encode this state vector into the circuit.
+
     from qibo.models.encodings import binary_encoder
-    
+
     circuit_PREP = binary_encoder(nqubits=nq1, parametrization='mottonen-complex', data=pad_alphas)
     circuit_PREP.draw()
 
@@ -119,12 +119,12 @@ We need to:
     1:     ─RY─X─RY─X────o────|────o────|─────────o─────────|─────────o─────────| ...
     2:     ───────────RY─X─RY─X─RY─X─RY─X────o────|────o────|────o────|────o────| ...
     3:     ───────────────────────────────RY─X─RY─X─RY─X─RY─X─RY─X─RY─X─RY─X─RY─X ...
-    
+
     0: ... ─RZ─o────o─────────o─────────o───────────────────o───────────────────o ...
     1: ... ─RZ─X─RZ─X────o────|────o────|─────────o─────────|─────────o─────────| ...
     2: ... ───────────RZ─X─RZ─X─RZ─X─RZ─X────o────|────o────|────o────|────o────| ...
     3: ... ───────────────────────────────RZ─X─RZ─X─RZ─X─RZ─X─RZ─X─RZ─X─RZ─X─RZ─X ...
-    
+
     0: ... ─
     1: ... ─
     2: ... ─
@@ -160,7 +160,7 @@ for phase.
 
     import qibo
     from qibo import Circuit, gates, models
-    
+
     circuit_SELECT = Circuit(nq1 + sym_hamiltonian.nqubits)
 
 .. code:: ipython3
@@ -174,7 +174,7 @@ for phase.
         elif pauli_char == 'Z':
             return gates.Z(target_qubit)
         elif pauli_char == 'I':
-            return gates.I(target_qubit) 
+            return gates.I(target_qubit)
         else:
             raise ValueError(f"Unsupported gate: {pauli_char}")
 
@@ -182,7 +182,7 @@ for phase.
 
     bitlength = nq1
     select_controls = []
-    
+
     for _i in range(2**nq1):
         control_string = f"{_i:0{bitlength}b}"
         select_controls.append(control_string)
@@ -192,35 +192,35 @@ for phase.
     # Define control qubits and target qubit mapping
     control_qubits = (0, 1, 2, 3)
     target_map = {0: 4, 1: 5, 2: 6, 3: 7}
-    
+
     # Iterate through the operations
     for i in range(len(opp)):
         control_state = select_controls[i]
         pauli_string = opp[i]
         targets_unmapped = opq[i]
         coeff = coeffs[i]  # Get the original coefficient to check its sign
-        
+
         # Step 1: Apply X gates on control qubits that need to be conditioned on '0'
         for j, bit in enumerate(control_state):
             if bit == '0':
                 circuit_SELECT.add(gates.X(control_qubits[j]))
-                
+
         # Step 2: Apply the multi-controlled Pauli gates to the mapped target qubits
         for j, pauli_char in enumerate(pauli_string):
             unmapped_target = targets_unmapped[j]
             target_qubit = target_map[unmapped_target]
-            
+
             # Create base gate and add controls
             base_gate = get_pauli_gate(pauli_char, target_qubit)
             controlled_gate = base_gate.controlled_by(*control_qubits)
-            
+
             circuit_SELECT.add(controlled_gate)
-            
+
         # Step 3: Apply multi-controlled -1 phase for negative coefficients
         if coeff.real < 0:
             # Multi-controlled Z applies a -1 phase to the state |11...1>
             circuit_SELECT.add(gates.Z(control_qubits[-1]).controlled_by(*control_qubits[:-1]))
-            
+
         # Step 4: Uncompute the X gates to restore the control qubits
         for j, bit in enumerate(control_state):
             if bit == '0':
@@ -229,7 +229,7 @@ for phase.
 .. code:: ipython3
 
     # Display a summary of the generated circuit
-    
+
     print(circuit_SELECT.draw())
     #print(circuit_SELECT.summary())
 
@@ -244,7 +244,7 @@ for phase.
     5:     ───Z───────────|───────|───────|───────|─Z─────|─|─────|─────|─Z─────Z ...
     6:     ───────────────Z───────|───────Z───────|───────|─Z─────|─────Z──────── ...
     7:     ───────────────────────Z───────────────Z───────Z───────Z────────────── ...
-    
+
     0: ... ─o─────o─o─o─o─────o─o─o─o───o─o─o─o─o─────o─o─o─o─o───o─o───
     1: ... ─o─X─X─o─o─o─o─X─X─o─o─o─o─X─o─o─o─o─o─────o─o─o─o─o───o─o───
     2: ... ─o─X───o─o─o─o─────o─o─o─o─X─o─o─o─o─o─X─X─o─o─o─o─o─X─o─o───
@@ -265,7 +265,7 @@ for the PREP circuit earlier.
 .. code:: ipython3
 
     # prep_dagger
-    
+
     circuit_PREP_dag = circuit_PREP.invert()
 
 Final circuit
@@ -277,12 +277,12 @@ everything together.
 .. code:: ipython3
 
     circuit_BLOCKENCODE = Circuit(nq1 + sym_hamiltonian.nqubits)
-    
+
     circuit_BLOCKENCODE.add(circuit_PREP.on_qubits(*range(0,4)))
     circuit_BLOCKENCODE.add(circuit_SELECT.on_qubits(*range(0,8)))
     circuit_BLOCKENCODE.add(circuit_PREP_dag.on_qubits(*range(0,4)))
     #circuit_BLOCKENCODE.add(gates.M(*range(4,8)))
-           
+
     print(circuit_BLOCKENCODE.draw())
 
 
@@ -296,7 +296,7 @@ everything together.
     5:     ────────────────────────────────────────────────────────────────────── ...
     6:     ────────────────────────────────────────────────────────────────────── ...
     7:     ────────────────────────────────────────────────────────────────────── ...
-    
+
     0: ... ─RZ─o────o─────────o─────────o───────────────────o───────────────────o ...
     1: ... ─RZ─X─RZ─X────o────|────o────|─────────o─────────|─────────o─────────| ...
     2: ... ───────────RZ─X─RZ─X─RZ─X─RZ─X────o────|────o────|────o────|────o────| ...
@@ -305,7 +305,7 @@ everything together.
     5: ... ────────────────────────────────────────────────────────────────────── ...
     6: ... ────────────────────────────────────────────────────────────────────── ...
     7: ... ────────────────────────────────────────────────────────────────────── ...
-    
+
     0: ... ─X─o─X─X─o─X─X─o─o─X─X─o─o─X─X─o─o─X─X─o─o─X─X─o─o─X─X─o─o─X─o─o─────o ...
     1: ... ─X─o─X─X─o─X─X─o─o─X─X─o─o─X───o─o─────o─o─────o─o─────o─o─X─o─o─X─X─o ...
     2: ... ─X─o─X─X─o─X───o─o─────o─o─X───o─o─X─X─o─o─X───o─o─────o─o─X─o─o─X─X─o ...
@@ -314,7 +314,7 @@ everything together.
     5: ... ───Z───────────|───────|───────|───────|─Z─────|─|─────|─────|─Z─────Z ...
     6: ... ───────────────Z───────|───────Z───────|───────|─Z─────|─────Z──────── ...
     7: ... ───────────────────────Z───────────────Z───────Z───────Z────────────── ...
-    
+
     0: ... ─o─────o─o─o─o─────o─o─o─o───o─o─o─o─o─────o─o─o─o─o───o─o───o──────── ...
     1: ... ─o─X─X─o─o─o─o─X─X─o─o─o─o─X─o─o─o─o─o─────o─o─o─o─o───o─o───|──────── ...
     2: ... ─o─X───o─o─o─o─────o─o─o─o─X─o─o─o─o─o─X─X─o─o─o─o─o─X─o─o───|────o─── ...
@@ -323,7 +323,7 @@ everything together.
     5: ... ───────|─|─Y───────|─|─X─────|─|─X─────────|─|─Y────────────────────── ...
     6: ... ───────|─Y─────────|─X───────|─Y───────────|─X──────────────────────── ...
     7: ... ───────X───────────Y─────────Y─────────────X────────────────────────── ...
-    
+
     0: ... ───────────o───────────────────o─────────o─────────o────o─RZ─o──────── ...
     1: ... ─o─────────|─────────o─────────|────o────|────o────X─RZ─X─RZ─|──────── ...
     2: ... ─|────o────|────o────|────o────X─RZ─X─RZ─X─RZ─X─RZ───────────|────o─── ...
@@ -332,7 +332,7 @@ everything together.
     5: ... ────────────────────────────────────────────────────────────────────── ...
     6: ... ────────────────────────────────────────────────────────────────────── ...
     7: ... ────────────────────────────────────────────────────────────────────── ...
-    
+
     0: ... ───────────o───────────────────o─────────o─────────o────o─RY─
     1: ... ─o─────────|─────────o─────────|────o────|────o────X─RY─X─RY─
     2: ... ─|────o────|────o────|────o────X─RY─X─RY─X─RY─X─RY───────────
@@ -350,15 +350,13 @@ Hamiltonian is successfully block encoded.
 
 .. code:: ipython3
 
-    # Compare 
+    # Compare
     H_lam_mat = sym_hamiltonian.matrix / lcu_norm
     U16_mat = circuit_BLOCKENCODE.unitary()[0:16, 0:16]
-    
+
     print(np.allclose(H_lam_mat, U16_mat))
 
 
 .. parsed-literal::
 
     True
-
-
