@@ -14,3 +14,4 @@ This section provides examples of how to use Qibochem.
     measurement
     adaptive
     excited_states
+    block_encoding
