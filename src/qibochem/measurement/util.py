@@ -311,7 +311,7 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray, phases: np.ndarray) 
         for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
             if qubit not in qubits:
                 # For S(a)/H(a): r_i := r_i + x_{i,a} z_{i,a} for all i
-                phases += stabiliser_matrix[:, qubit] * stabiliser_matrix[:, qubit + dim_space]
+                phases ^= stabiliser_matrix[:, qubit] * stabiliser_matrix[:, qubit + dim_space]
                 stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
                 gates_list.append(gates.H(qubit))
                 qubits.append(qubit)
@@ -358,12 +358,11 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
             phase_changes = stabiliser_matrix[:, col] + stabiliser_matrix[:, pivot_col + dim_space] + 1
             phase_changes %= 2
             phase_changes *= stabiliser_matrix[:, pivot_col] * stabiliser_matrix[:, col + dim_space]
-            phases += phase_changes
+            phases ^= phase_changes
             # X matrix: Add pivot column to column with 1
             stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
             # Z matrix: Add (column with 1)^th column to pivot column
-            stabiliser_matrix[:, pivot_col + dim_space] += stabiliser_matrix[:, col + dim_space]
-            stabiliser_matrix %= 2
+            stabiliser_matrix[:, pivot_col + dim_space] ^= stabiliser_matrix[:, col + dim_space]
             gates_list.append(gates.CNOT(pivot_col, col))
         pivot_col += 1
 
@@ -387,7 +386,7 @@ def _zero_z_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[ga
     for i in range(dim):
         if stabiliser_matrix[i, dim_space + i] == 1:
             # For S(a)/H(a): r_i := r_i + x_{i,a} z_{i,a} for all i
-            phases += stabiliser_matrix[:, i] * stabiliser_matrix[:, i + dim_space]
+            phases ^= stabiliser_matrix[:, i] * stabiliser_matrix[:, i + dim_space]
             stabiliser_matrix[i, dim_space + i] = 0
             s_gates.append(gates.S(i))
         # Then remove the off-diagonal terms in each row
