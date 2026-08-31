@@ -291,7 +291,6 @@ def test_zero_z_matrix():
     )
     phases = np.array([0, 0, 0, 0], dtype=np.uint8)
     gates_list = _zero_z_matrix(stabiliser_matrix, phases)
-    print(phases)
     # Single column operation, should have only CNOT gate
     assert len(gates_list) == 1 and gates_list[0].name == "s"
     assert phases[0] == 1

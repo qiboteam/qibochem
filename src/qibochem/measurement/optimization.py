@@ -16,7 +16,6 @@ from qibochem.ansatz._ansatz import _expi_pauli
 from qibochem.measurement.util import (
     _binary_gaussian_elimination,
     _binary_nullspace,
-    _get_qubit,
     _get_sigma_terms,
     _group_commuting_terms,
     _lagrangian_subspace,
@@ -111,7 +110,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
     can be used to calculate the expectation values of ALL the terms in expression directly.
 
     Args:
-        expression (sympy.Expr): Group of Pauli terms that all mutually commute with each other qubitwise
+        expression (sympy.Expr): Group of Pauli terms that mutually commutes with each other
         nqubits (int): Number of qubits of the original Hamiltonian
         method (str): Circuit formulation to use, either "chong" (default) or "izmaylov"
 

@@ -160,7 +160,7 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
     aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1], dtype=np.uint8)), axis=1)
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     nullspace = rref_aug_matrix[dim:, dim:]
-    return nullspace.astype(int)
+    return nullspace
 
 
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
