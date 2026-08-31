@@ -125,7 +125,6 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         ]
     # Otherwise, expression is a sum of terms
     term_list = [_term_to_string(term) for term in expression.args if _term_to_string(term)[0] in ("X", "Y", "Z")]
-    term_qubits = sorted({_get_qubit(op) for term in term_list for op in term.split()})
     v_subspace = np.array([_pauli_to_symplectic(terms.split(), nqubits) for terms in term_list], dtype=np.uint8)
     v_basis = _binary_gaussian_elimination(v_subspace)
 
@@ -143,25 +142,22 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
     if method == "chong":
         x_result = _solve_linear_system(v_basis, v_subspace)
         # Map the solution onto the original set of qubits
-        qubit_map = dict(zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits))
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
         u_gates, phases = _synthesise_circuit(v_basis)
-        u_gates += [gates.SWAP(i, j) for i, j in qubit_map.items() if i != j]
         mapping = {
-            term: phase * prod(phases[i] * Z(qubit_map[i]) for i in soln)
+            term: phase * prod(phases[i] * Z(i) for i in soln)
             for term, phase, soln in zip(term_list, phase_factors, x_result)
         }
     elif method == "izmaylov":
         v_basis = _sort_tau_terms(v_basis)
         new_tau_terms, sigma_terms = _get_sigma_terms(v_basis)
         x_result = _solve_linear_system(new_tau_terms, v_subspace)
-        qubit_map = dict(zip(sorted({q for pauli_op in x_result for q in pauli_op}), term_qubits))
         phase_factors = [_phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
         tau_term_str = [_symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
         sigma_term_str = [_symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
         qwc_terms = [_symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
         mapping = {
-            term: phase * prod([getattr(symbols, sigma[0])(qubit_map[int(sigma[1:])]) for sigma in pauli_op])
+            term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
             for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
         }
         # Define the measurement gates
