@@ -120,7 +120,7 @@ def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     Performs Gaussian elimination on a binary vector_space. Returns the (unique) reduced row echelon form, and removes
     any zero rows as well
     """
-    vector_space = np.array(vector_space)  # Create a copy for returning
+    vector_space = np.array(vector_space, dtype=np.uint8)  # Create a copy for returning
     rows, cols = vector_space.shape
 
     pivot_row = 0
@@ -141,8 +141,7 @@ def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
         rows_to_reduce = rows_to_reduce[rows_to_reduce != pivot_row]
 
         # In GF(2), elimination is XOR with the pivot row.
-        vector_space[rows_to_reduce] += vector_space[pivot_row]
-        vector_space %= 2
+        vector_space[rows_to_reduce] ^= vector_space[pivot_row]
 
         pivot_row += 1
         if pivot_row == rows:
@@ -158,7 +157,7 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
     """Finds the nullspace of a binary_matrix, i.e. x s.t. Ax = 0"""
     dim = binary_matrix.shape[0]
     # Form the augmented matrix
-    aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1])), axis=1)
+    aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1], dtype=np.uint8)), axis=1)
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     nullspace = rref_aug_matrix[dim:, dim:]
     return nullspace.astype(int)
@@ -183,10 +182,9 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
         space_to_orthogonalize = np.delete(vector_space, anticommuting_vector_indices, axis=0)
         for i1, vector in enumerate(space_to_orthogonalize):
             for i2, anticommuting_vector in enumerate(anticommuting_vectors):
-                space_to_orthogonalize[i1] += (
+                space_to_orthogonalize[i1] ^= (
                     _symplectic_inner_product(vector, anticommuting_vectors[1 - i2]) * anticommuting_vector
                 )
-                space_to_orthogonalize = space_to_orthogonalize % 2
 
         # Preferentially select Z over X
         first_nonzero_col = np.argmax(anticommuting_vectors, axis=1)
@@ -233,18 +231,13 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         sigma_i = np.ravel(np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T)
         sigma_terms.append(sigma_i)
         # Orthogonalise the non-i^th terms:
-        new_tau_terms += np.array(
+        new_tau_terms ^= np.array(
             [
-                # Not sure if need _j != _i or if _j > _i is good enough?
-                # Paper says do _j > _i, but then will have some non-commuting tau/sigma's...?
                 _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
-                # symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j > _i else np.zeros(2 * dim)
                 for _j in range(dim)
             ],
             dtype=np.uint8,
         )
-        new_tau_terms = new_tau_terms % 2
-
     return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
 
 
@@ -355,12 +348,14 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
         # Remove all nonzero entries on row _i using CNOT gates
         for col in nonzero_cols:
             # For CNOT(a, b): r_i := r_i + x_{i,a} z_{i,b} (x_{i,b} + z_{i,a} + 1), for all i
-            phase_changes = stabiliser_matrix[:, col] + stabiliser_matrix[:, pivot_col + dim_space] + 1
-            phase_changes %= 2
-            phase_changes *= stabiliser_matrix[:, pivot_col] * stabiliser_matrix[:, col + dim_space]
+            phase_changes = (
+                stabiliser_matrix[:, pivot_col]
+                & stabiliser_matrix[:, col + dim_space]
+                & (stabiliser_matrix[:, col] ^ stabiliser_matrix[:, pivot_col + dim_space] ^ 1)
+            )
             phases ^= phase_changes
             # X matrix: Add pivot column to column with 1
-            stabiliser_matrix[:, col] += stabiliser_matrix[:, pivot_col]
+            stabiliser_matrix[:, col] ^= stabiliser_matrix[:, pivot_col]
             # Z matrix: Add (column with 1)^th column to pivot column
             stabiliser_matrix[:, pivot_col + dim_space] ^= stabiliser_matrix[:, col + dim_space]
             gates_list.append(gates.CNOT(pivot_col, col))
