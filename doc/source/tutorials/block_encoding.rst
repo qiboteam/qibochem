@@ -88,8 +88,8 @@ We need to:
 
 .. parsed-literal::
 
-    Norm of |k> =  1.0
-    Number of terms in |k> =  15
+    Norm of \|k> =  1.0
+    Number of terms in \|k> =  15
 
 
 .. code:: ipython3
