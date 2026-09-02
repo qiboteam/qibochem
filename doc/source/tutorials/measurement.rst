@@ -8,7 +8,7 @@ However, in actual quantum hardware, the expectation value of the molecular Hami
 
     from qibochem.driver import Molecule
     from qibochem.ansatz import hf_circuit
-    from qibochem.measurement import expectation, expectation_from_samples
+    from qibochem.measurement import expectation_from_samples
 
     # Build the H2 molecule and get the molecular Hamiltonian
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
@@ -20,7 +20,7 @@ However, in actual quantum hardware, the expectation value of the molecular Hami
     circuit = hf_circuit(h2.nso, h2.nelec)
 
     # Expectation value using a state vector simulation:
-    exact_result = expectation(circuit, hamiltonian)
+    exact_result = hamiltonian.expectation(circuit)
     # Expectation value using (simulated) shots
     shots_result = expectation_from_samples(circuit, hamiltonian, n_shots=1000)
     print(f"\nExact result: {exact_result:.8f}")
@@ -149,7 +149,6 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
     from qibo.hamiltonians import SymbolicHamiltonian
     from qibo.symbols import I, X, Y, Z
 
-    from qibochem.measurement import expectation
     from qibochem.measurement.result import pauli_term_measurement_expectation
 
     # Define the two Pauli terms
@@ -168,8 +167,8 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
 
     # Get the exact result using a state vector simulation
     _circuit = circuit.copy()
-    exact_term1 = expectation(_circuit, term1)
-    exact_term2 = expectation(_circuit, term2)
+    exact_term1 = term1.expectation(_circuit)
+    exact_term2 = term2.expectation(_circuit)
 
     # We want to rotate our measurement basis to the 'XYZ' basis:
     circuit.add(gates.M(0, basis=type(X(0).gate))) # H gate
@@ -181,8 +180,8 @@ For :math:`X_0 I_1 Z_2` and :math:`I_0 Y_1 Z_2`, we can thus use only one set of
     result = circuit(nshots=10000)
     frequencies = result.frequencies(binary=True)
     # pauli_term_measurement_expectation is a Qibochem function for calculating the expectation value of Hamiltonians with non-Z terms
-    shots_term1 = pauli_term_measurement_expectation(term1.terms[0], frequencies, qubit_map=range(n_qubits))
-    shots_term2 = pauli_term_measurement_expectation(term2.terms[0], frequencies, qubit_map=range(n_qubits))
+    shots_term1 = pauli_term_measurement_expectation(term1.form, frequencies, qubit_map=range(n_qubits))
+    shots_term2 = pauli_term_measurement_expectation(term2.form, frequencies, qubit_map=range(n_qubits))
 
     # Compare the output:
     print("\nXIZ:")
@@ -239,7 +238,7 @@ As the solution in this particular example is trivial, the sample code below is 
 
     import networkx as nx
 
-    from qibochem.measurement.optimization import check_terms_commutativity
+    from qibochem.measurement.util import check_terms_commutativity
 
     # Define the Pauli terms as strings
     pauli_terms = ["Z0", "Z1", "Z0 Z1", "X0 X1", "Y0 Y1"]
@@ -284,7 +283,7 @@ An example of its usage is given below:
     from qibo.symbols import X, Y, Z
     from qibo.hamiltonians import SymbolicHamiltonian
 
-    from qibochem.measurement import expectation, expectation_from_samples
+    from qibochem.measurement import expectation_from_samples
 
     # Bravyi-Kitaev tranformed Hamiltonian for H2 at 0.7 Angstroms.
     # Symmetry considerations were used to reduce the system to only 2 qubits
@@ -303,7 +302,7 @@ An example of its usage is given below:
 
     # Get the result using a state vector simulation
     _circuit = circuit.copy()
-    exact_result = expectation(_circuit, bk_ham)
+    exact_result = bk_ham.expectation(_circuit)
 
     n_shots = 100
     # From shots, grouping the terms together using QWC:

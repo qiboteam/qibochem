@@ -8,7 +8,7 @@ At the moment, Qibochem is only actively supported on Linux and MacOS systems.
 In principle, it should be possible to install and run Qibochem on Windows as well (see below).
 
 .. note::
-      Qibochem is supported for Python >= 3.9.
+      Qibochem is supported for Python >= 3.11.
 
 Installing with pip
 -------------------

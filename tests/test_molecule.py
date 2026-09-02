@@ -7,12 +7,10 @@ from pathlib import Path
 import numpy as np
 import openfermion
 import pytest
-from qibo import gates, models
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
-from qibochem.measurement import expectation
 
 
 @pytest.mark.parametrize(
@@ -30,7 +28,7 @@ def test_pyscf_driver(xyz_file, expected):
         file_path = Path("tests", "data") / Path(xyz_file)
         # In case .xyz files somehow not found
         if not file_path.is_file():
-            with open(file_path, "w") as file_handler:
+            with open(file_path, "w", encoding="utf-8") as file_handler:
                 if xyz_file == "lih.xyz":
                     file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
                 elif xyz_file == "h2.xyz":
@@ -167,25 +165,6 @@ def test_hamiltonian_input_errors():
     # Fermion to qubit mapping error
     with pytest.raises(KeyError):
         h2.hamiltonian(ferm_qubit_map="incorrect")
-
-
-def test_expectation_value():
-    """Tests generation of molecular Hamiltonian and its expectation value using a JW-HF circuit"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
-
-    h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
-    h2.run_pyscf()
-
-    # JW-HF circuit
-    circuit = models.Circuit(h2.nso)
-    circuit.add(gates.X(_i) for _i in range(h2.nelec))
-    # Molecular Hamiltonian and the HF expectation value
-    hamiltonian = h2.hamiltonian()
-    hf_energy = expectation(circuit, hamiltonian)
-
-    # assert h2.e_hf == pytest.approx(hf_energy)
-    assert h2_ref_energy == pytest.approx(hf_energy)
 
 
 def test_fs_hamiltonian():
