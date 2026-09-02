@@ -110,7 +110,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
     can be used to calculate the expectation values of ALL the terms in expression directly.
 
     Args:
-        expression (sympy.Expr): Group of Pauli terms that all mutually commute with each other qubitwise
+        expression (sympy.Expr): Group of Pauli terms that mutually commutes with each other
         nqubits (int): Number of qubits of the original Hamiltonian
         method (str): Circuit formulation to use, either "chong" (default) or "izmaylov"
 
@@ -124,7 +124,7 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         ]
     # Otherwise, expression is a sum of terms
     term_list = [_term_to_string(term) for term in expression.args if _term_to_string(term)[0] in ("X", "Y", "Z")]
-    v_subspace = np.array([_pauli_to_symplectic(terms.split(), nqubits) for terms in term_list])
+    v_subspace = np.array([_pauli_to_symplectic(terms.split(), nqubits) for terms in term_list], dtype=np.uint8)
     v_basis = _binary_gaussian_elimination(v_subspace)
 
     dim_v = v_basis.shape[0]
@@ -133,15 +133,19 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
     if dim_v != dim_symplectic:
         nullspace = _binary_nullspace(v_basis)
         # Interchange the 1st/2nd half of the indices to get nullspace in a symplectic sense
-        nullspace = np.concatenate((nullspace[:, dim_symplectic:], nullspace[:, :dim_symplectic]), axis=1)
+        nullspace = nullspace[:, np.r_[dim_symplectic : 2 * dim_symplectic, 0:dim_symplectic]]
+        nullspace = _binary_gaussian_elimination(nullspace)
         v_basis = _lagrangian_subspace(nullspace)
+
     # Different methods of circuit synthesis
     if method == "chong":
         x_result = _solve_linear_system(v_basis, v_subspace)
+        # Map the solution onto the original set of qubits
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
-        u_gates = _synthesise_circuit(v_basis)
+        u_gates, phases = _synthesise_circuit(v_basis)
         mapping = {
-            term: phase * prod(Z(_i) for _i in soln) for term, phase, soln in zip(term_list, phase_factors, x_result)
+            term: phase * prod(phases[i] * Z(i) for i in soln)
+            for term, phase, soln in zip(term_list, phase_factors, x_result)
         }
     elif method == "izmaylov":
         v_basis = _sort_tau_terms(v_basis)
