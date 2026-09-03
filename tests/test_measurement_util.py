@@ -4,7 +4,9 @@ Test functionality to reduce the measurement cost of running VQE
 
 import numpy as np
 import pytest
+from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import I, X, Y, Z
+from sympy import srepr
 
 from qibochem.measurement.util import (
     _binary_gaussian_elimination,
@@ -74,17 +76,31 @@ def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
 
 
 @pytest.mark.parametrize(
-    "term_list,qwc_expected,gc_expected",
+    "ham_terms,qwc_expected,gc_expected",
     [
-        (["X0 Z1", "X0", "Z0", "Z0 Z1"], [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]], [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]]),
-        (["X0 Y1 Z2", "X1 X2", "Z1 Y2"], [["X0 Y1 Z2"], ["X1 X2"], ["Z1 Y2"]], [["X0 Y1 Z2", "X1 X2", "Z1 Y2"]]),
+        (
+            0.9 * X(0) * Z(1) + 1.1 * X(0) + 0.8 * Z(0) + 0.5 * Z(0) * Z(1),
+            [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
+            [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
+        ),
+        (
+            1.2 * X(0) * Y(1) * Z(2) + 1.1 * X(1) * X(2) + Z(1) * Y(2),
+            [[X(0) * Y(1) * Z(2)], [X(1) * X(2)], [Z(1) * Y(2)]],
+            [[X(0) * Y(1) * Z(2), X(1) * X(2), Z(1) * Y(2)]],
+        ),
     ],
 )
-def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
-    qwc_result = _group_commuting_terms(term_list, qubitwise=True)
-    assert qwc_result == qwc_expected
-    gc_result = _group_commuting_terms(term_list, qubitwise=False)
-    assert gc_result == gc_expected
+@pytest.mark.parametrize("method", ["graph", "sorted"])
+def test_group_commuting_terms(ham_terms, qwc_expected, gc_expected, method):
+    def canonical_group(group):
+        """For sorting sympy Expr"""
+        return tuple(sorted(srepr(expr) for expr in group))
+
+    hamiltonian = SymbolicHamiltonian(ham_terms, nqubits=4)
+    qwc_result = _group_commuting_terms(hamiltonian, qubitwise=True, method=method)
+    assert sorted(map(canonical_group, qwc_result)) == sorted(map(canonical_group, qwc_expected))
+    gc_result = _group_commuting_terms(hamiltonian, qubitwise=False, method=method)
+    assert sorted(map(canonical_group, gc_result)) == sorted(map(canonical_group, gc_expected))
 
 
 @pytest.mark.parametrize(

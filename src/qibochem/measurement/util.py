@@ -5,6 +5,8 @@ Utility functions for optimising measurements and calculation of expectation val
 import networkx as nx
 import numpy as np
 from qibo import gates
+from qibo.config import raise_error
+from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 from sympy.core.expr import Expr
 from sympy.core.numbers import One
@@ -42,48 +44,111 @@ def _check_terms_commutativity(term1: np.ndarray, term2: np.ndarray, qubitwise: 
     Check if terms 1 and 2 (in symplectic form) are mutually commuting. The 'qubitwise' argument determines if the
     check is for general commutativity (False), or the stricter qubitwise commutativity.
     """
-    nqubits = min((term.shape[0] // 2) for term in (term1, term2))  # Only compare common qubits
+    term1_nqubits = term1.shape[0] // 2
+    term2_nqubits = term2.shape[0] // 2
+    nqubits = min(term1_nqubits, term2_nqubits)  # Only compare common qubits
     if qubitwise:
         # Qubitwise condition: x1z2 + x2z1 == 0
-        return all(((term1[i] & term2[i + nqubits]) ^ (term1[i + nqubits] & term2[i])) == 0 for i in range(nqubits))
+        return all(
+            ((term1[i] & term2[i + term2_nqubits]) ^ (term1[i + term1_nqubits] & term2[i])) == 0 for i in range(nqubits)
+        )
     # General commutativity: Even number of anti-commuting operators
-    n_noncommuting_ops = sum((term1[i] & term2[i + nqubits]) ^ (term1[i + nqubits] & term2[i]) for i in range(nqubits))
+    n_noncommuting_ops = sum(
+        (term1[i] & term2[i + term2_nqubits]) ^ (term1[i + term1_nqubits] & term2[i]) for i in range(nqubits)
+    )
     return n_noncommuting_ops % 2 == 0
 
 
-def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[str]]:
+def _graph_colouring(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool) -> list[list[Expr]]:
     """
-    Groups the terms in terms_list into as few groups as possible, where all the terms in each group commute
-    mutually == Finding the minimum clique cover (i.e. as few cliques as possible) for the graph whereby each node
-    is a Pauli string, and an edge exists between two nodes iff they commute.
-
-    This is equivalent to the graph colouring problem of the complement graph (i.e. edge between nodes if they DO NOT
-    commute), which this function follows.
+    Groups Pauli terms by solving the minimum clique cover (i.e. as few cliques as possible) problem for the graph
+    whereby each node is a Pauli string, and an edge exists between two nodes iff they commute. This is equivalent to
+    the graph colouring problem of the complement graph (i.e. edge between nodes if they DO NOT commute), which this
+    function follows.
 
     Args:
-        terms_list (list(str)): List of strings. The strings should follow the output from
-            ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo SymbolicTerm. E.g. "X0 Z1".
-        qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]): Pauli terms to be grouped; given as a dict whereby the keys
+            are the Pauli terms (Expr), and their corresponding values are two-tuples: term coefficient and the
+            symplectic form of the Pauli term respectively.
+        qubitwise (bool): Determines if the check is for general commutativity or the stricter qubitwise commutativity
 
     Returns:
-        list[list[str]]: Containing groups (lists) of Pauli strings that all commute mutually
+        list[list[Expr]]: Groups (lists) of Pauli strings that mutually commute within each group
     """
     G = nx.Graph()
     # Complement graph: Add all the terms as nodes first, then add edges between nodes if they DO NOT commute
-    G.add_nodes_from(terms_list)
+    G.add_nodes_from(terms_dict)
     G.add_edges_from(
         (term1, term2)
-        for _i1, term1 in enumerate(terms_list)
-        for _i2, term2 in enumerate(terms_list)
-        if _i2 > _i1 and not _check_terms_commutativity(term1, term2, qubitwise)
+        for i1, term1 in enumerate(terms_dict)
+        for i2, term2 in enumerate(terms_dict)
+        if i2 > i1 and not _check_terms_commutativity(terms_dict[term1][1], terms_dict[term2][1], qubitwise)
     )
     # Solve using Greedy Colouring on NetworkX
     sorted_groups = nx.coloring.greedy_color(G)
     group_ids = set(sorted_groups.values())
     # Sort results so that test results will be replicable
-    term_groups = sorted(
-        sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
-    )
+    term_groups = [[group for group, group_id in sorted_groups.items() if group_id == _id] for _id in group_ids]
+    return term_groups
+
+
+def _sorted_insertion(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool) -> list[list[Expr]]:
+    """
+    Groups Pauli terms by sorting the terms w.r.t. their coefficients (largest first). For each of the sorted terms, if
+    it is compatible with an existing group, allocate it there; otherwise, assign it to a new group.
+
+    Args:
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]): Pauli terms to be grouped; given as a dict whereby the keys
+            are the Pauli terms (Expr), and their corresponding values are two-tuples: term coefficient and the
+            symplectic form of the Pauli term respectively.
+        qubitwise (bool): Determines if the check is for general commutativity or the stricter qubitwise commutativity
+
+    Returns:
+        list[list[Expr]]: Groups (lists) of Pauli strings that mutually commute within each group
+    """
+    sorted_terms = sorted(terms_dict, key=lambda x: abs(terms_dict[x][0]), reverse=True)
+    term_groups = []
+    for term in sorted_terms:
+        added = False
+        for group in term_groups:
+            # Check if current term commutes with all terms in current group
+            if all(_check_terms_commutativity(terms_dict[term][1], terms_dict[_term][1], qubitwise) for _term in group):
+                group.append(term)
+                added = True
+                break
+        if not added:
+            term_groups.append([term])
+    return term_groups
+
+
+def _group_commuting_terms(
+    hamiltonian: SymbolicHamiltonian, qubitwise: bool, method: str = "sorted"
+) -> list[list[Expr]]:
+    """
+    Groups Pauli terms in hamiltonian into groups of (possibly qubitwise) commuting terms
+
+    Args:
+        hamiltonian (SymbolicHamiltonian): Hamiltonian to be sorted into groups of commuting terms
+        qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
+        method (str): Method used to group the Pauli terms. Must be either "sorted" (default) or "graph". More details
+            on both methods are given in their respective functions
+
+    Returns:
+        list[list[str]]: Containing groups (lists) of Pauli strings that all commute mutually
+    """
+    terms_dict = {
+        term: (coeff, _pauli_to_symplectic(term, hamiltonian.nqubits))
+        for term, coeff in hamiltonian.form.as_coefficients_dict().items()
+        if not isinstance(term, One)
+    }
+
+    term_groups = []
+    if method == "sorted":
+        term_groups = _sorted_insertion(terms_dict, qubitwise)
+    elif method == "graph":
+        term_groups = _graph_colouring(terms_dict, qubitwise)
+    else:
+        raise_error(ValueError, "Invalid method argument for grouping commuting terms!")
     return term_groups
 
 
