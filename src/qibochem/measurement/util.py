@@ -5,6 +5,9 @@ Utility functions for optimising measurements and calculation of expectation val
 import networkx as nx
 import numpy as np
 from qibo import gates
+from qibo.symbols import X, Y, Z
+from sympy.core.expr import Expr
+from sympy.core.numbers import One
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
 PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
@@ -14,9 +17,49 @@ SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
 SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
 
 
+def _pauli_to_symplectic(pauli_term: Expr, nqubits: int) -> np.ndarray:
+    """
+    Map a single Pauli term to the corresponding symplectic vector ((1D np.ndarray)).
+    `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
+    """
+    # Pauli operator for each qubit
+    pauli_ops = (
+        {pauli_op.target_qubit: str(pauli_op)[0] for pauli_op in pauli_term.args if isinstance(pauli_op, (X, Y, Z))}
+        if pauli_term.args
+        else {pauli_term.target_qubit: str(pauli_term)[0]}
+    )
+
+    # Convert to the symplectic vector
+    sym_vector = np.reshape(
+        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+        shape=2 * nqubits,
+        order="F",
+    )
+    return sym_vector
+
+
+def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
+    """
+    Inner product of the symplectic vector space := (u, Jv), where J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]].
+    Returns 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
+    """
+    dim = u.shape[0] // 2
+    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
+
+
 def _get_qubit(pauli_op: str) -> int:
     """Extract the qubit index from a Pauli operator, e.g. "X12" -> 12"""
     return int(pauli_op[1:])
+
+
+# def _check_terms_commutativity(term1: np.ndarray, term2: np.ndarray, qubitwise: bool) -> bool:
+#     """
+#     Check if terms 1 and 2 (in symplectic form) are mutually commuting. The 'qubitwise' argument determines if the
+#     check is for general commutativity (False), or the stricter qubitwise commutativity.
+#     """
+#     nqubits = min((term.shape[1] // 2) for term in (term1, term2))  # Only compare common qubits
+#     if qubitwise:
+#         return not any((term1[i] ^ term2[i]) | (term1[i+nqubits] ^ term2[i+nqubits]) for i in range(nqubits))
 
 
 def _check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
@@ -79,19 +122,19 @@ def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[
     return term_groups
 
 
-def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
-    """
-    Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic vector ((1D np.ndarray)).
-    `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
-    """
-    pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
-    # Convert to the symplectic vector
-    sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
-        shape=2 * nqubits,
-        order="F",
-    )
-    return sym_vector
+# def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
+#     """
+#     Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic vector ((1D np.ndarray)).
+#     `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
+#     """
+#     pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
+#     # Convert to the symplectic vector
+#     sym_vector = np.reshape(
+#         np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+#         shape=2 * nqubits,
+#         order="F",
+#     )
+#     return sym_vector
 
 
 def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
@@ -104,15 +147,6 @@ def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
         if vector != (0, 0)  # Not retaining I terms
     ]
     return pauli_op_terms
-
-
-def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
-    """
-    Inner product of the symplectic vector space := (u, Jv), where J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]].
-    Returns 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
-    """
-    dim = u.shape[0] // 2
-    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
 
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:

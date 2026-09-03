@@ -124,7 +124,11 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         ]
     # Otherwise, expression is a sum of terms
     term_list = [_term_to_string(term) for term in expression.args if _term_to_string(term)[0] in ("X", "Y", "Z")]
-    v_subspace = np.array([_pauli_to_symplectic(terms.split(), nqubits) for terms in term_list], dtype=np.uint8)
+    v_subspace = (
+        np.array([_pauli_to_symplectic(term, nqubits) for term in expression.args], dtype=np.uint8)
+        if expression.args
+        else _pauli_to_symplectic(expression, nqubits)
+    )
     v_basis = _binary_gaussian_elimination(v_subspace)
 
     dim_v = v_basis.shape[0]
