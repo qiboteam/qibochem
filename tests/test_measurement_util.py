@@ -59,10 +59,10 @@ def test_symplectic_inner_product(u, v):
 @pytest.mark.parametrize(
     "term1,term2,qwc_expected,gc_expected",
     [
-        ("X0", "Z0", False, False),
-        ("X0", "Z1", True, True),
-        ("X0 X1", "Y0 Y1", False, True),
-        ("X0 Y1", "Y0 Y1", False, False),
+        (_pauli_to_symplectic(X(0), 1), _pauli_to_symplectic(Z(0), 2), False, False),
+        (_pauli_to_symplectic(X(0), 1), _pauli_to_symplectic(Z(1), 3), True, True),
+        (_pauli_to_symplectic(X(0) * X(1), 3), _pauli_to_symplectic(Y(0) * Y(1), 2), False, True),
+        (_pauli_to_symplectic(X(0) * Y(1), 2), _pauli_to_symplectic(Y(0) * Y(1), 2), False, False),
     ],
 )
 def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):

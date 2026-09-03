@@ -28,7 +28,6 @@ def _pauli_to_symplectic(pauli_term: Expr, nqubits: int) -> np.ndarray:
         if pauli_term.args
         else {pauli_term.target_qubit: str(pauli_term)[0]}
     )
-
     # Convert to the symplectic vector
     sym_vector = np.reshape(
         np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
@@ -38,51 +37,17 @@ def _pauli_to_symplectic(pauli_term: Expr, nqubits: int) -> np.ndarray:
     return sym_vector
 
 
-def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
+def _check_terms_commutativity(term1: np.ndarray, term2: np.ndarray, qubitwise: bool) -> bool:
     """
-    Inner product of the symplectic vector space := (u, Jv), where J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]].
-    Returns 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
+    Check if terms 1 and 2 (in symplectic form) are mutually commuting. The 'qubitwise' argument determines if the
+    check is for general commutativity (False), or the stricter qubitwise commutativity.
     """
-    dim = u.shape[0] // 2
-    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
-
-
-def _get_qubit(pauli_op: str) -> int:
-    """Extract the qubit index from a Pauli operator, e.g. "X12" -> 12"""
-    return int(pauli_op[1:])
-
-
-# def _check_terms_commutativity(term1: np.ndarray, term2: np.ndarray, qubitwise: bool) -> bool:
-#     """
-#     Check if terms 1 and 2 (in symplectic form) are mutually commuting. The 'qubitwise' argument determines if the
-#     check is for general commutativity (False), or the stricter qubitwise commutativity.
-#     """
-#     nqubits = min((term.shape[1] // 2) for term in (term1, term2))  # Only compare common qubits
-#     if qubitwise:
-#         return not any((term1[i] ^ term2[i]) | (term1[i+nqubits] ^ term2[i+nqubits]) for i in range(nqubits))
-
-
-def _check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
-    """
-    Check if terms 1 and 2 (e.g. "X0 Z1 Y3") are mutually commuting. The 'qubitwise' argument determines if the check is
-    for general commutativity (False), or the stricter qubitwise commutativity.
-    """
-    # Get a list of common qubits for each term
-    common_qubits = {_get_qubit(_op) for _op in term1.split() if _op[0] != "I"} & {
-        _get_qubit(_op) for _op in term2.split() if _op[0] != "I"
-    }
-    if not common_qubits:
-        return True
-    # Get the single Pauli operators for the common qubits for both Pauli terms
-    term1_ops = [_op for _op in term1.split() if _get_qubit(_op) in common_qubits]
-    term2_ops = [_op for _op in term2.split() if _get_qubit(_op) in common_qubits]
+    nqubits = min((term.shape[0] // 2) for term in (term1, term2))  # Only compare common qubits
     if qubitwise:
-        # Qubitwise: Compare the Pauli terms at the common qubits. Any difference => False
-        return all(_op1 == _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
-    # General commutativity:
-    # Get the number of single Pauli operators that do NOT commute
-    n_noncommuting_ops = sum(_op1 != _op2 for _op1, _op2 in zip(term1_ops, term2_ops))
-    # term1 and term2 have general commutativity iff n_noncommuting_ops is even
+        # Qubitwise condition: x1z2 + x2z1 == 0
+        return all(((term1[i] & term2[i + nqubits]) ^ (term1[i + nqubits] & term2[i])) == 0 for i in range(nqubits))
+    # General commutativity: Even number of anti-commuting operators
+    n_noncommuting_ops = sum((term1[i] & term2[i + nqubits]) ^ (term1[i + nqubits] & term2[i]) for i in range(nqubits))
     return n_noncommuting_ops % 2 == 0
 
 
@@ -120,21 +85,6 @@ def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[
         sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
     )
     return term_groups
-
-
-# def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
-#     """
-#     Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic vector ((1D np.ndarray)).
-#     `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
-#     """
-#     pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
-#     # Convert to the symplectic vector
-#     sym_vector = np.reshape(
-#         np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
-#         shape=2 * nqubits,
-#         order="F",
-#     )
-#     return sym_vector
 
 
 def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
@@ -195,6 +145,15 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     nullspace = rref_aug_matrix[dim:, dim:]
     return nullspace
+
+
+def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
+    """
+    Inner product of the symplectic vector space := (u, Jv), where J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]].
+    Returns 0 or 1, where 0 means that u commutes with v, and 1 implies that they do not commute
+    """
+    dim = u.shape[0] // 2
+    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
 
 
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
