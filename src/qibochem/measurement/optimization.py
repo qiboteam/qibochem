@@ -19,18 +19,12 @@ from qibochem.measurement.util import (
     _get_sigma_terms,
     _group_commuting_terms,
     _lagrangian_subspace,
-    _pauli_to_symplectic,
     _phase_factor,
     _solve_linear_system,
     _sort_tau_terms,
     _symplectic_to_pauli,
     _synthesise_circuit,
 )
-
-
-def _term_to_string(term: Expr) -> str:
-    """Convert a single Pauli term to its string representation; dropping any coefficient"""
-    return " ".join(str(_x) for _x in term.args if isinstance(_x, (X, Y, Z))) if term.args else str(term)
 
 
 def _u_circuit(tau_terms: list[str], sigma_terms: list[str], nqubits: int) -> Circuit:
@@ -77,31 +71,21 @@ def _qwc_measurement_gates(expression: Expr) -> list[Gate]:
     return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
-def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tuple[dict[str, Expr], list[Gate]]:
+def _gc_measurement_mapping(term_group: list[Expr], term_dict: int, method: str) -> tuple[dict[str, Expr], list[Gate]]:
     """
     Basis rotation gates to be added to the circuit for generally commuting terms. Resultant measurements
     can be used to calculate the expectation values of ALL the terms in expression directly.
 
     Args:
-        expression (sympy.Expr): Group of Pauli terms that mutually commutes with each other
-        nqubits (int): Number of qubits of the original Hamiltonian
+        term_group (list[sympy.Expr]): Group of Pauli terms that mutually commutes with each other
+        term_dict (dict[Expr, tuple[float, np.ndarray]]): Coefficients and symplectic form of the Pauli terms in the
+            Hamiltonian
         method (str): Circuit formulation to use, either "chong" (default) or "izmaylov"
 
     Returns:
         tuple[dict[str, Expr], list[Gate]]: (Mapping of original expression, Gates to add to original Qibo circuit)
     """
-    # Single Pauli operator
-    if not expression.args:
-        return {_term_to_string(expression): expression}, [
-            gates.M(expression.target_qubit, basis=type(expression.gate))
-        ]
-    # Otherwise, expression is a sum of terms
-    term_list = [_term_to_string(term) for term in expression.args if _term_to_string(term)[0] in ("X", "Y", "Z")]
-    v_subspace = (
-        np.array([_pauli_to_symplectic(term, nqubits) for term in expression.args], dtype=np.uint8)
-        if expression.args
-        else _pauli_to_symplectic(expression, nqubits)
-    )
+    v_subspace = np.array([term_dict[term][1] for term in term_group], dtype=np.uint8)
     v_basis = _binary_gaussian_elimination(v_subspace)
 
     dim_v = v_basis.shape[0]
@@ -122,9 +106,9 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         u_gates, phases = _synthesise_circuit(v_basis)
         mapping = {
             term: phase * prod(phases[i] * Z(i) for i in soln)
-            for term, phase, soln in zip(term_list, phase_factors, x_result)
+            for term, phase, soln in zip(term_group, phase_factors, x_result)
         }
-    elif method == "izmaylov":
+    elif method == "izmaylov":  # TODO: Clean up this branch
         v_basis = _sort_tau_terms(v_basis)
         new_tau_terms, sigma_terms = _get_sigma_terms(v_basis)
         x_result = _solve_linear_system(new_tau_terms, v_subspace)
@@ -134,50 +118,45 @@ def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tupl
         qwc_terms = [_symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
         mapping = {
             term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
-            for term, phase, pauli_op in zip(term_list, phase_factors, qwc_terms)
+            for term, phase, pauli_op in zip(term_group, phase_factors, qwc_terms)
         }
         # Define the measurement gates
-        u_gates = _u_circuit(tau_term_str, sigma_term_str, nqubits).queue
+        u_gates = _u_circuit(tau_term_str, sigma_term_str, v_basis.shape[1]).queue  # Extract nqubits from vector
     else:
         raise ValueError("Unknown method!")
     return mapping, u_gates
 
 
-def _gc_measurements(hamiltonian: SymbolicHamiltonian, method: str) -> list[tuple[Expr, list[Gate], list[Gate]]]:
+def _gc_measurements(
+    term_dict: dict[Expr, tuple[float, np.ndarray]], term_groups: list[list[Expr]], method: str
+) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
     Sort the Hamiltonian terms into separate groups of mutually commuting terms, and returns the updated expressions to
-    measured, their associated measurement gates, and the rotation gates to update the initial expressions
+    be measured, their associated measurement gates, and the rotation gates to update the initial expressions
+
+    Args:
+        term_dict (dict[Expr, tuple[float, np.ndarray]]): Coefficients and symplectic form of the Pauli terms in the
+            Hamiltonian
+        term_groups (list[list[Expr]]): Grouped terms
+        method (str): How the rotation circuit is constructed; must be in ("gc", "gc2")
+
+    Returns:
+        list[tuple[Expr, list[Gate], list[Gate]]]: Updated expressions to be measured, their associated measurement
+            gates, and the rotation gates to update the initial expressions
     """
-    # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
-    if hamiltonian.form.args:
-        ham_terms = {
-            _term_to_string(term): (term, coeff)
-            for term, coeff in hamiltonian.form.as_coefficients_dict().items()
-            if not isinstance(term, One)
-        }
-    else:
-        ham_terms = {_term_to_string(hamiltonian.form): (hamiltonian.form, 1.0)}  # Single Pauli operator
-    term_groups = _group_commuting_terms(ham_terms.keys(), qubitwise=False)
-    to_return = []
+    result = []
     for term_group in term_groups:
-        # Check for qubitwise commutativity
-        qubitwise_commutative = len(_group_commuting_terms(term_group, qubitwise=True)) == 1
-        if qubitwise_commutative:
-            new_expression = sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group)  # Unchanged if QWC
-            rotation_gates = []
-        else:
-            grouped_expression = sum(ham_terms[term][0] for term in term_group)
-            mapping, rotation_gates = _gc_measurement_mapping(grouped_expression, hamiltonian.nqubits, method)
-            # Update the initial expression based on the obtained mapping
-            new_expression = sum(ham_terms[term][1] * mapping[term] for term in term_group)
+        mapping, rotation_gates = _gc_measurement_mapping(term_group, term_dict, method)
+        # Update the initial expression based on the obtained mapping
+        new_expression = sum(term_dict[term][0] * mapping[term] for term in term_group)
         # Add measurement gates based on the updated expression
         measurement_gates = _qwc_measurement_gates(new_expression)
-        to_return.append((new_expression, measurement_gates, rotation_gates))
-    return to_return
+        result.append((new_expression, measurement_gates, rotation_gates))
+    return result
 
 
 def _measurement_basis_rotations(
-    hamiltonian: SymbolicHamiltonian, grouping: str | None = None, method: str = "sorted"
+    hamiltonian: SymbolicHamiltonian, grouping: str | None, method: str
 ) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
     Sort Hamiltonian into separate groups and get the basis rotation gates to be applied for each of the corresponding
@@ -194,16 +173,17 @@ def _measurement_basis_rotations(
             in the Hamiltonian
     """
     if grouping is None:
-        # TODO: Check this as well? Can probably add into _group_commuting_terms function ba...
-        return [
-            (coeff * term, _qwc_measurement_gates(term), [])
-            for term, coeff in hamiltonian.form.as_coefficients_dict().items()
-            if not isinstance(term, One)  # Ignore any constant term
-        ]
+        result, constant = [], 0.0
+        for term, coeff in hamiltonian.form.as_coefficients_dict().items():
+            if not isinstance(term, One):
+                result.append((coeff * term, _qwc_measurement_gates(term), []))
+            else:
+                constant += coeff
+        return result, constant
 
     # Grouping of Pauli terms
     result = []
-    term_groups, term_dict = _group_commuting_terms(hamiltonian, grouping == "qwc", method)
+    term_dict, term_groups = _group_commuting_terms(hamiltonian, grouping == "qwc", method)
     # Extract the constant term from term_dict
     constant = term_dict.get(1, [0.0])[0]
 
@@ -217,9 +197,9 @@ def _measurement_basis_rotations(
             for term_group in term_groups
         ]
     elif grouping == "gc":
-        result += _gc_measurements(hamiltonian, "chong")
+        result += _gc_measurements(term_dict, term_groups, "chong")
     elif grouping == "gc2":
-        result += _gc_measurements(hamiltonian, "izmaylov")
+        result += _gc_measurements(term_dict, term_groups, "izmaylov")
     else:
         raise NotImplementedError("Unknown Pauli term grouping method!")
     return result, constant

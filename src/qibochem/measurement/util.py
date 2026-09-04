@@ -154,7 +154,7 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
         term_groups = _graph_colouring(terms_dict, qubitwise)
     else:
         raise_error(ValueError, "Invalid method argument for grouping commuting terms!")
-    return term_groups, terms_dict
+    return terms_dict, term_groups
 
 
 def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:

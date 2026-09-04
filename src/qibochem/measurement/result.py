@@ -7,6 +7,7 @@ from collections import Counter
 from functools import reduce
 
 from qibo import Circuit
+from qibo.config import raise_error
 from qibo.gates import Gate
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -59,6 +60,7 @@ def expectation_from_samples(
     hamiltonian: SymbolicHamiltonian,
     n_shots: int = 1000,
     grouping: str | None = None,
+    method: str = "sorted",
     n_shots_per_pauli_term: bool = True,
     shot_allocation: list[int] | None = None,
 ) -> float:
@@ -78,8 +80,20 @@ def expectation_from_samples(
             Options:
                 - ``None``: No grouping of Hamiltonian terms (Default)
                 - ``"qwc"``: Qubit-wise commuting terms are grouped together
-                - ``"gc"``: Generally commuting terms are measured simultaneously by adding additional gates following the formulation by `Gokhale et al. <https://ieeexplore.ieee.org/abstract/document/9248636/>`_,
-                - ``"gc2"``: Same as ``"gc"``, but uses the circuit formulation by `Yen et al. <https://pubs.acs.org/doi/abs/10.1021/acs.jctc.0c00008>`_ instead
+                - ``"gc"``: Generally commuting terms are measured simultaneously by adding additional gates following
+                  the formulation by `Gokhale et al. <https://ieeexplore.ieee.org/abstract/document/9248636/>`__,
+                - ``"gc2"``: Same as ``"gc"``, but uses the circuit formulation by `Yen et al.
+                  <https://pubs.acs.org/doi/abs/10.1021/acs.jctc.0c00008>`__ instead
+        method (str):
+            Algorithm used to group compatible Pauli terms
+
+            Options:
+                - ``"sorted"``: (Default) Sorts the Pauli terms by the magnitude of their coefficients (largest first),
+                  then for each of the sorted terms, if it is compatible with an existing group, allocate it there;
+                  otherwise, assign it to a new group. (`Ref <https://quantum-journal.org/papers/q-2021-01-20-385/>`__)
+                - ``"graph"``:  Groups Pauli terms by solving the minimum clique cover problem for the graph whereby
+                  each node is a Pauli string, and an edge exists between two nodes iff they commute.
+                  (`Ref <https://doi.org/10.1063/1.5141458>`__)
         n_shots_per_pauli_term (bool):
             If ``True`` (Default), uses ``n_shots`` per Pauli term (or group of terms) to calculate the expectation
             value
@@ -90,7 +104,7 @@ def expectation_from_samples(
         float: Hamiltonian expectation value for the given circuit using sample measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
-    grouped_terms, constant = _measurement_basis_rotations(hamiltonian, grouping=grouping)
+    grouped_terms, constant = _measurement_basis_rotations(hamiltonian, grouping, method)
 
     # Check shot_allocation argument if not using n_shots_per_pauli_term
     if not n_shots_per_pauli_term:
@@ -164,7 +178,8 @@ def v_expectation(
     n_shots: int,
     n_trial_shots: int,
     grouping: str | None = None,
-    method: str = "vmsa",
+    grouping_method: str = "sorted",
+    var_method: str = "vmsa",
 ) -> float:
     """
     An alternative loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated
@@ -185,7 +200,9 @@ def v_expectation(
         grouping (str | None): Whether to group Hamiltonian terms together. The available options are: ``None``
             (Default), ``"qwc"``, ``"gc"``, and ``"gc2"`` (see :ref:`expectation_from_samples<expectation-samples>` for
             details)
-        method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
+        grouping_method (str): Method used to group compatible Pauli terms; must be either ``"sorted"`` (default) or
+            ``"graph"``.
+        var_method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
 
     Returns:
         float: Hamiltonian expectation value obtained using a variance-based shot allocation scheme
@@ -196,9 +213,10 @@ def v_expectation(
         (`link <https://pubs.acs.org/doi/10.1021/acs.jctc.3c01113>`__)
     """
     # Input check: method is valid
-    assert method in ("vmsa", "vpsr"), f"Unknown shot assignment method ({method}) called"
+    if var_method not in ("vmsa", "vpsr"):
+        raise_error(ValueError, f"Unknown shot assignment method ({var_method}) called")
     # Split up Hamiltonian into individual (groups of) terms to get the variance of each term (group)
-    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping=grouping)
+    grouped_terms, constant = _measurement_basis_rotations(hamiltonian, grouping, grouping_method)
     # Input check: n_trial_shots * nH terms <= n_shots
     assert (
         n_trial_shots * len(grouped_terms) <= n_shots
@@ -206,7 +224,7 @@ def v_expectation(
     # Sample means and variances for each term group, using n_trial_shots
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
-    remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
+    remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=var_method)
     new_mean_values = [
         expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, grouping=grouping)
         for (expression, _, _), _n in zip(grouped_terms, remaining_shot_allocation)
@@ -217,4 +235,4 @@ def v_expectation(
         for initial_mean, _n, new_mean in zip(sample_means, remaining_shot_allocation, new_mean_values)
     ]
     final_mean_values = [value / (n_trial_shots + _n) for value, _n in zip(sum_values, remaining_shot_allocation)]
-    return sum(final_mean_values) + _constant_term(hamiltonian)
+    return sum(final_mean_values) + constant
