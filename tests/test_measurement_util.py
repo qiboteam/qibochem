@@ -97,9 +97,9 @@ def test_group_commuting_terms(ham_terms, qwc_expected, gc_expected, method):
         return tuple(sorted(srepr(expr) for expr in group))
 
     hamiltonian = SymbolicHamiltonian(ham_terms, nqubits=4)
-    qwc_result = _group_commuting_terms(hamiltonian, qubitwise=True, method=method)
+    _term_dict, qwc_result = _group_commuting_terms(hamiltonian, qubitwise=True, method=method)
     assert sorted(map(canonical_group, qwc_result)) == sorted(map(canonical_group, qwc_expected))
-    gc_result = _group_commuting_terms(hamiltonian, qubitwise=False, method=method)
+    _term_dict, gc_result = _group_commuting_terms(hamiltonian, qubitwise=False, method=method)
     assert sorted(map(canonical_group, gc_result)) == sorted(map(canonical_group, gc_expected))
 
 
@@ -275,7 +275,6 @@ def test_col_reduce_x_matrix():
     )
     phases = np.array([0, 0], dtype=np.uint8)
     gates_list = _col_reduce_x_matrix(stabiliser_matrix, phases)
-    print(phases)
     # Single column operation, should have only CNOT gate
     assert len(gates_list) == 1 and gates_list[0].name == "cx"
     assert np.array_equal(phases, np.array([0, 0], dtype=np.uint8))

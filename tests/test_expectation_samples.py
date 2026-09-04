@@ -33,10 +33,13 @@ def test_pauli_term_measurement_expectation(term, frequencies, qubit_map, expect
 
 
 def test_measurement_basis_rotations_error():
-    """If unknown measurement grouping scheme used"""
+    """If unknown measurement grouping scheme or method used"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(NotImplementedError):
-        _ = _measurement_basis_rotations(hamiltonian, grouping="test")
+        _ = _measurement_basis_rotations(hamiltonian, grouping="test", method="sorted")
+
+    with pytest.raises(ValueError):
+        _ = _measurement_basis_rotations(hamiltonian, grouping="qwc", method="hello")
 
 
 @pytest.mark.parametrize(
@@ -158,7 +161,7 @@ def test_sample_statistics(terms, grouping, expected_means, expected_variances):
     circuit.add(gates.X(1))
     n_trial_shots = 20_000
     hamiltonian = SymbolicHamiltonian(terms, nqubits=2)
-    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping)
+    grouped_terms, _constant = _measurement_basis_rotations(hamiltonian, grouping, "sorted")
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     assert sample_means == pytest.approx(expected_means, abs=0.08)
     assert sample_variances == pytest.approx(expected_variances, abs=0.1)
@@ -193,3 +196,11 @@ def test_v_expectation_vmsa(terms, grouping):
         grouping=grouping,
     )
     assert test == pytest.approx(expected, abs=0.08)
+
+
+def test_v_expectation_input():
+    """If unknown measurement grouping scheme or method used"""
+    circuit = Circuit(1)
+    hamiltonian = SymbolicHamiltonian(Z(0))
+    with pytest.raises(ValueError):
+        _ = v_expectation(circuit, hamiltonian, n_shots=5, n_trial_shots=1, var_method="bah")

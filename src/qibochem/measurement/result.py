@@ -13,27 +13,12 @@ from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 from sympy import Add, Mul
 from sympy.core.expr import Expr
-from sympy.core.numbers import One
 
 from qibochem.measurement.optimization import _measurement_basis_rotations
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
     allocate_shots_by_variance,
 )
-
-
-def _constant_term(hamiltonian: SymbolicHamiltonian) -> complex:
-    """Extract the constant term (if any) from a given SymbolicHamiltonian"""
-    constant = 0.0
-    ham_form = hamiltonian.form
-    if ham_form.args:
-        # Hamiltonian has >1 term
-        find_constant = [coeff for term, coeff in ham_form.as_coefficients_dict().items() if isinstance(term, One)]
-        constant = find_constant[0] if find_constant else 0.0
-    else:
-        # Single term is either a Pauli operator or a float
-        constant = float(ham_form) if not isinstance(ham_form, (X, Y, Z)) else 0.0
-    return constant
 
 
 def _pauli_term_measurement_expectation(expression: Expr, frequencies: Counter[str], qubit_map: list[int]) -> float:
