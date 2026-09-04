@@ -77,33 +77,6 @@ def _qwc_measurement_gates(expression: Expr) -> list[Gate]:
     return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
-def _qwc_measurements(hamiltonian: SymbolicHamiltonian) -> list[tuple[Expr, list[Gate], list[Gate]]]:
-    """
-    Sort the Hamiltonian into separate groups of mutually qubitwise commuting terms, and returns the grouped terms
-    along with their associated measurement gates
-    """
-    # Build dictionary with keys = string representation of the terms, values = corresponding (sympy.Expr, term coeff)
-    if hamiltonian.form.args:
-        ham_terms = {
-            _term_to_string(term): (term, coeff)
-            for term, coeff in hamiltonian.form.as_coefficients_dict().items()
-            if not isinstance(term, One)
-        }
-    else:
-        ham_terms = {_term_to_string(hamiltonian.form): (hamiltonian.form, 1.0)}  # Single Pauli operator
-    term_groups = _group_commuting_terms(ham_terms.keys(), qubitwise=True)
-    return [
-        (
-            sum(ham_terms[term][1] * ham_terms[term][0] for term in term_group),  # Original expression: coeff*term
-            _qwc_measurement_gates(
-                sum(ham_terms[term][0] for term in term_group)
-            ),  # No coeff for _qwc_measurement_gates
-            [],  # No additional rotation gates needed; Already included in `basis` argument of gates.M
-        )
-        for term_group in term_groups
-    ]
-
-
 def _gc_measurement_mapping(expression: Expr, nqubits: int, method: str) -> tuple[dict[str, Expr], list[Gate]]:
     """
     Basis rotation gates to be added to the circuit for generally commuting terms. Resultant measurements
@@ -204,25 +177,49 @@ def _gc_measurements(hamiltonian: SymbolicHamiltonian, method: str) -> list[tupl
 
 
 def _measurement_basis_rotations(
-    hamiltonian: SymbolicHamiltonian, grouping: str | None = None
+    hamiltonian: SymbolicHamiltonian, grouping: str | None = None, method: str = "sorted"
 ) -> list[tuple[Expr, list[Gate], list[Gate]]]:
     """
     Sort Hamiltonian into separate groups and get the basis rotation gates to be applied for each of the corresponding
-    (group of) terms in the Hamiltonian. `grouping` argument must be in (None, "qwc", "gc", "gc2")
+    (group of) terms in the Hamiltonian. `grouping` argument
+
+    Args:
+        hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
+        grouping (str | None): How to group and construct the rotation circuit; Must be in (None, "qwc", "gc", "gc2")
+        method (str): Algorithm used to group compatible Pauli terms. Must be in ("sorted", "graph")
+
+    Returns:
+        tuple[list[tuple[Expr, list[Gate], list[Gate]]], float]:
+            Grouped terms along with the associated measurement and rotation gates respectively, and the constant term
+            in the Hamiltonian
     """
-    result = []
     if grouping is None:
-        result += [
+        # TODO: Check this as well? Can probably add into _group_commuting_terms function ba...
+        return [
             (coeff * term, _qwc_measurement_gates(term), [])
             for term, coeff in hamiltonian.form.as_coefficients_dict().items()
             if not isinstance(term, One)  # Ignore any constant term
         ]
-    elif grouping == "qwc":
-        result += _qwc_measurements(hamiltonian)
+
+    # Grouping of Pauli terms
+    result = []
+    term_groups, term_dict = _group_commuting_terms(hamiltonian, grouping == "qwc", method)
+    # Extract the constant term from term_dict
+    constant = term_dict.get(1, [0.0])[0]
+
+    if grouping == "qwc":
+        result = [
+            (
+                sum(term_dict[term][0] * term for term in term_group),  # Original expression: coeff*term
+                _qwc_measurement_gates(sum(term_group)),
+                [],  # No additional rotation gates needed; Already included in `basis` argument of gates.M
+            )
+            for term_group in term_groups
+        ]
     elif grouping == "gc":
         result += _gc_measurements(hamiltonian, "chong")
     elif grouping == "gc2":
         result += _gc_measurements(hamiltonian, "izmaylov")
     else:
         raise NotImplementedError("Unknown Pauli term grouping method!")
-    return result
+    return result, constant

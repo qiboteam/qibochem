@@ -77,7 +77,7 @@ def _graph_colouring(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise
     """
     G = nx.Graph()
     # Complement graph: Add all the terms as nodes first, then add edges between nodes if they DO NOT commute
-    G.add_nodes_from(terms_dict)
+    G.add_nodes_from(term for term in terms_dict if not isinstance(term, One))
     G.add_edges_from(
         (term1, term2)
         for i1, term1 in enumerate(terms_dict)
@@ -106,7 +106,9 @@ def _sorted_insertion(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwis
     Returns:
         list[list[Expr]]: Groups (lists) of Pauli strings that mutually commute within each group
     """
-    sorted_terms = sorted(terms_dict, key=lambda x: abs(terms_dict[x][0]), reverse=True)
+    sorted_terms = sorted(
+        (term for term in terms_dict if not isinstance(term, One)), key=lambda x: abs(terms_dict[x][0]), reverse=True
+    )
     term_groups = []
     for term in sorted_terms:
         added = False
@@ -121,9 +123,7 @@ def _sorted_insertion(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwis
     return term_groups
 
 
-def _group_commuting_terms(
-    hamiltonian: SymbolicHamiltonian, qubitwise: bool, method: str = "sorted"
-) -> list[list[Expr]]:
+def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, method: str) -> list[list[Expr]]:
     """
     Groups Pauli terms in hamiltonian into groups of (possibly qubitwise) commuting terms
 
@@ -134,12 +134,17 @@ def _group_commuting_terms(
             on both methods are given in their respective functions
 
     Returns:
-        list[list[str]]: Containing groups (lists) of Pauli strings that all commute mutually
+        tuple[list[list[str]], dict[Expr, tuple[float, np.ndarray]]]:
+            Groups (lists) of Pauli strings that all commute mutually and dict with the Pauli terms as keys and values
+            is a tuple of the respective term coefficients and symplectic form.
     """
     terms_dict = {
-        term: (coeff, _pauli_to_symplectic(term, hamiltonian.nqubits))
+        term: (
+            (coeff, _pauli_to_symplectic(term, hamiltonian.nqubits))
+            if not isinstance(term, One)
+            else (coeff, np.zeros(hamiltonian.nqubits, dtype=np.uint8))  # Constant term left out in grouping functions
+        )
         for term, coeff in hamiltonian.form.as_coefficients_dict().items()
-        if not isinstance(term, One)
     }
 
     term_groups = []
@@ -149,7 +154,7 @@ def _group_commuting_terms(
         term_groups = _graph_colouring(terms_dict, qubitwise)
     else:
         raise_error(ValueError, "Invalid method argument for grouping commuting terms!")
-    return term_groups
+    return term_groups, terms_dict
 
 
 def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:

@@ -90,7 +90,7 @@ def expectation_from_samples(
         float: Hamiltonian expectation value for the given circuit using sample measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
-    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping=grouping)
+    grouped_terms, constant = _measurement_basis_rotations(hamiltonian, grouping=grouping)
 
     # Check shot_allocation argument if not using n_shots_per_pauli_term
     if not n_shots_per_pauli_term:
@@ -101,7 +101,7 @@ def expectation_from_samples(
                 f"{len(shot_allocation) = } doesn't match the number of grouped terms ({len(grouped_terms)})!"
             )
 
-    total = _constant_term(hamiltonian)
+    total = constant
     for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
         _circuit = circuit.copy()
         _circuit.add(rotation_gates)
