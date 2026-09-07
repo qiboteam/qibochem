@@ -134,9 +134,9 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
             on both methods are given in their respective functions
 
     Returns:
-        tuple[list[list[str]], dict[Expr, tuple[float, np.ndarray]]]:
-            Groups (lists) of Pauli strings that all commute mutually and dict with the Pauli terms as keys and values
-            is a tuple of the respective term coefficients and symplectic form.
+        tuple[dict[Expr, tuple[float, np.ndarray]], list[list[str]]]:
+            Dict with (keys, values) as the Pauli terms and a tuple of the respective term coefficients and symplectic
+            form respectively, and groups (lists) of Pauli strings that all commute mutually
     """
     terms_dict = {
         term: (

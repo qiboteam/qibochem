@@ -71,7 +71,9 @@ def _qwc_measurement_gates(expression: Expr) -> list[Gate]:
     return sorted(m_gates.values(), key=lambda x: x.target_qubits)
 
 
-def _gc_measurement_mapping(term_group: list[Expr], term_dict: int, method: str) -> tuple[dict[str, Expr], list[Gate]]:
+def _gc_measurement_mapping(
+    term_group: list[Expr], term_dict: dict[Expr, tuple[float, np.ndarray]], method: str
+) -> tuple[dict[str, Expr], list[Gate]]:
     """
     Basis rotation gates to be added to the circuit for generally commuting terms. Resultant measurements
     can be used to calculate the expectation values of ALL the terms in expression directly.
@@ -83,7 +85,7 @@ def _gc_measurement_mapping(term_group: list[Expr], term_dict: int, method: str)
         method (str): Circuit formulation to use, either "chong" (default) or "izmaylov"
 
     Returns:
-        tuple[dict[str, Expr], list[Gate]]: (Mapping of original expression, Gates to add to original Qibo circuit)
+        tuple[dict[Expr, Expr], list[Gate]]: (Mapping of original expression, Gates to add to original Qibo circuit)
     """
     v_subspace = np.array([term_dict[term][1] for term in term_group], dtype=np.uint8)
     v_basis = _binary_gaussian_elimination(v_subspace)
