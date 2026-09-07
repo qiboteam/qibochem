@@ -203,4 +203,4 @@ def test_v_expectation_input():
     circuit = Circuit(1)
     hamiltonian = SymbolicHamiltonian(Z(0))
     with pytest.raises(ValueError):
-        _ = v_expectation(circuit, hamiltonian, n_shots=5, n_trial_shots=1, var_method="bah")
+        _ = v_expectation(circuit, hamiltonian, n_shots=5, n_trial_shots=1, method="bah")

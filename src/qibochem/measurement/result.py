@@ -163,8 +163,8 @@ def v_expectation(
     n_shots: int,
     n_trial_shots: int,
     grouping: str | None = None,
+    method: str = "vmsa",
     grouping_method: str = "sorted",
-    var_method: str = "vmsa",
 ) -> float:
     """
     An alternative loss function for finding the expectation value of a Hamiltonian using shots. Shots are allocated
@@ -185,9 +185,9 @@ def v_expectation(
         grouping (str | None): Whether to group Hamiltonian terms together. The available options are: ``None``
             (Default), ``"qwc"``, ``"gc"``, and ``"gc2"`` (see :ref:`expectation_from_samples<expectation-samples>` for
             details)
+        method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
         grouping_method (str): Method used to group compatible Pauli terms; must be either ``"sorted"`` (default) or
             ``"graph"``.
-        var_method (str): Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
 
     Returns:
         float: Hamiltonian expectation value obtained using a variance-based shot allocation scheme
@@ -198,8 +198,8 @@ def v_expectation(
         (`link <https://pubs.acs.org/doi/10.1021/acs.jctc.3c01113>`__)
     """
     # Input check: method is valid
-    if var_method not in ("vmsa", "vpsr"):
-        raise_error(ValueError, f"Unknown shot assignment method ({var_method}) called")
+    if method not in ("vmsa", "vpsr"):
+        raise_error(ValueError, f"Unknown shot assignment method ({method}) called")
     # Split up Hamiltonian into individual (groups of) terms to get the variance of each term (group)
     grouped_terms, constant = _measurement_basis_rotations(hamiltonian, grouping, grouping_method)
     # Input check: n_trial_shots * nH terms <= n_shots
@@ -209,7 +209,7 @@ def v_expectation(
     # Sample means and variances for each term group, using n_trial_shots
     sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
     # Assign remaining (n_shots - nH terms * n_trial_shots) based on the computed sample variances
-    remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=var_method)
+    remaining_shot_allocation = allocate_shots_by_variance(n_shots, n_trial_shots, sample_variances, method=method)
     new_mean_values = [
         expectation_from_samples(circuit, SymbolicHamiltonian(expression), n_shots=_n, grouping=grouping)
         for (expression, _, _), _n in zip(grouped_terms, remaining_shot_allocation)
