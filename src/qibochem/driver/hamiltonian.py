@@ -2,11 +2,10 @@
 Helper functions for obtaining and transforming the molecular Hamiltonian
 """
 
-from functools import reduce
-
 import openfermion
 from qibo import symbols
 from qibo.hamiltonians import SymbolicHamiltonian
+from sympy import Add, Mul
 
 
 def _fermionic_hamiltonian(oei, tei, constant):
@@ -58,11 +57,10 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
     Returns:
         qibo.hamiltonians.SymbolicHamiltonian
     """
-    symbolic_ham = sum(
-        reduce(lambda x, y: x * y, (getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string), coeff)
-        # Sums over each individual Pauli string in the QubitOperator
-        for operator in q_hamiltonian.get_operators()
-        # .terms gives one operator as a single-item dictionary, e.g. {((1: "X"), (2: "Y")): 0.33}
-        for pauli_string, coeff in operator.terms.items()
-    )
+    # Use sympy operations without evaluating (i.e. simplifying) the whole expression for every term
+    pauli_terms = [
+        Mul(coeff, *(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string), evaluate=False)
+        for pauli_string, coeff in q_hamiltonian.terms.items()
+    ]
+    symbolic_ham = Add(*pauli_terms, evaluate=False)
     return SymbolicHamiltonian(symbolic_ham)
