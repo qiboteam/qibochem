@@ -92,10 +92,42 @@ def _graph_colouring(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise
     return term_groups
 
 
+def _greedy_clique_cover(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool) -> list[list[Expr]]:
+    """
+    Use a greedy clique cover algorithm to partition all Pauli strings in terms_dict into groups of mutually commuting
+    terms, i.e. for each Pauli term, if it is compatible with an existing group, allocate it there; otherwise, assign it
+    to a new group. Should be faster than the _graph_colouring function
+
+    Args:
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]): Pauli terms to be grouped; given as a dict whereby the keys
+            are the Pauli terms (Expr), and their corresponding values are two-tuples: term coefficient and the
+            symplectic form of the Pauli term respectively.
+        qubitwise (bool): Determines if the check is for general commutativity or the stricter qubitwise commutativity
+
+    Returns:
+        list[list[Expr]]: Groups (lists) of Pauli strings that mutually commute within each group
+    """
+    term_groups = []
+
+    for term, term_data in terms_dict.items():
+        if isinstance(term, One):
+            continue
+        added = False
+        for group in term_groups:
+            # Check if current term commutes with all terms in current group
+            if all(_check_terms_commutativity(term_data[1], terms_dict[_term][1], qubitwise) for _term in group):
+                group.append(term)
+                added = True
+                break
+        if not added:
+            term_groups.append([term])
+    return term_groups
+
+
 def _sorted_insertion(terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool) -> list[list[Expr]]:
     """
-    Groups Pauli terms by sorting the terms w.r.t. their coefficients (largest first). For each of the sorted terms, if
-    it is compatible with an existing group, allocate it there; otherwise, assign it to a new group.
+    Groups Pauli terms by sorting the terms w.r.t. their coefficients (largest first), then applying a greedy clique
+    cover approach.
 
     Args:
         terms_dict (dict[Expr, tuple[float, np.ndarray]]): Pauli terms to be grouped; given as a dict whereby the keys
@@ -130,8 +162,8 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
     Args:
         hamiltonian (SymbolicHamiltonian): Hamiltonian to be sorted into groups of commuting terms
         qubitwise (bool): Determines if the check is for general commutativity, or the stricter qubitwise commutativity
-        method (str): Method used to group the Pauli terms. Must be either "sorted" (default) or "graph". More details
-            on both methods are given in their respective functions
+        method (str): Method used to group the Pauli terms. Must be either "sorted" (default), "greedy" or "graph". More
+            details on both methods are given in their respective functions
 
     Returns:
         tuple[dict[Expr, tuple[float, np.ndarray]], list[list[str]]]:
@@ -150,6 +182,8 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
     term_groups = []
     if method == "sorted":
         term_groups = _sorted_insertion(terms_dict, qubitwise)
+    elif method == "greedy":
+        term_groups = _greedy_clique_cover(terms_dict, qubitwise)
     elif method == "graph":
         term_groups = _graph_colouring(terms_dict, qubitwise)
     else:

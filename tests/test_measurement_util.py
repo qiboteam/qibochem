@@ -79,7 +79,7 @@ def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
     "ham_terms,qwc_expected,gc_expected",
     [
         (
-            0.9 * X(0) * Z(1) + 1.1 * X(0) + 0.8 * Z(0) + 0.5 * Z(0) * Z(1),
+            3.14 + 0.9 * X(0) * Z(1) + 1.1 * X(0) + 0.8 * Z(0) + 0.5 * Z(0) * Z(1),
             [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
             [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
         ),
@@ -90,7 +90,7 @@ def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
         ),
     ],
 )
-@pytest.mark.parametrize("method", ["graph", "sorted"])
+@pytest.mark.parametrize("method", ["graph", "greedy", "sorted"])
 def test_group_commuting_terms(ham_terms, qwc_expected, gc_expected, method):
     def canonical_group(group):
         """For sorting sympy Expr"""
