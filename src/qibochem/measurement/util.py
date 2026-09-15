@@ -2,6 +2,8 @@
 Utility functions for optimising measurements and calculation of expectation value
 """
 
+from math import prod
+
 import networkx as nx
 import numpy as np
 from qibo import gates
@@ -350,7 +352,7 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-    coeff, current_pauli_op = 1.0, np.zeros(2)
+    coeff, current_pauli_op = 1.0, np.zeros(2, dtype=np.uint8)
     for pauli_op in pauli_ops:
         # If I, just skip
         if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
@@ -360,7 +362,7 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
             continue
         # Multiply by some phase factor depending on what Pauli operators are involved
         coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
-        current_pauli_op = (current_pauli_op + pauli_op) % 2
+        current_pauli_op ^= pauli_op
     return coeff
 
 
@@ -371,11 +373,11 @@ def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
         return 1
     # >1 term:
     dim = pauli_terms[0].shape[0] // 2
-    coefficient = 1.0
-    for qubit in range(dim):
-        # Get all Pauli operators for a particular qubit
-        pauli_ops = [pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms]
-        coefficient *= _single_qubit_phase_factor(pauli_ops)
+    # Get the phase of the product of all Pauli operators for one qubit and then take the product over all qubits
+    coefficient = prod(
+        _single_qubit_phase_factor([pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms])
+        for qubit in range(dim)
+    )
     return int(np.real_if_close(coefficient))
 
 
@@ -415,7 +417,7 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
     Modifies stabiliser_matrix and phases in-place to transform the X matrix to I, using CNOT/SWAP gates
 
     Returns:
-        list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
+        list[gates.Gate]: List of CNOT and SWAP gates to be added to the circuit
     """
     gates_list = []
     dim, dim_space = stabiliser_matrix.shape

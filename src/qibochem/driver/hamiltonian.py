@@ -58,9 +58,11 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
         qibo.hamiltonians.SymbolicHamiltonian
     """
     # Use sympy operations without evaluating (i.e. simplifying) the whole expression for every term
-    pauli_terms = [
-        Mul(coeff, *(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string), evaluate=False)
-        for pauli_string, coeff in q_hamiltonian.terms.items()
-    ]
-    symbolic_ham = Add(*pauli_terms, evaluate=False)
-    return SymbolicHamiltonian(symbolic_ham)
+    symbolic_expr = Add(
+        *(
+            Mul(coeff, *(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string), evaluate=False)
+            for pauli_string, coeff in q_hamiltonian.terms.items()
+        ),
+        evaluate=False
+    )
+    return SymbolicHamiltonian(symbolic_expr)

@@ -2,13 +2,12 @@
 Functions for optimising the measurement cost of obtaining the expectation value
 """
 
-from math import prod
-
 import numpy as np
 from qibo import Circuit, gates, symbols
 from qibo.gates import Gate
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
+from sympy import Add, Mul
 from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
@@ -107,7 +106,7 @@ def _gc_measurement_mapping(
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
         u_gates, phases = _synthesise_circuit(v_basis)
         mapping = {
-            term: phase * prod(phases[i] * Z(i) for i in soln)
+            term: Mul(phase, *(phases[i] * Z(i) for i in soln))
             for term, phase, soln in zip(term_group, phase_factors, x_result)
         }
     elif method == "izmaylov":  # TODO: Clean up this branch
@@ -119,7 +118,7 @@ def _gc_measurement_mapping(
         sigma_term_str = [_symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
         qwc_terms = [_symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
         mapping = {
-            term: phase * prod([getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op])
+            term: Mul(phase, *(getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op))
             for term, phase, pauli_op in zip(term_group, phase_factors, qwc_terms)
         }
         # Define the measurement gates
@@ -150,7 +149,7 @@ def _gc_measurements(
     for term_group in term_groups:
         mapping, rotation_gates = _gc_measurement_mapping(term_group, term_dict, method)
         # Update the initial expression based on the obtained mapping
-        new_expression = sum(term_dict[term][0] * mapping[term] for term in term_group)
+        new_expression = Add(*(term_dict[term][0] * mapping[term] for term in term_group), evaluate=False)
         # Add measurement gates based on the updated expression
         measurement_gates = _qwc_measurement_gates(new_expression)
         result.append((new_expression, measurement_gates, rotation_gates))
@@ -167,15 +166,15 @@ def _measurement_basis_rotations(
     Args:
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Molecular Hamiltonian
         grouping (str | None): How to group and construct the rotation circuit; Must be in (None, "qwc", "gc", "gc2")
-        method (str): Algorithm used to group compatible Pauli terms. Must be in ("sorted", "graph")
+        method (str): Algorithm used to group compatible Pauli terms. Must be in ("sorted", "greedy", "graph")
 
     Returns:
         tuple[list[tuple[Expr, list[Gate], list[Gate]]], float]:
             Grouped terms along with the associated measurement and rotation gates respectively, and the constant term
             in the Hamiltonian
     """
+    result, constant = [], 0.0
     if grouping is None:
-        result, constant = [], 0.0
         for term, coeff in hamiltonian.form.as_coefficients_dict().items():
             if not isinstance(term, One):
                 result.append((coeff * term, _qwc_measurement_gates(term), []))
@@ -184,24 +183,23 @@ def _measurement_basis_rotations(
         return result, constant
 
     # Grouping of Pauli terms
-    result = []
     term_dict, term_groups = _group_commuting_terms(hamiltonian, grouping == "qwc", method)
     # Extract the constant term from term_dict
-    constant = term_dict.get(1, [0.0])[0]
+    constant += term_dict.get(1, [0.0])[0]
 
     if grouping == "qwc":
         result = [
             (
-                sum(term_dict[term][0] * term for term in term_group),  # Original expression: coeff*term
+                Add(*(term_dict[term][0] * term for term in term_group)),  # Original expression: coeff*term
                 _qwc_measurement_gates(sum(term_group)),
                 [],  # No additional rotation gates needed; Already included in `basis` argument of gates.M
             )
             for term_group in term_groups
         ]
     elif grouping == "gc":
-        result += _gc_measurements(term_dict, term_groups, "chong")
+        result = _gc_measurements(term_dict, term_groups, "chong")
     elif grouping == "gc2":
-        result += _gc_measurements(term_dict, term_groups, "izmaylov")
+        result = _gc_measurements(term_dict, term_groups, "izmaylov")
     else:
         raise NotImplementedError("Unknown Pauli term grouping method!")
     return result, constant

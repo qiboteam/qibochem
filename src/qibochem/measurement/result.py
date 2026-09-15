@@ -4,7 +4,6 @@ vector simulation, or from sample measurements
 """
 
 from collections import Counter
-from functools import reduce
 
 from qibo import Circuit
 from qibo.config import raise_error
@@ -27,15 +26,18 @@ def _pauli_term_measurement_expectation(expression: Expr, frequencies: Counter[s
     if isinstance(expression, Add):
         # Sum of multiple Pauli terms
         return sum(_pauli_term_measurement_expectation(term, frequencies, qubit_map) for term in expression.args)
-    if isinstance(expression, Mul):
-        # Single Pauli term
-        pauli_z_terms = [Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term for term in expression.args]
-        z_only_ham = SymbolicHamiltonian(
-            reduce(lambda x, y: x * y, pauli_z_terms, 1.0),
+    # Single Pauli term: Convert to all Z's and evaluate
+    z_only_ham = (
+        SymbolicHamiltonian(
+            Mul(
+                *(Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term for term in expression.args),
+                evaluate=False,
+            ),
             nqubits=max(term.target_qubit for term in expression.args if isinstance(term, (X, Y, Z))) + 1,
         )
-    elif isinstance(expression, (X, Y, Z)):
-        z_only_ham = SymbolicHamiltonian(Z(expression.target_qubit), nqubits=expression.target_qubit + 1)
+        if expression.args
+        else SymbolicHamiltonian(Z(expression.target_qubit), nqubits=expression.target_qubit + 1)
+    )
     # Can now apply expectation_from_samples directly
     return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
 
