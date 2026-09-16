@@ -102,7 +102,6 @@ def _gc_measurement_mapping(
     # Different methods of circuit synthesis
     if method == "chong":
         x_result = _solve_linear_system(v_basis, v_subspace)
-        # Map the solution onto the original set of qubits
         phase_factors = [_phase_factor(v_basis[pauli_op]) for pauli_op in x_result]
         u_gates, phases = _synthesise_circuit(v_basis)
         mapping = {
@@ -190,8 +189,9 @@ def _measurement_basis_rotations(
     if grouping == "qwc":
         result = [
             (
-                Add(*(term_dict[term][0] * term for term in term_group)),  # Original expression: coeff*term
-                _qwc_measurement_gates(sum(term_group)),
+                # Original expression: coeff*term
+                Add(*(term_dict[term][0] * term for term in term_group), evaluate=False),
+                _qwc_measurement_gates(Add(*term_group, evaluate=False)),
                 [],  # No additional rotation gates needed; Already included in `basis` argument of gates.M
             )
             for term_group in term_groups

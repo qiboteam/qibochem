@@ -168,9 +168,9 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
             details on both methods are given in their respective functions
 
     Returns:
-        tuple[dict[Expr, tuple[float, np.ndarray]], list[list[str]]]:
+        tuple[dict[Expr, tuple[float, np.ndarray]], list[list[Expr]]]:
             Dict with (keys, values) as the Pauli terms and a tuple of the respective term coefficients and symplectic
-            form respectively, and groups (lists) of Pauli strings that all commute mutually
+            form respectively, and groups (lists) of Pauli terms that all commute mutually
     """
     terms_dict = {
         term: (
@@ -340,7 +340,7 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
 
 
-def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[np.ndarray]:
+def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[list[int]]:
     """Solve (binary) linear system Ax = b. Each item in the result corresponds to the respective vectors in b"""
     # Form the augmented matrix and row-reduce it using Gaussian elimination
     aug_matrix = np.concatenate((binary_matrix, vector), axis=0).T
@@ -349,7 +349,7 @@ def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[
     return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist() for i in range(vector.shape[0])]
 
 
-def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
+def _single_qubit_phase_factor(pauli_ops: np.ndarray) -> complex:
     """Compute the phase factor w.r.t. the product of multiple Pauli operators for a single qubit"""
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
     coeff, current_pauli_op = 1.0, np.zeros(2, dtype=np.uint8)
@@ -366,18 +366,14 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
     return coeff
 
 
-def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
+def _phase_factor(pauli_terms: np.ndarray) -> int:
     """Compute phase factor of a product of mutually commuting Pauli terms (in symplectic form). Returns: 1 or -1"""
     # Singleton case is trivial: 1
-    if len(pauli_terms) == 1:
+    nterms, nqubits = pauli_terms.shape
+    if nterms == 1:
         return 1
-    # >1 term:
-    dim = pauli_terms[0].shape[0] // 2
-    # Get the phase of the product of all Pauli operators for one qubit and then take the product over all qubits
-    coefficient = prod(
-        _single_qubit_phase_factor([pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms])
-        for qubit in range(dim)
-    )
+    nqubits //= 2
+    coefficient = prod(_single_qubit_phase_factor(pauli_terms[:, [qubit, qubit + nqubits]]) for qubit in range(nqubits))
     return int(np.real_if_close(coefficient))
 
 

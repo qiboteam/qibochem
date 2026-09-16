@@ -244,20 +244,10 @@ def test_get_sigma_terms():
 @pytest.mark.parametrize(
     "vector_space,expected",
     [
-        (
-            [
-                _pauli_to_symplectic(Z(0), 2),
-            ],
-            1,
-        ),
-        (
-            [
-                _pauli_to_symplectic(X(0) * X(1), 2),
-            ],
-            1,
-        ),
-        ([_pauli_to_symplectic(pauli, 2) for pauli in (X(0) * X(1), Y(0) * Y(1))], -1),
-        ([_pauli_to_symplectic(pauli, 3) for pauli in (X(0), Y(1) * Z(2), Z(1) * Y(2))], 1),
+        (_pauli_to_symplectic(Z(0), 2).reshape(1, -1), 1),
+        (_pauli_to_symplectic(X(0) * X(1), 2).reshape(1, -1), 1),
+        (np.array([_pauli_to_symplectic(pauli, 2) for pauli in (X(0) * X(1), Y(0) * Y(1))], dtype=np.uint8), -1),
+        (np.array([_pauli_to_symplectic(pauli, 3) for pauli in (X(0), Y(1) * Z(2), Z(1) * Y(2))], dtype=np.uint8), 1),
     ],
 )
 def test_phase_factor(vector_space, expected):
