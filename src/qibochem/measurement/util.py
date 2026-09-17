@@ -329,31 +329,24 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
 
 def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Find the set of sigma terms for a given array of tau terms's, with (sigma_i|tau_j) = 1 if i == j else 0, and
-    (sigma_i|sigma_j) == 0 if i != j, i.e. all sigma_i's must correspond to different qubits. Note that tau_terms is
-    also re-orthogonalised to follow the first relation given above in the process.
+    Returns re-orthogonalized tau_terms and sigma terms such that (sigma_i | tau_j) = delta_ij, and
+    (sigma_i|sigma_j) == 0 if i != j
     """
-    sigma_terms = []
-    dim = tau_terms[0].shape[0] // 2
-    # Make a copy of the original basis set for orthogonalization
-    new_tau_terms = np.array(tau_terms, dtype=np.uint8)
-    # Iterate over the original tau_i to make changes to new_tau_i
-    for _i in range(dim):
-        tau_i = new_tau_terms[_i]
+    new_tau_terms = np.array(tau_terms, dtype=np.uint8)  # Copy of original basis set for orthogonalization
+    dim = new_tau_terms.shape[0]
+    sigma_terms = np.zeros((dim, 2 * dim), dtype=np.uint8)
+
+    # Iterate over each row in tau/sigma_terms
+    for row in range(dim):
+        pivot_tau = new_tau_terms[row]
         # Let sigma_i be x_i if z_i is in tau_i, otherwise let sigma_i be z_i
-        _sigma_i = (0, 1) if tuple(tau_i[[_i, _i + dim]].tolist()) != (0, 1) else (1, 0)
-        # Convert and broadcast _sigma_i back to the correct size using I's
-        sigma_i = np.ravel(np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T)
-        sigma_terms.append(sigma_i)
-        # Orthogonalise the non-i^th terms:
-        new_tau_terms ^= np.array(
-            [
-                _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
-                for _j in range(dim)
-            ],
-            dtype=np.uint8,
-        )
-    return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
+        sigma_col = row if pivot_tau[row + dim] else row + dim
+        sigma_terms[row, sigma_col] = 1
+        # Update new_tau_terms w.r.t. sigma_i
+        for latter_row in range(dim):
+            if latter_row != row and _symplectic_inner_product(new_tau_terms[latter_row], sigma_terms[row]):
+                new_tau_terms[latter_row] ^= pivot_tau
+    return new_tau_terms, sigma_terms
 
 
 def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[list[int]]:
