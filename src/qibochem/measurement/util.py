@@ -298,17 +298,33 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
 def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     """Sorts the rows of v_basis s.t. the (i, i) and (i, i+dim) entries are not 0, i.e. i'th basis vector i is NOT I"""
     dim = v_basis.shape[0]
-    while not all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
-        # Sort unmatched qubits
-        unmatched_qubits = [i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])]
-        matches_for_unmatched_qubits = {
-            i: [qubit for qubit in range(dim) if v_basis[i, qubit] or v_basis[i, qubit + dim]] for i in unmatched_qubits
-        }
-        # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
-        row_to_swap = min(matches_for_unmatched_qubits, key=lambda x: (len(matches_for_unmatched_qubits[x]), x))
-        target = min(matches_for_unmatched_qubits[row_to_swap])
-        v_basis[[row_to_swap, target]] = v_basis[[target, row_to_swap]]
-    return v_basis
+
+    # Define possible candidates for each row
+    candidates = [
+        [qubit for qubit in range(dim) if v_basis[row, qubit] or v_basis[row, qubit + dim]] for row in range(dim)
+    ]
+    mapping = [-1] * dim  # Mapping source->output rows
+
+    def augment(row: int, seen: list[bool]) -> bool:
+        for qubit in candidates[row]:
+            if seen[qubit]:
+                continue
+            seen[qubit] = True
+
+            previous_row = mapping[qubit]
+            # If qubit is free, assign directly. Otherwise, try to re-assign its current owner to another qubit
+            if previous_row == -1 or augment(previous_row, seen):
+                mapping[qubit] = row
+                return True
+        return False
+
+    # Try constrained rows first
+    for row in sorted(range(dim), key=lambda row: (len(candidates[row]), row)):
+        if not augment(row, [False] * dim):
+            raise ValueError("No row-to-qubit perfect matching exists")
+
+    # mapping[q] is the source row assigned to output row q.
+    return v_basis[mapping]
 
 
 def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
