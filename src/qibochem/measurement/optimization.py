@@ -3,7 +3,7 @@ Functions for optimising the measurement cost of obtaining the expectation value
 """
 
 import numpy as np
-from qibo import Circuit, gates, symbols
+from qibo import Circuit, gates
 from qibo.gates import Gate
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -11,7 +11,6 @@ from sympy import Add, Mul
 from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
-from qibochem.ansatz._ansatz import _expi_pauli
 from qibochem.measurement.util import (
     _binary_gaussian_elimination,
     _binary_nullspace,
@@ -26,23 +25,18 @@ from qibochem.measurement.util import (
 )
 
 
-def _u_circuit(tau_terms: list[str], sigma_terms: list[str], nqubits: int) -> Circuit:
+def _u_circuit(tau_terms: Expr, sigma_terms: Expr, nqubits: int) -> Circuit:
     """
-    Circuit formulation by Izmaylov and co-workers for measuring generally commuting terms simultaneously.
-    TODO: Consider using the gates from Qibo directly, instead of _expi_pauli
+    Construct the rotation circuit using a SymbolicHamiltonian.circuit
     """
     circuit = Circuit(nqubits)
-    for _tau, _sigma in zip(tau_terms, sigma_terms):
-        # Convert the strings to QubitOperators
-        tau_i = " ".join(_tau)
-        sigma_i = " ".join(_sigma)
-
-        theta = 0.25 * np.pi
-        # Build up the circuit
-        circuit += _expi_pauli(nqubits, sigma_i, theta)
-        circuit += _expi_pauli(nqubits, tau_i, theta)
-        circuit += _expi_pauli(nqubits, sigma_i, theta)
-
+    theta = -0.25 * np.pi
+    for tau_term, sigma_term in zip(tau_terms, sigma_terms):
+        tau_hamiltonian = SymbolicHamiltonian(tau_term, nqubits=nqubits)
+        sigma_hamiltonian = SymbolicHamiltonian(sigma_term, nqubits=nqubits)
+        circuit += sigma_hamiltonian.circuit(theta)
+        circuit += tau_hamiltonian.circuit(theta)
+        circuit += sigma_hamiltonian.circuit(theta)
     return circuit
 
 
@@ -108,20 +102,18 @@ def _gc_measurement_mapping(
             term: Mul(phase, *(phases[i] * Z(i) for i in soln))
             for term, phase, soln in zip(term_group, phase_factors, x_result)
         }
-    elif method == "izmaylov":  # TODO: Clean up this branch
+    elif method == "izmaylov":
         v_basis = _sort_tau_terms(v_basis)
-        new_tau_terms, sigma_terms = _get_sigma_terms(v_basis)
-        x_result = _solve_linear_system(new_tau_terms, v_subspace)
-        phase_factors = [_phase_factor(new_tau_terms[pauli_op]) for pauli_op in x_result]
-        tau_term_str = [_symplectic_to_pauli(tau_i) for tau_i in new_tau_terms]
-        sigma_term_str = [_symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
-        qwc_terms = [_symplectic_to_pauli(sum(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
-        mapping = {
-            term: Mul(phase, *(getattr(symbols, sigma[0])(int(sigma[1:])) for sigma in pauli_op))
-            for term, phase, pauli_op in zip(term_group, phase_factors, qwc_terms)
-        }
+        tau_terms, sigma_terms = _get_sigma_terms(v_basis)
+        x_result = _solve_linear_system(tau_terms, v_subspace)
+        phase_factors = [_phase_factor(tau_terms[pauli_op]) for pauli_op in x_result]
+        # Convert tau/sigma_terms from np.array -> sympy.Expr
+        tau_terms = [_symplectic_to_pauli(tau_i) for tau_i in tau_terms]
+        sigma_terms = [_symplectic_to_pauli(sigma_i) for sigma_i in sigma_terms]
+        qwc_terms = [Mul(*(sigma_terms[_x] for _x in pauli_op)) for pauli_op in x_result]
+        mapping = {term: Mul(phase, qwc_term) for term, phase, qwc_term in zip(term_group, phase_factors, qwc_terms)}
         # Define the measurement gates
-        u_gates = _u_circuit(tau_term_str, sigma_term_str, v_basis.shape[1]).queue  # Extract nqubits from vector
+        u_gates = _u_circuit(tau_terms, sigma_terms, v_basis.shape[1]).queue  # Extract nqubits from vector
     else:
         raise ValueError("Unknown method!")
     return mapping, u_gates
