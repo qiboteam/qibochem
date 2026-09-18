@@ -213,6 +213,11 @@ def test_sort_tau_terms():
     result_symplectic = _sort_tau_terms(test_symplectic_form)
     assert all(result_symplectic[i, i] or result_symplectic[i, i + nqubits] for i in range(nqubits))
 
+    # Failure test
+    v_basis = np.array([[1, 0, 0, 0], [0, 0, 1, 0]], dtype=np.uint8)
+    with pytest.raises(ValueError):
+        _sort_tau_terms(v_basis)
+
 
 def test_get_sigma_terms():
     test_terms = [X(0) * X(2), Z(1), Z(0) * Z(2), Z(1) * X(3) * Z(4) * X(5), Z(4), Z(3) * Z(5)]
