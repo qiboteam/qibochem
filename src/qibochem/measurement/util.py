@@ -9,12 +9,13 @@ import numpy as np
 from qibo import gates
 from qibo.config import raise_error
 from qibo.hamiltonians import SymbolicHamiltonian
-from qibo.symbols import X, Y, Z
+from qibo.symbols import I, X, Y, Z
+from sympy import Mul
 from sympy.core.expr import Expr
 from sympy.core.numbers import One
 
 # Mapping of Pauli operators to a symplectic (binary) representation, folowing the convention of (X|Z)
-PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
+PAULI_BINARY = {I: (0, 0), X: (1, 0), Y: (1, 1), Z: (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
 SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
@@ -28,13 +29,13 @@ def _pauli_to_symplectic(pauli_term: Expr, nqubits: int) -> np.ndarray:
     """
     # Pauli operator for each qubit
     pauli_ops = (
-        {pauli_op.target_qubit: str(pauli_op)[0] for pauli_op in pauli_term.args if isinstance(pauli_op, (X, Y, Z))}
+        {pauli_op.target_qubit: type(pauli_op) for pauli_op in pauli_term.args if isinstance(pauli_op, (X, Y, Z))}
         if pauli_term.args
-        else {pauli_term.target_qubit: str(pauli_term)[0]}
+        else {pauli_term.target_qubit: type(pauli_term)}
     )
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+        np.array([PAULI_BINARY[pauli_ops.get(i, I)] for i in range(nqubits)], dtype=np.uint8),
         shape=2 * nqubits,
         order="F",
     )
@@ -193,18 +194,6 @@ def _group_commuting_terms(hamiltonian: SymbolicHamiltonian, qubitwise: bool, me
     return terms_dict, term_groups
 
 
-def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
-    """Map a single symplectic vector to its corresponding Pauli term (E.g. ['Y0', 'X2'])"""
-    dim = symplectic_vector.shape[0] // 2
-    pauli_op_vectors = [tuple(symplectic_vector[[_i, _i + dim]]) for _i in range(dim)]
-    pauli_op_terms = [
-        f"{BINARY_PAULI[vector]}{_q}"
-        for _q, vector in zip(range(dim), pauli_op_vectors)
-        if vector != (0, 0)  # Not retaining I terms
-    ]
-    return pauli_op_terms
-
-
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
     """
     Performs Gaussian elimination on a binary vector_space. Returns the (unique) reduced row echelon form, and removes
@@ -347,6 +336,18 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             if latter_row != row and _symplectic_inner_product(new_tau_terms[latter_row], sigma_terms[row]):
                 new_tau_terms[latter_row] ^= pivot_tau
     return new_tau_terms, sigma_terms
+
+
+def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> Expr:
+    """Map a single symplectic vector to its corresponding Pauli term (E.g. ['Y0', 'X2'])"""
+    dim = symplectic_vector.shape[0] // 2
+    return Mul(
+        *(
+            BINARY_PAULI[vector](qubit)
+            for qubit in range(dim)
+            if (vector := (symplectic_vector[qubit], symplectic_vector[qubit + dim])) != (0, 0)
+        )
+    )
 
 
 def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[list[int]]:

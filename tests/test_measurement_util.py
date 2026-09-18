@@ -106,8 +106,8 @@ def test_group_commuting_terms(ham_terms, qwc_expected, gc_expected, method):
 @pytest.mark.parametrize(
     "function_args,expected",
     [
-        ({"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)}, ["X0", "Y1", "Z2"]),
-        ({"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0], dtype=np.uint8)}, ["Y1", "X3"]),
+        ({"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)}, X(0) * Y(1) * Z(2)),
+        ({"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0], dtype=np.uint8)}, Y(1) * X(3)),
     ],
 )
 def test_symplectic_to_pauli(function_args, expected):
@@ -216,7 +216,7 @@ def test_sort_tau_terms():
 
 def test_get_sigma_terms():
     test_terms = [X(0) * X(2), Z(1), Z(0) * Z(2), Z(1) * X(3) * Z(4) * X(5), Z(4), Z(3) * Z(5)]
-    test_symplectic_form = [_pauli_to_symplectic(term, nqubits=6) for term in test_terms]
+    test_symplectic_form = np.array([_pauli_to_symplectic(term, nqubits=6) for term in test_terms], dtype=np.uint8)
     new_tau_terms, sigma_terms = _get_sigma_terms(test_symplectic_form)
     # Check new tau terms are still mutually orthogonal
     assert all(
