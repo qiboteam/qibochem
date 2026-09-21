@@ -64,13 +64,21 @@ def test_he_circuit(rotation_gates, entangling_gate):
     for _ in range(nlayers):
         # Rotation gates
         control_circuit.add(
-            (getattr(gates, rotation_gate) if isinstance(rotation_gate, str) else rotation_gate)(_i, 0.0)
+            (
+                getattr(gates, rotation_gate)
+                if isinstance(rotation_gate, str)
+                else rotation_gate
+            )(_i, 0.0)
             for _i in range(nqubits)
             for rotation_gate in rotation_gates
         )
         # Entanglement gates
         control_circuit.add(
-            (getattr(gates, entangling_gate) if isinstance(entangling_gate, str) else entangling_gate)(_i, _i + 1)
+            (
+                getattr(gates, entangling_gate)
+                if isinstance(entangling_gate, str)
+                else entangling_gate
+            )(_i, _i + 1)
             for _i in range(nqubits - 1)
         )
 
@@ -104,10 +112,16 @@ def test_pche_circuit():
         2 * qubits
         + [qubits for i in range(nqubits - 1) for qubits in ((i,), (i, i + 1), (i,))]
         + qubits
-        + [qubits for i in range(nqubits - 1, 0, -1) for qubits in ((i - 1,), (i, i - 1), (i - 1,))]
+        + [
+            qubits
+            for i in range(nqubits - 1, 0, -1)
+            for qubits in ((i - 1,), (i, i - 1), (i - 1,))
+        ]
         + 2 * qubits
     )
-    for gate, (control_gate, control_qubits) in zip(test_circuit.queue, zip(names, gate_qubits)):
+    for gate, (control_gate, control_qubits) in zip(
+        test_circuit.queue, zip(names, gate_qubits)
+    ):
         assert gate.__class__.__name__ == control_gate
         assert gate.qubits == control_qubits
 
@@ -148,10 +162,13 @@ def test_expi_pauli(pauli_string):
     theta = np.random.rand(1)
 
     # Build using exp(-i*theta*SymbolicHamiltonian)
-    pauli_ops = sorted(((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
+    pauli_ops = sorted(
+        ((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0]
+    )
     control_circuit = Circuit(nqubits)
     pauli_term = SymbolicHamiltonian(
-        symbols.I(nqubits - 1) * prod(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops)
+        symbols.I(nqubits - 1)
+        * prod(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops)
     )
     control_circuit += pauli_term.circuit(-theta)
     control_result = control_circuit()
@@ -196,9 +213,12 @@ def test_ucc_circuit(excitation, mapping, pauli_terms, coeffs):
 
     control_circuit = Circuit(nqubits)
     for coeff, pauli_string in zip(coeffs, pauli_terms):
-        pauli_ops = sorted(((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0])
+        pauli_ops = sorted(
+            ((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0]
+        )
         pauli_term = SymbolicHamiltonian(
-            symbols.I(nqubits - 1) * prod(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops)
+            symbols.I(nqubits - 1)
+            * prod(getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_ops)
         )
         control_circuit += pauli_term.circuit(-coeff * theta)
     control_result = control_circuit()
@@ -211,7 +231,9 @@ def test_ucc_circuit(excitation, mapping, pauli_terms, coeffs):
             test_state = test_result.state(True)
             assert np.allclose(control_state, test_state)
     else:
-        test_circuit = ucc_circuit(nqubits, excitation, theta=theta, ferm_qubit_map=mapping)
+        test_circuit = ucc_circuit(
+            nqubits, excitation, theta=theta, ferm_qubit_map=mapping
+        )
         test_result = test_circuit()
         test_state = test_result.state(True)
         assert np.allclose(control_state, test_state)
@@ -312,7 +334,9 @@ def test_basis_rotation_unitary():
         ]
     )
     parameters = (-0.1, -0.2, -0.3, -0.4)
-    unitary_matrix = _basis_rotation_unitary([0, 1], [2, 3, 4, 5], parameters=parameters)
+    unitary_matrix = _basis_rotation_unitary(
+        [0, 1], [2, 3, 4, 5], parameters=parameters
+    )
 
     identity = np.eye(6)
     assert np.allclose(unitary_matrix @ unitary_matrix.T, identity)
@@ -411,7 +435,10 @@ def test_basis_rotation_layout(nqubits, control):
         (test_item[0] == control_item[0]) and (test_item[1] == control_item[1])
         for test_item, control_item in zip(test, control)
     )
-    assert all(np.isclose(test_item[2], control_item[2]) for test_item, control_item in zip(test, control))
+    assert all(
+        np.isclose(test_item[2], control_item[2])
+        for test_item, control_item in zip(test, control)
+    )
 
 
 @pytest.mark.parametrize(
@@ -470,7 +497,9 @@ def test_basis_rotation_circuit(parameters, control_parameters):
 
     # Generate the control circuit
     control_circuit = Circuit(nqubits)
-    control_circuit.add(gates.GIVENS(_q + 1, _q, 0.0) for _ in range(3) for _q in (0, 2, 4, 1, 3))
+    control_circuit.add(
+        gates.GIVENS(_q + 1, _q, 0.0) for _ in range(3) for _q in (0, 2, 4, 1, 3)
+    )
     control_circuit.set_parameters(control_parameters)
 
     test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters)
@@ -529,7 +558,12 @@ def test_a_gate_indices(nqubits, nelectrons, x_gates, expected):
 @pytest.mark.parametrize(
     "nqubits,nelectrons,parameters,control_parameters",
     [
-        (4, 2, [0.31415 for _ in range(24)], 6 * [-0.31415, -0.31415, 0.31415, 0.31415]),
+        (
+            4,
+            2,
+            [0.31415 for _ in range(24)],
+            6 * [-0.31415, -0.31415, 0.31415, 0.31415],
+        ),
         (4, 2, 0.1, 6 * [-0.1, -0.1, 0.1, 0.1]),
         (6, 4, None, [0.0 for _ in range(60)]),
     ],
@@ -543,7 +577,9 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
     control_circuit.add(_gates for _a_gate in a_gates for _gates in _a_gate)
     # Add 0.5*pi or pi to the control parameters
     n_a_gates = len(control_parameters) // 4
-    control_parameters = np.array(control_parameters) + np.array(n_a_gates * [-np.pi, -0.5 * np.pi, 0.5 * np.pi, np.pi])
+    control_parameters = np.array(control_parameters) + np.array(
+        n_a_gates * [-np.pi, -0.5 * np.pi, 0.5 * np.pi, np.pi]
+    )
     control_circuit.set_parameters(control_parameters)
 
     test_circuit = symm_preserving_circuit(nqubits, nelectrons, parameters)
@@ -557,7 +593,11 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
 
 
 @pytest.mark.parametrize(
-    "mol_geom", [(("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))), (("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4)))]
+    "mol_geom",
+    [
+        (("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))),
+        (("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.4))),
+    ],
 )
 @pytest.mark.parametrize(
     "ansatz,ansatz_kwargs",
@@ -585,17 +625,25 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
         excitations = ansatz_kwargs.get("excitations")
         if excitations is None:
             # Generate all possible excitations
-            excitations = [generate_excitations(order, [0, 1], [2, 3]) for order in (2, 1)]
+            excitations = [
+                generate_excitations(order, [0, 1], [2, 3]) for order in (2, 1)
+            ]
             excitations = [
                 excitation for order_ex in excitations for excitation in order_ex
             ]  # Flatten the excitations list
         # Don't use MP2 amplitudes with HF embedding
-        thetas = ansatz_kwargs.get("thetas", (0.1, 0.2) if molecule.nso == 12 else (0.0, 0.0))
+        thetas = ansatz_kwargs.get(
+            "thetas", (0.1, 0.2) if molecule.nso == 12 else (0.0, 0.0)
+        )
         # Manually build the circuit ansatz
         if ansatz_kwargs.get("include_hf", True):
             control_circuit += hf_circuit(nqubits, nelec)
         for excitation, theta in zip(excitations, thetas):
-            theta = theta if not theta else mp2_amplitude(excitation, molecule.eps, molecule.tei)
+            theta = (
+                theta
+                if not theta
+                else mp2_amplitude(excitation, molecule.eps, molecule.tei)
+            )
     elif ansatz in ("br", "symm", "ham"):
         control_circuit = CIRCUIT_FNS[ansatz](nqubits, nelec)
     # Test circuit

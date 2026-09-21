@@ -66,9 +66,17 @@ def test_molecule_custom_basis():
     [
         (None, None, (list(range(6)), [])),  # Default arguments: Nothing given
         ([1, 2, 5], None, ([1, 2, 5], [0])),  # Default frozen argument if active given
-        (None, [0], (list(range(1, 6)), [0])),  # Default active argument if frozen given
+        (
+            None,
+            [0],
+            (list(range(1, 6)), [0]),
+        ),  # Default active argument if frozen given
         ([0, 1, 2, 3], [], (list(range(4)), [])),  # active, frozen arguments both given
-        ([1, 2, 3], [0], (list(range(1, 4)), [0])),  # active, frozen arguments both given
+        (
+            [1, 2, 3],
+            [0],
+            (list(range(1, 4)), [0]),
+        ),  # active, frozen arguments both given
     ],
 )
 def test_define_active_space(active, frozen, expected):
@@ -128,7 +136,9 @@ def test_mp2_natorbs():
         2.34539023,
         3.79150695,
     ]
-    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD")
+    mol = Molecule(
+        [("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD"
+    )
     mol.run_pyscf(do_mp2=True)
     # Check that eps tally
     assert np.allclose(mol.eps, reference_eps)
@@ -139,8 +149,21 @@ def test_mp2_natorbs():
 @pytest.mark.parametrize(
     "option,expected",
     [
-        ("f", sum(openfermion.FermionOperator(f"{_i}^ {_i}", (-1) ** ((_i // 2) + 1)) for _i in range(4))),
-        ("q", 0.5 * sum(openfermion.QubitOperator(f"Z{_i}", (-1) ** (_i // 2)) for _i in range(4))),
+        (
+            "f",
+            sum(
+                openfermion.FermionOperator(f"{_i}^ {_i}", (-1) ** ((_i // 2) + 1))
+                for _i in range(4)
+            ),
+        ),
+        (
+            "q",
+            0.5
+            * sum(
+                openfermion.QubitOperator(f"Z{_i}", (-1) ** (_i // 2))
+                for _i in range(4)
+            ),
+        ),
     ],
 )
 def test_hamiltonian(option, expected):
@@ -148,7 +171,9 @@ def test_hamiltonian(option, expected):
     dummy = Molecule()
     dummy.e_nuc = 0.0
     dummy.oei = np.diag((-1.0, 1.0))
-    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
+    dummy.tei = np.zeros(
+        (2, 2, 2, 2)
+    )  # Basically, only one-electron operators in the Hamiltonian
 
     test_ham = dummy.hamiltonian(option)
     assert test_ham.isclose(expected)
@@ -174,8 +199,12 @@ def test_fs_hamiltonian():
     omega = 1.1
     folded = mol.fs_hamiltonian(omega, hamiltonian)
     # Check matrix of the folded Hamiltonian (H - omega*I)^2
-    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(np.eye(2), X(1).matrix)
-    folded_matrix = (original_ham - omega * np.eye(4)) @ (original_ham - omega * np.eye(4))
+    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(
+        np.eye(2), X(1).matrix
+    )
+    folded_matrix = (original_ham - omega * np.eye(4)) @ (
+        original_ham - omega * np.eye(4)
+    )
     assert np.allclose(folded.matrix, folded_matrix)
 
 
@@ -184,7 +213,9 @@ def test_fs_hamiltonian_default():
     dummy = Molecule()
     dummy.e_nuc = 0.0
     dummy.oei = np.diag((-1.0, 0.0))
-    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
+    dummy.tei = np.zeros(
+        (2, 2, 2, 2)
+    )  # Basically, only one-electron operators in the Hamiltonian
     dummy_ham = dummy.hamiltonian()
 
     omega = 0.0

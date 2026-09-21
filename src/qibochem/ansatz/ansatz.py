@@ -123,20 +123,33 @@ def circuit_ansatz(
         if excitations is None:
             # Generate and sort all the possible excitations
             excitations = []
-            for order in range(2, 0, -1):  # Up to double excitations and reversed to get higher excitations first
-                excitations += generate_excitations(order, range(0, nelec), range(nelec, nqubits))
+            # Up to double excitations and reversed to get higher excitations first
+            for order in range(2, 0, -1):
+                excitations += generate_excitations(
+                    order, range(nelec), range(nelec, nqubits)
+                )
         else:
             # Some checks to ensure the input excitations are valid
             if not all(len(_ex) % 2 == 0 for _ex in excitations):
-                raise_error(ValueError, "Excitation with an odd number of orbitals found!")
+                raise_error(
+                    ValueError, "Excitation with an odd number of orbitals found!"
+                )
 
         # Check if thetas argument given. If not, define to be MP2 amplitudes
         if thetas is None:
-            thetas = np.array([mp2_amplitude(excitation, molecule.eps, molecule.tei) for excitation in excitations])
+            thetas = np.array(
+                [
+                    mp2_amplitude(excitation, molecule.eps, molecule.tei)
+                    for excitation in excitations
+                ]
+            )
         else:
             # Check that the number of parameters matches the number of excitations
             if len(thetas) != len(excitations):
-                raise_error(ValueError, "Number of input parameters doesn't match the number of excitations")
+                raise_error(
+                    ValueError,
+                    "Number of input parameters doesn't match the number of excitations",
+                )
 
         # Build the circuit
         if include_hf:
@@ -188,7 +201,10 @@ def he_circuit(
     # Default variables
     if rotation_gates is None:
         rotation_gates = ["RY", "RZ"]
-    rotation_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in rotation_gates]
+    rotation_gates = [
+        getattr(gates, _gate) if isinstance(_gate, str) else _gate
+        for _gate in rotation_gates
+    ]
 
     circuit = Circuit(nqubits, **kwargs)
     for _ in range(nlayers):
@@ -199,7 +215,9 @@ def he_circuit(
             for rgate in rotation_gates
         )
         # Entangling gates
-        circuit += entangling_layer(nqubits, architecture, entangling_gate, closed_boundary, **kwargs)
+        circuit += entangling_layer(
+            nqubits, architecture, entangling_gate, closed_boundary, **kwargs
+        )
     return circuit
 
 
@@ -250,7 +268,9 @@ def pche_circuit(
     return circuit
 
 
-def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs) -> Circuit:
+def hf_circuit(
+    nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs
+) -> Circuit:
     """
     Quantum circuit to prepare a Hartree-Fock state
 
@@ -269,11 +289,18 @@ def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwar
     if ferm_qubit_map is None:
         ferm_qubit_map = "jw"
     if ferm_qubit_map not in ("jw", "bk"):
-        raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        raise_error(
+            NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'"
+        )
 
     # Occupation number of SOs
     mapped_occ_n = None
-    occ_n = np.concatenate((np.ones(nelectrons, dtype=np.int8), np.zeros(nqubits - nelectrons, dtype=np.int8)))
+    occ_n = np.concatenate(
+        (
+            np.ones(nelectrons, dtype=np.int8),
+            np.zeros(nqubits - nelectrons, dtype=np.int8),
+        )
+    )
     if ferm_qubit_map == "jw":
         mapped_occ_n = occ_n
     elif ferm_qubit_map == "bk":
@@ -319,10 +346,12 @@ def ucc_circuit(
 
     # Define default mapping and check input is valid
     if ferm_qubit_map not in ("jw", "bk"):
-        raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        raise_error(
+            NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'"
+        )
 
     # Define the UCC excitation operator corresponding to the given list of orbitals
-    fermion_op_str_template = f"{(n_orbitals//2)*'{}^ '}{(n_orbitals//2)*'{} '}"
+    fermion_op_str_template = f"{(n_orbitals // 2) * '{}^ '}{(n_orbitals // 2) * '{} '}"
     fermion_operator_str = fermion_op_str_template.format(*sorted_orbitals)
     # Build the FermionOperator and make it unitary
     fermion_operator = openfermion.FermionOperator(fermion_operator_str)
@@ -342,7 +371,9 @@ def ucc_circuit(
     for _i in range(trotter_steps):
         for pauli_ops, coeff in qubit_ucc_operator.terms.items():
             # Convert each operator into a string and get the associated coefficient
-            pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
+            pauli_string = " ".join(
+                f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops
+            )
             # Build the circuit and add it on
             circuit += _expi_pauli(
                 nqubits, pauli_string, -1.0j * coeff * theta / trotter_steps
@@ -350,7 +381,9 @@ def ucc_circuit(
     return circuit
 
 
-def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
+def qeb_circuit(
+    nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict
+) -> Circuit:
     r"""
     Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation.
     This circuit ansatz is only valid for the Jordan-Wigner fermion to qubit mapping.
@@ -384,7 +417,9 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     fwd_gates = [gates.CNOT(i_array[-1], _i) for _i in i_array[-2::-1]]
     fwd_gates += [gates.CNOT(a_array[-1], _a) for _a in a_array[-2::-1]]
     fwd_gates.append(gates.CNOT(a_array[-1], i_array[-1]))
-    fwd_gates += [gates.X(_ia) for _ia in excitation if _ia not in (i_array[-1], a_array[-1])]
+    fwd_gates += [
+        gates.X(_ia) for _ia in excitation if _ia not in (i_array[-1], a_array[-1])
+    ]
     circuit = Circuit(nqubits, **kwargs)
     circuit.add(gate for gate in fwd_gates)
     # MCRY
@@ -398,7 +433,9 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     return circuit
 
 
-def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
+def givens_circuit(
+    nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict
+) -> Circuit:
     """
     Quantum circuit performing fermionic excitations using Givens rotations.
 
@@ -425,18 +462,25 @@ def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, 
     if n_orbitals % 2 != 0:
         raise_error(ValueError, f"{excitation} must have an even number of items")
     sorted_orbitals = sorted(excitation)
-    qubits_in, qubits_out = sorted_orbitals[: (n_orbitals // 2)], sorted_orbitals[(n_orbitals // 2) :]
+    qubits_in, qubits_out = (
+        sorted_orbitals[: (n_orbitals // 2)],
+        sorted_orbitals[(n_orbitals // 2) :],
+    )
 
     circuit = Circuit(nqubits, **kwargs)
     if n_orbitals == 2:
         circuit.add(gates.GIVENS(qubits_in[0], qubits_out[0], theta))
     else:
-        circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))  # phi parameter not used here
+        # phi parameter not used here
+        circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))
     return circuit
 
 
 def basis_rotation_circuit(
-    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs
+    nqubits: int,
+    nelectrons: int,
+    parameters: Sequence[float] | float | None = None,
+    **kwargs,
 ) -> Circuit:
     """
     Quantum circuit that performs a basis rotation between the occupied-virtual orbitals using Givens rotations
@@ -466,17 +510,25 @@ def basis_rotation_circuit(
         if len(parameters) != n_parameters:
             raise_error(ValueError, "Invalid number of parameters")
 
-    unitary_matrix = _basis_rotation_unitary(range(nelectrons), range(nelectrons, nqubits), parameters=parameters)
+    unitary_matrix = _basis_rotation_unitary(
+        range(nelectrons), range(nelectrons, nqubits), parameters=parameters
+    )
     z_angles = _qr_decompose_givens(unitary_matrix)
     basis_rotation_layout = _basis_rotation_layout(nqubits, z_angles)
     # Build circuit ansatz
     circuit = Circuit(nqubits, **kwargs)
-    circuit.add(gates.GIVENS(_q1 + 1, _q1, rot_angle) for (_q1, _q2, rot_angle) in basis_rotation_layout)
+    circuit.add(
+        gates.GIVENS(_q1 + 1, _q1, rot_angle)
+        for (_q1, _q2, rot_angle) in basis_rotation_layout
+    )
     return circuit
 
 
 def symm_preserving_circuit(
-    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs: dict
+    nqubits: int,
+    nelectrons: int,
+    parameters: Sequence[float] | float | None = None,
+    **kwargs: dict,
 ) -> Circuit:
     """
     Quantum circuit that preserves particle number, total spin, spin projection, and time-reversal symmetries of the
@@ -499,7 +551,11 @@ def symm_preserving_circuit(
         Information, 2020, 6, 10. (`link <https://www.nature.com/articles/s41534-019-0240-1>`__)
     """
     # Default parameters:
-    n_parameters = 4 * factorial(nqubits) // (factorial(nqubits - nelectrons) * factorial(nelectrons))
+    n_parameters = (
+        4
+        * factorial(nqubits)
+        // (factorial(nqubits - nelectrons) * factorial(nelectrons))
+    )
     if parameters is None:
         parameters = np.zeros(n_parameters)
     elif isinstance(parameters, float):
@@ -516,7 +572,9 @@ def symm_preserving_circuit(
     param_iterator = iter(parameters)
     a_gates = [
         _a_gate(qubit1, qubit2, theta, phi)
-        for (qubit1, qubit2), (theta, phi) in zip(a_gate_qubits, zip(param_iterator, param_iterator))
+        for (qubit1, qubit2), (theta, phi) in zip(
+            a_gate_qubits, zip(param_iterator, param_iterator)
+        )
     ]
     # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
     circuit.add(_gate for a_gate in a_gates for _gate in a_gate)
@@ -545,4 +603,6 @@ def hamming_weight_circuit(nqubits: int, nelectrons: int, **kwargs: dict) -> Cir
         *Quantum encoder for fixed-Hamming-weight subspaces*
         `Phys. Rev. Applied 23, 044014 (2025) <https://doi.org/10.1103/PhysRevApplied.23.044014>`_.
     """
-    return hamming_weight_encoder(nqubits, weight=nelectrons, phase_correction=False, **kwargs)
+    return hamming_weight_encoder(
+        nqubits, weight=nelectrons, phase_correction=False, **kwargs
+    )

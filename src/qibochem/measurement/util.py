@@ -11,7 +11,9 @@ PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
 SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
-SYMPLECTIC_INDEX = {symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())}
+SYMPLECTIC_INDEX = {
+    symplectic: index for index, symplectic in enumerate(BINARY_PAULI.keys())
+}
 
 
 def _get_qubit(pauli_op: str) -> int:
@@ -74,7 +76,8 @@ def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[
     group_ids = set(sorted_groups.values())
     # Sort results so that test results will be replicable
     term_groups = sorted(
-        sorted(group for group, group_id in sorted_groups.items() if group_id == _id) for _id in group_ids
+        sorted(group for group, group_id in sorted_groups.items() if group_id == _id)
+        for _id in group_ids
     )
     return term_groups
 
@@ -84,10 +87,15 @@ def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
     Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic vector ((1D np.ndarray)).
     `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to define dimensions of the vector
     """
-    pauli_ops = {_get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string}  # Pauli operator for each qubit
+    pauli_ops = {
+        _get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string
+    }  # Pauli operator for each qubit
     # Convert to the symplectic vector
     sym_vector = np.reshape(
-        np.array([PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)], dtype=np.uint8),
+        np.array(
+            [PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)],
+            dtype=np.uint8,
+        ),
         shape=2 * nqubits,
         order="F",
     )
@@ -157,7 +165,9 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
     """Finds the nullspace of a binary_matrix, i.e. x s.t. Ax = 0"""
     dim = binary_matrix.shape[0]
     # Form the augmented matrix
-    aug_matrix = np.concatenate((binary_matrix.T, np.identity(binary_matrix.shape[1], dtype=np.uint8)), axis=1)
+    aug_matrix = np.concatenate(
+        (binary_matrix.T, np.identity(binary_matrix.shape[1], dtype=np.uint8)), axis=1
+    )
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     nullspace = rref_aug_matrix[dim:, dim:]
     return nullspace
@@ -179,11 +189,14 @@ def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
                 break
 
         # Remove the two anti-commuting vectors from the basis
-        space_to_orthogonalize = np.delete(vector_space, anticommuting_vector_indices, axis=0)
+        space_to_orthogonalize = np.delete(
+            vector_space, anticommuting_vector_indices, axis=0
+        )
         for i1, vector in enumerate(space_to_orthogonalize):
             for i2, anticommuting_vector in enumerate(anticommuting_vectors):
                 space_to_orthogonalize[i1] ^= (
-                    _symplectic_inner_product(vector, anticommuting_vectors[1 - i2]) * anticommuting_vector
+                    _symplectic_inner_product(vector, anticommuting_vectors[1 - i2])
+                    * anticommuting_vector
                 )
 
         # Preferentially select Z over X
@@ -201,12 +214,22 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     dim = v_basis.shape[0]
     while not all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
         # Sort unmatched qubits
-        unmatched_qubits = [i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])]
+        unmatched_qubits = [
+            i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])
+        ]
         matches_for_unmatched_qubits = {
-            i: [qubit for qubit in range(dim) if v_basis[i, qubit] or v_basis[i, qubit + dim]] for i in unmatched_qubits
+            i: [
+                qubit
+                for qubit in range(dim)
+                if v_basis[i, qubit] or v_basis[i, qubit + dim]
+            ]
+            for i in unmatched_qubits
         }
         # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
-        row_to_swap = min(matches_for_unmatched_qubits, key=lambda x: (len(matches_for_unmatched_qubits[x]), x))
+        row_to_swap = min(
+            matches_for_unmatched_qubits,
+            key=lambda x: (len(matches_for_unmatched_qubits[x]), x),
+        )
         target = min(matches_for_unmatched_qubits[row_to_swap])
         v_basis[[row_to_swap, target]] = v_basis[[target, row_to_swap]]
     return v_basis
@@ -228,12 +251,16 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         # Let sigma_i be x_i if z_i is in tau_i, otherwise let sigma_i be z_i
         _sigma_i = (0, 1) if tuple(tau_i[[_i, _i + dim]].tolist()) != (0, 1) else (1, 0)
         # Convert and broadcast _sigma_i back to the correct size using I's
-        sigma_i = np.ravel(np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T)
+        sigma_i = np.ravel(
+            np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T
+        )
         sigma_terms.append(sigma_i)
         # Orthogonalise the non-i^th terms:
         new_tau_terms ^= np.array(
             [
-                _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i if _j != _i else np.zeros(2 * dim)
+                _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i
+                if _j != _i
+                else np.zeros(2 * dim)
                 for _j in range(dim)
             ],
             dtype=np.uint8,
@@ -241,13 +268,18 @@ def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
 
 
-def _solve_linear_system(binary_matrix: np.ndarray, vector: np.ndarray) -> list[np.ndarray]:
+def _solve_linear_system(
+    binary_matrix: np.ndarray, vector: np.ndarray
+) -> list[np.ndarray]:
     """Solve (binary) linear system Ax = b. Each item in the result corresponds to the respective vectors in b"""
     # Form the augmented matrix and row-reduce it using Gaussian elimination
     aug_matrix = np.concatenate((binary_matrix, vector), axis=0).T
     rref_aug_matrix = _binary_gaussian_elimination(aug_matrix)
     # Get non-zero entries in each column on RHS of rref_aug_matrix => Solution for respective vector in b
-    return [np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist() for i in range(vector.shape[0])]
+    return [
+        np.nonzero(rref_aug_matrix[:, binary_matrix.shape[0] + i])[0].tolist()
+        for i in range(vector.shape[0])
+    ]
 
 
 def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
@@ -262,7 +294,10 @@ def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
         if SYMPLECTIC_INDEX[tuple(pauli_op)] == 0:
             continue
         # Multiply by some phase factor depending on what Pauli operators are involved
-        coeff *= SYMPLECTIC_PHASE_TABLE[SYMPLECTIC_INDEX[tuple(pauli_op)] - SYMPLECTIC_INDEX[tuple(current_pauli_op)]]
+        coeff *= SYMPLECTIC_PHASE_TABLE[
+            SYMPLECTIC_INDEX[tuple(pauli_op)]
+            - SYMPLECTIC_INDEX[tuple(current_pauli_op)]
+        ]
         current_pauli_op = (current_pauli_op + pauli_op) % 2
     return coeff
 
@@ -282,7 +317,9 @@ def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
     return int(np.real_if_close(coefficient))
 
 
-def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
+def _make_x_matrix_full_rank(
+    stabiliser_matrix: np.ndarray, phases: np.ndarray
+) -> list[gates.Gate]:
     """
     Modifies stabiliser_matrix and phases in-place to transform 'X matrix' to full rank, with H gates representing each 'swap'
     of columns between the 'Z' and 'X' matrices. Note: stabiliser_matrix should already be in reduced row echelon form
@@ -304,8 +341,13 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray, phases: np.ndarray) 
         for qubit in np.nonzero(z_matrix[zero_row_indices[0], :])[0]:
             if qubit not in qubits:
                 # For S(a)/H(a): r_i := r_i + x_{i,a} z_{i,a} for all i
-                phases ^= stabiliser_matrix[:, qubit] * stabiliser_matrix[:, qubit + dim_space]
-                stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[:, [qubit + dim_space, qubit]]
+                phases ^= (
+                    stabiliser_matrix[:, qubit]
+                    * stabiliser_matrix[:, qubit + dim_space]
+                )
+                stabiliser_matrix[:, [qubit, qubit + dim_space]] = stabiliser_matrix[
+                    :, [qubit + dim_space, qubit]
+                ]
                 gates_list.append(gates.H(qubit))
                 qubits.append(qubit)
                 break
@@ -313,7 +355,9 @@ def _make_x_matrix_full_rank(stabiliser_matrix: np.ndarray, phases: np.ndarray) 
     return gates_list
 
 
-def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
+def _col_reduce_x_matrix(
+    stabiliser_matrix: np.ndarray, phases: np.ndarray
+) -> list[gates.Gate]:
     """
     Modifies stabiliser_matrix and phases in-place to transform the X matrix to I, using CNOT/SWAP gates
 
@@ -336,7 +380,9 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
 
         # Move pivot column of X matrix into position
         if col != pivot_col:
-            stabiliser_matrix[:, [pivot_col, col, pivot_col + dim_space, col + dim_space]] = stabiliser_matrix[
+            stabiliser_matrix[
+                :, [pivot_col, col, pivot_col + dim_space, col + dim_space]
+            ] = stabiliser_matrix[
                 :, [col, pivot_col, col + dim_space, pivot_col + dim_space]
             ]
             gates_list.append(gates.SWAP(col, pivot_col))
@@ -351,20 +397,28 @@ def _col_reduce_x_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> l
             phase_changes = (
                 stabiliser_matrix[:, pivot_col]
                 & stabiliser_matrix[:, col + dim_space]
-                & (stabiliser_matrix[:, col] ^ stabiliser_matrix[:, pivot_col + dim_space] ^ 1)
+                & (
+                    stabiliser_matrix[:, col]
+                    ^ stabiliser_matrix[:, pivot_col + dim_space]
+                    ^ 1
+                )
             )
             phases ^= phase_changes
             # X matrix: Add pivot column to column with 1
             stabiliser_matrix[:, col] ^= stabiliser_matrix[:, pivot_col]
             # Z matrix: Add (column with 1)^th column to pivot column
-            stabiliser_matrix[:, pivot_col + dim_space] ^= stabiliser_matrix[:, col + dim_space]
+            stabiliser_matrix[:, pivot_col + dim_space] ^= stabiliser_matrix[
+                :, col + dim_space
+            ]
             gates_list.append(gates.CNOT(pivot_col, col))
         pivot_col += 1
 
     return gates_list
 
 
-def _zero_z_matrix(stabiliser_matrix: np.ndarray, phases: np.ndarray) -> list[gates.Gate]:
+def _zero_z_matrix(
+    stabiliser_matrix: np.ndarray, phases: np.ndarray
+) -> list[gates.Gate]:
     """
     Modifies stabiliser_matrix and phases in-place to transform the Z matrix to a zero matrix.
     1. S gates used to set diagonal entries on Z matrix
@@ -405,7 +459,9 @@ def _synthesise_circuit(v_basis: np.ndarray) -> tuple[list[gates.Gate], list[int
     """
     stabiliser_matrix = np.array(v_basis, dtype=np.uint8)
     nqubits = stabiliser_matrix.shape[0]
-    phases = np.array([[0 for _ in range(nqubits)]], dtype=np.uint8)  # To keep track of phases
+    phases = np.array(
+        [[0 for _ in range(nqubits)]], dtype=np.uint8
+    )  # To keep track of phases
     rotation_gates = []
     # 1. Apply H gates to transform 'X matrix' to full rank
     rotation_gates += _make_x_matrix_full_rank(stabiliser_matrix, phases)

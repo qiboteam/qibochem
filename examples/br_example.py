@@ -39,7 +39,9 @@ def main():
 
     # Check that the hamiltonian with a HF reference ansatz doesn't yield the correct HF energy
     circuit = hf_circuit(mol.nso, mol.nelec)
-    print(f"Electronic energy: {hamiltonian.expectation(circuit):.8f} (From the H_core guess)")
+    print(
+        f"Electronic energy: {hamiltonian.expectation(circuit):.8f} (From the H_core guess)"
+    )
     print(f"        HF energy: {mol.e_hf:.8f} (Hartree-Fock energy from PySCF)")
 
     circuit += circuit_ansatz(mol, ansatz="br", include_hf=False)

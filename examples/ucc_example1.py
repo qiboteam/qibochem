@@ -14,7 +14,10 @@ def electronic_energy(parameters, hamiltonian, circuit, excitations):
     r"""
     Loss function for the UCCSD ansatz
     """
-    coeff_dict = {1: (-1.0, 1.0), 2: (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25)}
+    coeff_dict = {
+        1: (-1.0, 1.0),
+        2: (-0.25, 0.25, 0.25, 0.25, -0.25, -0.25, -0.25, 0.25),
+    }
 
     # Unique UCC parameters
     # Manually group the related excitations together
@@ -60,7 +63,9 @@ def main():
     # UCCSD: Get the list of excitations for constructing the circuit ansatz
     excitations = []
     for order in range(2, 0, -1):  # Reversed to get higher excitations first
-        excitations += generate_excitations(order, range(0, n_electrons), range(n_electrons, n_qubits))
+        excitations += generate_excitations(
+            order, range(n_electrons), range(n_electrons, n_qubits)
+        )
 
     print(f"Excitations: {excitations}\n")
     # Output: [[0, 1, 2, 3], [0, 1, 4, 5], [0, 1, 2, 5], [0, 1, 3, 4], [0, 2], [1, 3], (0, 4), (1, 5)]
@@ -83,7 +88,9 @@ def main():
     params += [0.0, 0.0]  # Two unique single excitations
     print(f"MP2 guess parameters: {params}")
 
-    best, params, _extra = optimize(electronic_energy, params, args=(hamiltonian, circuit, excitations))
+    best, params, _extra = optimize(
+        electronic_energy, params, args=(hamiltonian, circuit, excitations)
+    )
 
     print("\nResults using Qibo optimize: (With HF embedding)")
     # Reference energy is the exact ground state

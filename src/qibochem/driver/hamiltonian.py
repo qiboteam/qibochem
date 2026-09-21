@@ -21,7 +21,9 @@ def _fermionic_hamiltonian(oei, tei, constant):
     Returns:
         Molecular Hamiltonian as an InteractionOperator
     """
-    oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(oei, tei)
+    oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(
+        oei, tei
+    )
     # tei_so already multiplied by 0.5, no need to include in InteractionOperator
     return openfermion.InteractionOperator(constant, oei_so, tei_so)
 
@@ -59,7 +61,11 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
         qibo.hamiltonians.SymbolicHamiltonian
     """
     symbolic_ham = sum(
-        reduce(lambda x, y: x * y, (getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string), coeff)
+        reduce(
+            lambda x, y: x * y,
+            (getattr(symbols, pauli_op)(qubit) for qubit, pauli_op in pauli_string),
+            coeff,
+        )
         # Sums over each individual Pauli string in the QubitOperator
         for operator in q_hamiltonian.get_operators()
         # .terms gives one operator as a single-item dictionary, e.g. {((1: "X"), (2: "Y")): 0.33}

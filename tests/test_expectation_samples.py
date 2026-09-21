@@ -51,7 +51,10 @@ def test_expectation_manual_shot_allocation(gates_to_add, shot_allocation, expec
     circuit.add(gates_to_add)
     hamiltonian = SymbolicHamiltonian(X(0) + Z(0))
     result = expectation_from_samples(
-        circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+        circuit,
+        hamiltonian,
+        n_shots_per_pauli_term=False,
+        shot_allocation=shot_allocation,
     )
     assert result == pytest.approx(expected), f"Result {result} != Exact {expected}"
 
@@ -62,7 +65,10 @@ def test_expectation_invalid_shot_allocation():
     shot_allocation = (1,)
     with pytest.raises(ValueError):
         _ = expectation_from_samples(
-            circuit, hamiltonian, n_shots_per_pauli_term=False, shot_allocation=shot_allocation
+            circuit,
+            hamiltonian,
+            n_shots_per_pauli_term=False,
+            shot_allocation=shot_allocation,
         )
 
 
@@ -74,7 +80,10 @@ def test_expectation_invalid_shot_allocation():
         0.2 * X(0) + Y(2) + 13.0,
         Z(0) + X(0) * Y(1) + Z(0) * Y(2),
         Y(0) + Z(1) + X(0) * Z(2),
-        0.1 * X(0) * X(1) * Y(2) + 0.2 * X(0) * Y(1) * Y(2) + 0.3 * Y(0) * X(1) * X(2) - 3.14 * Y(0) * Y(1) * X(2),
+        0.1 * X(0) * X(1) * Y(2)
+        + 0.2 * X(0) * Y(1) * Y(2)
+        + 0.3 * Y(0) * X(1) * X(2)
+        - 3.14 * Y(0) * Y(1) * X(2),
     ],
 )
 def test_measurement_grouping_functionality(grouping, terms):
@@ -100,15 +109,27 @@ def test_measurement_grouping_functionality(grouping, terms):
     "terms,nqubits,gates_to_add",
     [
         (X(0) * X(1) + Y(0) * Z(1), 2, (gates.H(0), gates.H(1))),
-        (0.5 * X(0) * Y(1) + Z(0) * Z(1) * Z(2), 3, (gates.H(0), gates.RX(1, theta=-np.pi / 2))),
+        (
+            0.5 * X(0) * Y(1) + Z(0) * Z(1) * Z(2),
+            3,
+            (gates.H(0), gates.RX(1, theta=-np.pi / 2)),
+        ),
         (
             0.5 * Y(0) * X(1) * Z(3) * Z(4) + Z(0) * Z(1) * X(2) * Z(3) * Z(4),
             5,
             (gates.RX(0, theta=-np.pi / 2), gates.H(1)),
         ),
         (Y(1) * Y(2) + X(0) * X(1) * Z(2), 3, (gates.H(0), gates.H(1))),
-        (Y(0) * X(1) + X(0) * Y(1) * Z(2), 3, (gates.H(0), gates.S(0), gates.H(1), gates.X(2), gates.H(2))),
-        (X(0) * X(1) * Z(2) * X(3) + X(0) * Y(2) * Y(3), 4, (gates.H(0), gates.H(1), gates.H(3))),
+        (
+            Y(0) * X(1) + X(0) * Y(1) * Z(2),
+            3,
+            (gates.H(0), gates.S(0), gates.H(1), gates.X(2), gates.H(2)),
+        ),
+        (
+            X(0) * X(1) * Z(2) * X(3) + X(0) * Y(2) * Y(3),
+            4,
+            (gates.H(0), gates.H(1), gates.H(3)),
+        ),
     ],
 )
 def test_measurement_grouping_extra_tests(grouping, terms, nqubits, gates_to_add):
@@ -116,7 +137,9 @@ def test_measurement_grouping_extra_tests(grouping, terms, nqubits, gates_to_add
     hamiltonian = SymbolicHamiltonian(terms, nqubits=nqubits)
     circuit = Circuit(nqubits)
     circuit.add(gates_to_add)
-    result = expectation_from_samples(circuit, hamiltonian, n_shots=100_000, grouping=grouping)
+    result = expectation_from_samples(
+        circuit, hamiltonian, n_shots=100_000, grouping=grouping
+    )
     assert result == pytest.approx(hamiltonian.expectation(circuit), abs=0.03)
 
 
@@ -159,7 +182,9 @@ def test_sample_statistics(terms, grouping, expected_means, expected_variances):
     n_trial_shots = 20_000
     hamiltonian = SymbolicHamiltonian(terms, nqubits=2)
     grouped_terms = _measurement_basis_rotations(hamiltonian, grouping)
-    sample_means, sample_variances = sample_statistics(circuit, grouped_terms, n_shots=n_trial_shots)
+    sample_means, sample_variances = sample_statistics(
+        circuit, grouped_terms, n_shots=n_trial_shots
+    )
     assert sample_means == pytest.approx(expected_means, abs=0.08)
     assert sample_variances == pytest.approx(expected_variances, abs=0.1)
 

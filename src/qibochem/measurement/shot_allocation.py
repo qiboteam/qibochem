@@ -8,7 +8,11 @@ from sympy.core.numbers import One
 
 def coefficients_sum(expression):
     """Sum up the absolute value of the coefficients for all non-constant terms in a sympy.Expr"""
-    return sum(abs(coeff) for term, coeff in expression.as_coefficients_dict().items() if not isinstance(term, One))
+    return sum(
+        abs(coeff)
+        for term, coeff in expression.as_coefficients_dict().items()
+        if not isinstance(term, One)
+    )
 
 
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
@@ -35,11 +39,18 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
         # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
         # Using coefficients**(2/3) following arxiv:2307.06504
         term_coefficients = np.array(
-            [coefficients_sum(expression) ** (2 / 3) for (expression, _, _) in grouped_terms],
+            [
+                coefficients_sum(expression) ** (2 / 3)
+                for (expression, _, _) in grouped_terms
+            ],
             dtype=float,
         )
-        max_shots_per_term = int(np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients))))
-    max_shots_per_term = min(n_shots, max_shots_per_term)  # Don't let max_shots_per_term > n_shots if manually defined
+        max_shots_per_term = int(
+            np.ceil(n_shots * (np.max(term_coefficients) / sum(term_coefficients)))
+        )
+    max_shots_per_term = min(
+        n_shots, max_shots_per_term
+    )  # Don't let max_shots_per_term > n_shots if manually defined
 
     n_terms = len(grouped_terms)
     shot_allocation = np.zeros(n_terms, dtype=int)
@@ -62,7 +73,9 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             # Using coefficients**(2/3) following arxiv:2307.06504
             term_coefficients = np.array(
                 [
-                    coefficients_sum(expression) ** (2 / 3) if shots < max_shots_per_term else 0.0
+                    coefficients_sum(expression) ** (2 / 3)
+                    if shots < max_shots_per_term
+                    else 0.0
                     for shots, (expression, _, _) in zip(shot_allocation, grouped_terms)
                 ],
                 dtype=float,
@@ -78,12 +91,19 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             else:
                 # For distributing the remaining few shots, i.e. remaining_shots << n_terms
                 _shot_allocation = np.array(
-                    allocate_shots(grouped_terms, remaining_shots, max_shots_per_term=remaining_shots, method="u")
+                    allocate_shots(
+                        grouped_terms,
+                        remaining_shots,
+                        max_shots_per_term=remaining_shots,
+                        method="u",
+                    )
                 )
 
         elif method in ("u", "uniform"):
             # Uniform distribution of shots for every term. Extra shots are randomly distributed
-            _shot_allocation = np.array([remaining_shots // n_terms for _ in range(n_terms)])
+            _shot_allocation = np.array(
+                [remaining_shots // n_terms for _ in range(n_terms)]
+            )
             if not _shot_allocation.any():
                 _shot_allocation = np.zeros(n_terms)
                 _shot_allocation[:remaining_shots] = 1
@@ -99,7 +119,9 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
     return shot_allocation.tolist()
 
 
-def allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, method="vmsa"):
+def allocate_shots_by_variance(
+    total_shots, n_trial_shots, variance_values, method="vmsa"
+):
     """
     Allocate shots for each term in a Hamiltonian based on the computed sample variances of each term.
 
@@ -111,14 +133,23 @@ def allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, meth
     Returns:
         list: List of integers corresponding to the allocation of the remaining shots
     """
-    assert method in ("vmsa", "vpsr"), f"Unknown shot assignment method ({method}) called"
+    assert method in ("vmsa", "vpsr"), (
+        f"Unknown shot assignment method ({method}) called"
+    )
     n_groups = len(variance_values)
     remaining_shots = total_shots - n_groups * n_trial_shots
     std_dev_values = [_var**0.5 for _var in variance_values]
     # eta in Equation 17 of the reference paper, equal to 1 for VMSA, <1 if VPSR
-    _eta = 1 if method == "vmsa" else sum(std_dev_values) ** 2 / (n_groups * sum(variance_values))
+    _eta = (
+        1
+        if method == "vmsa"
+        else sum(std_dev_values) ** 2 / (n_groups * sum(variance_values))
+    )
     # Calculate everything as floats first, then convert to ints
-    allocated_shots = [int(_eta * std_dev * remaining_shots / sum(std_dev_values)) for std_dev in std_dev_values]
+    allocated_shots = [
+        int(_eta * std_dev * remaining_shots / sum(std_dev_values))
+        for std_dev in std_dev_values
+    ]
     # Throw any leftover shots into the last term (arbitrarily) if using VMSA
     if method == "vmsa":
         allocated_shots[-1] += remaining_shots - sum(allocated_shots)

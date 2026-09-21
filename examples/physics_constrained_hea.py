@@ -27,26 +27,40 @@ def single_layer_parameters(parameters: np.ndarray, nqubits: int) -> list[float]
         for i in range(nqubits - 1)
     ]
     # U2.dagger() parameters (Ry-f-Ry) by reversing and taking negative of u2_parameters
-    u2_dag_parameters = [[-param for param in gate_param] for gate_param in reversed(u2_parameters)]
+    u2_dag_parameters = [
+        [-param for param in gate_param] for gate_param in reversed(u2_parameters)
+    ]
     # Flatten out both lists
     u2_parameters = [param for gate in u2_parameters for param in gate]
     u2_dag_parameters = [param for gate in u2_dag_parameters for param in gate]
     # RZ parameters
     rz_parameters = parameters[2 * nqubits + 2 * (nqubits - 1) :].tolist()
     # U1.dagger() (RY and RX) parameters
-    u1_dag_parameters = [-param for param in u1_parameters[nqubits:]] + [-param for param in u1_parameters[:nqubits]]
-    circuit_parameters = u1_parameters + u2_parameters + rz_parameters + u2_dag_parameters + u1_dag_parameters
+    u1_dag_parameters = [-param for param in u1_parameters[nqubits:]] + [
+        -param for param in u1_parameters[:nqubits]
+    ]
+    circuit_parameters = (
+        u1_parameters
+        + u2_parameters
+        + rz_parameters
+        + u2_dag_parameters
+        + u1_dag_parameters
+    )
     return circuit_parameters
 
 
 def energy(parameters, circuit, hamiltonian, nlayers, nqubits):
     """Expectation value for hamiltonian given some quantum circuit"""
     # No. of parameters for a single layer
-    n_parameters = 2 * nqubits + 2 * (nqubits - 1) + nqubits  # U1, U2, and RZ respectively
+    n_parameters = (
+        2 * nqubits + 2 * (nqubits - 1) + nqubits
+    )  # U1, U2, and RZ respectively
 
     circuit_parameters = []
     for i in range(nlayers):
-        circuit_parameters += single_layer_parameters(parameters[i * (n_parameters) : (i + 1) * n_parameters], nqubits)
+        circuit_parameters += single_layer_parameters(
+            parameters[i * (n_parameters) : (i + 1) * n_parameters], nqubits
+        )
     circuit.set_parameters(circuit_parameters)
     return hamiltonian.expectation(circuit)
 
@@ -70,7 +84,9 @@ def main():
     fci_energy = hamiltonian.eigenvalues()[0]
 
     params = np.random.rand(len(circuit.get_parameters()))
-    best, params, _extra = optimize(energy, params, args=(circuit, hamiltonian, nlayers, nqubits))
+    best, params, _extra = optimize(
+        energy, params, args=(circuit, hamiltonian, nlayers, nqubits)
+    )
 
     print("\nResults (With constrained parameters):")
     print(f"FCI energy: {fci_energy:.8f}")
