@@ -11,12 +11,16 @@ from qibo.hamiltonians import SymbolicHamiltonian
 
 def _fermionic_hamiltonian(oei, tei, constant):
     """
-    Build molecular Hamiltonian as an InteractionOperator using the 1-/2- electron integrals
+    Build molecular Hamiltonian as an InteractionOperator using the 1-/2- electron
+    integrals
 
     Args:
-        oei: 1-electron integrals in the MO basis
-        tei: 2-electron integrals in 2ndQ notation and MO basis
-        constant: Nuclear-nuclear repulsion, and inactive Fock energy if HF embedding used
+        oei:
+            1-electron integrals in the MO basis
+        tei:
+            2-electron integrals in 2ndQ notation and MO basis
+        constant:
+            Nuclear-nuclear repulsion, and inactive Fock energy if HF embedding used
 
     Returns:
         Molecular Hamiltonian as an InteractionOperator
@@ -33,8 +37,10 @@ def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     Converts the molecular Hamiltonian to a QubitOperator
 
     Args:
-        fermion_hamiltonian: Molecular Hamiltonian as a InteractionOperator/FermionOperator
-        ferm_qubit_map: Which Fermion->Qubit mapping to use
+        fermion_hamiltonian:
+             Molecular Hamiltonian as an InteractionOperator/FermionOperator
+        ferm_qubit_map:
+            Which Fermion->Qubit mapping to use
 
     Returns:
         qubit_operator : Molecular Hamiltonian as a QubitOperator
@@ -45,7 +51,8 @@ def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     elif ferm_qubit_map == "bk":
         q_hamiltonian = openfermion.bravyi_kitaev(fermion_hamiltonian)
     else:
-        raise KeyError("Unknown fermion->qubit mapping!")
+        error = f"Unknown fermion->qubit mapping: {ferm_qubit_map}"
+        raise KeyError(error)
     q_hamiltonian.compress()  # Remove terms with v. small coefficients
     return q_hamiltonian
 
@@ -55,10 +62,10 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
     Converts a OpenFermion QubitOperator to a Qibo SymbolicHamiltonian
 
     Args:
-        q_hamiltonian: QubitOperator
+        q_hamiltonian (QubitOperator): Molecular Hamiltonian
 
     Returns:
-        qibo.hamiltonians.SymbolicHamiltonian
+        (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
     """
     symbolic_ham = sum(
         reduce(
@@ -68,7 +75,6 @@ def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
         )
         # Sums over each individual Pauli string in the QubitOperator
         for operator in q_hamiltonian.get_operators()
-        # .terms gives one operator as a single-item dictionary, e.g. {((1: "X"), (2: "Y")): 0.33}
         for pauli_string, coeff in operator.terms.items()
     )
     return SymbolicHamiltonian(symbolic_ham)

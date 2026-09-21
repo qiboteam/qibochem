@@ -1,1 +1,1 @@
-from qibochem.driver.molecule import Molecule
+from qibochem.driver.molecule import Molecule as Molecule

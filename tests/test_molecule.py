@@ -41,6 +41,10 @@ def test_pyscf_driver(xyz_file, expected):
     mol.run_pyscf()
     assert mol.e_hf == pytest.approx(expected)
 
+    # .xyz file not found
+    with pytest.raises(FileNotFoundError):
+        mol = Molecule(xyz_file="fullerene.xyz")
+
 
 # Commenting out since not actively supporting PSI4 at the moment
 # @pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
@@ -86,20 +90,23 @@ def test_define_active_space(active, frozen, expected):
     assert mol._active_space(active, frozen) == expected
 
 
-def test_define_active_space_assertions():
+def test_define_active_space_checks():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.nalpha = 2
     mol.norb = 6
 
     # Invalid active argument
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space([10], None)
     # Invalid frozen argument
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space(None, [100])
     # active/frozen spaces overlap
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space([0, 1], [0])
+    # Missing orbital assignments
+    with pytest.raises(ValueError):
+        _ = mol._active_space([2], [0])
 
 
 def test_hf_embedding():
