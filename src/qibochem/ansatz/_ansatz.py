@@ -12,7 +12,9 @@ from qibochem.ansatz.utils import generate_excitations
 
 
 def _bk_matrix_power2(dims: int) -> np.ndarray:
-    """Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively"""
+    """
+    Build the Bravyi-Kitaev matrix of dimension ``dims`` :math:`d = 2^{n}` recursively
+    """
     # Base case
     if dims == 1:
         return np.ones((1, 1), dtype=np.int8)
@@ -36,11 +38,13 @@ def _bk_matrix_power2(dims: int) -> np.ndarray:
 
 
 def _bk_matrix(dims: int) -> np.ndarray:
-    """Exact Brayvi-Kitaev matrix of size dims, obtained by slicing a larger BK matrix with dimension 2**m > n
+    """
+    Exact Brayvi-Kitaev matrix of size dims, obtained by slicing a larger BK matrix
+    with dimension 2**m > n
 
-    TODO: Update the occupation number vector using the update, parity, and flip set instead?
-        Not sure if necessary; i.e. size of BK matrix probably not comparable to the memory needed
-        for a classical simulation?
+    TODO: Update the occupation number vector using the update, parity, and flip set
+    instead? Not sure if necessary; i.e. size of BK matrix probably not comparable to
+    the memory needed for a classical simulation?
 
     Args:
         dims (int): Size of BK matrix
@@ -71,7 +75,7 @@ def _expi_pauli(nqubits: int, pauli_string: str, theta: float, **kwargs) -> Circ
     )
     n_pauli_ops = len(pauli_ops)
 
-    # Generate the list of basis change gates using the pauli_ops list. "X": H, "Y": S.dagger and H
+    # Generate basis change gates using pauli_ops list. "X": H, "Y": S.dagger and H
     basis_changes = []
     for qubit, pauli_op in pauli_ops:
         if pauli_op == "Y":
@@ -108,9 +112,10 @@ def _basis_rotation_unitary(
     parameters: Sequence[float],
 ) -> np.ndarray:
     r"""
-    Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied and virtual orbitals. Orbitals
-    are arranged in alternating spins, e.g. for 4 occupied orbitals [0,1,2,3], the spins are arranged as
-    [0a, 0b, 1a, 1b]. The current implementation of this function only accommodates systems with all electrons paired,
+    Constructs the unitary rotation matrix :math:`U = \exp(\kappa)` mixing the occupied
+    and virtual orbitals. Orbitals are arranged in alternating spins, e.g. for 4
+    occupied orbitals [0,1,2,3], the spins are arranged as [0a, 0b, 1a, 1b]. The current
+    implementation of this function only accommodates systems with all electrons paired,
     and an equal number of alpha and beta spin electrons.
 
     Args:
@@ -119,9 +124,10 @@ def _basis_rotation_unitary(
         parameters (Sequence[float]): Rotation parameters
 
     Returns:
-        np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential of skew-symmetric kappa matrix
+        np.ndarray: Unitary matrix of Givens rotations, obtained by matrix exponential
+            of skew-symmetric kappa matrix
     """
-    # Conserve_spin has to be true for SCF/basis_rotation cases, else expm(k) is not unitary
+    # Conserve_spin must be true for SCF/basis_rotation cases, else expm(k) not unitary
     ov_pairs = generate_excitations(1, occ_orbitals, virt_orbitals, conserve_spin=True)
     n_orbitals = len(occ_orbitals) + len(virt_orbitals)
     kappa = np.zeros((n_orbitals, n_orbitals))
@@ -134,8 +140,8 @@ def _basis_rotation_unitary(
 
 def _qr_decompose_givens(unitary_matrix: np.ndarray) -> list[float]:
     """
-    Clements scheme to QR decompose a unitary matrix using Givens rotations (see arxiv:1603.08788). Returns the
-    rotation angles for the Givens gates
+    Clements scheme to QR decompose a unitary matrix using Givens rotations
+    (see arxiv:1603.08788). Returns rotation angles for the Givens gates
     """
 
     def row_op(unitary_matrix, row, col):
@@ -176,7 +182,7 @@ def _qr_decompose_givens(unitary_matrix: np.ndarray) -> list[float]:
     # Start QR from bottom left element
     row, col = (dim - 1, 0)
     z_angles.append(col_op(unitary_matrix, row, col))
-    # Traverse the unitary_matrix in diagonal-zig-zag manner until the main diagonal is reached
+    # Traverse unitary_matrix in diagonal-zig-zag manner until main diagonal is reached
     # if move = up, do a row op
     # if move = diagonal-down-right, do a row op
     # if move = right, do a column op
@@ -202,14 +208,15 @@ def _basis_rotation_layout(
     nqubits: int, z_angles: Sequence[float]
 ) -> list[tuple[int, int, float]]:
     """
-    Get qubit indices and rotation angles for the Givens gates to be added to construct the basis rotation circuit
+    Get qubit indices and rotation angles for the Givens gates to be added to construct
+    the basis rotation circuit
 
     Args:
         nqubits (int): Number of qubits/modes
         z_angles (Sequence[float]): Rotation angles
 
     Returns:
-        list[tuple[int, int, float]]: Qubits and rotation angles of Givens gates to be added
+        list[tuple[int, int, float]]: Qubits and rotation angles of Givens gates to add
     """
 
     def assign_element(array, row, col, k):
@@ -226,7 +233,8 @@ def _basis_rotation_layout(
     updown = 1
     while k <= ((nqubits - 1) * nqubits // 2):  # Half-triangle
         if updown == 1:
-            # Check if reached top of layout matrix, i.e. row == 1. (row 0 not assigned any operation; just control)
+            # Check if reached top of layout matrix, i.e. row == 1.
+            # row 0 not assigned any operation; just control
             if row > 1:
                 row += -1
                 col += 1
@@ -252,21 +260,21 @@ def _basis_rotation_layout(
         k += 1
     # Collate the zero indices of array
     zero_indices = np.where(array == 0)  # 2-tuple of 1D arrays
-    # Unpack the indices into 2-tuples (sorted by column), and add the corresponding rotation angles from z_angles
-    result = sorted(
+    # Unpack the indices into 2-tuples (sorted by column), and add the corresponding
+    # rotation angles from z_angles
+    return sorted(
         (
             (int(_i1), int(_i2), float(z_angles[array[_i1 + 1, _i2] - 1]))
-            for _i1, _i2 in zip(*zero_indices)
+            for _i1, _i2 in zip(*zero_indices, strict=True)
         ),
         key=lambda x: x[1],
     )
-    return result
 
 
 def _a_gate(qubit1: int, qubit2: int, theta: float, phi: float) -> list[Gate]:
     """
-    Decomposition of the 'A' gate as defined in the paper, acting on qubit1 and qubit2. 'A' corresponds to the following
-    unitary matrix:
+    Decomposition of the 'A' gate as defined in the paper, acting on qubit1 and qubit2.
+    'A' corresponds to the following unitary matrix:
 
     A(\\theta, \\phi) =
     \\begin{pmatrix}
@@ -287,13 +295,13 @@ def _a_gate(qubit1: int, qubit2: int, theta: float, phi: float) -> list[Gate]:
     """
     # R(theta, phi) = R_z (phi + pi) R_y (theta + 0.5*pi)
     r_gate = [gates.RY(qubit2, theta + 0.5 * np.pi), gates.RZ(qubit2, phi + np.pi)]
-    return (
-        [gates.CNOT(qubit2, qubit1)]
-        + [_gate.dagger() for _gate in r_gate][::-1]  # r_gate_dagger
-        + [gates.CNOT(qubit1, qubit2)]
-        + r_gate
-        + [gates.CNOT(qubit2, qubit1)]
-    )
+    return [
+        gates.CNOT(qubit2, qubit1),
+        *[_gate.dagger() for _gate in r_gate][::-1],  # r_gate_dagger
+        gates.CNOT(qubit1, qubit2),
+        *r_gate,
+        gates.CNOT(qubit2, qubit1),
+    ]
 
 
 def _x_gate_indices(nqubits: int, nelectrons: int) -> list[int]:
@@ -307,16 +315,18 @@ def _x_gate_indices(nqubits: int, nelectrons: int) -> list[int]:
 def _a_gate_indices(
     nqubits: int, nelectrons: int, x_gates: Sequence[int]
 ) -> list[tuple[int, int]]:
-    """Obtain the qubit indices for a single layer of the primitive pattern of 'A' gates in the circuit ansatz"""
-    # 2. Apply 'first layer' of gates on all adjacent pairs of qubits on which either X*I or I*X has been applied.
+    """Obtain qubit indices for a single layer of the primitive pattern of 'A' gates"""
+    # 2. Apply 'first layer' of gates on all adjacent pairs of qubits on which either
+    # X*I or I*X has been applied.
     first_layer = [
         (_i, _i + 1) for _i in x_gates if _i + 1 < nqubits and _i + 1 not in x_gates
     ]
     first_layer += [
         (_i - 1, _i) for _i in x_gates if _i - 1 >= 0 and _i - 1 not in x_gates
     ]
-    # 3a. Apply 'second layer' of gates on adjacent pairs of qubits. Each pair includes 1 qubit acted on in the previous
-    # step and a qubit free of gates. Continue placing gates on adjacent qubits until all neighboring qubits are connected
+    # 3a. Apply 'second layer' of gates on adjacent pairs of qubits. Each pair includes
+    # 1 qubit acted on in the previous step and a qubit free of gates. Continue placing
+    # gates on adjacent qubits until all neighboring qubits are connected
     second_layer = [
         (_i, _i + 1) for _i in range(max(pair[1] for pair in first_layer), nqubits - 1)
     ]

@@ -1,1 +1,3 @@
-from qibochem.driver.molecule import Molecule as Molecule
+from qibochem.driver.molecule import Molecule
+
+__all__ = ["Molecule"]
