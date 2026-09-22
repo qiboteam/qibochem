@@ -7,7 +7,9 @@ from sympy.core.numbers import One
 
 
 def coefficients_sum(expression):
-    """Sum up the absolute value of the coefficients for all non-constant terms in a sympy.Expr"""
+    """
+    Sum up absolute value of coefficients for all non-constant terms in a sympy.Expr
+    """
     return sum(
         abs(coeff)
         for term, coeff in expression.as_coefficients_dict().items()
@@ -17,26 +19,35 @@ def coefficients_sum(expression):
 
 def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None):
     """
-    Allocate shots to each group of terms in the Hamiltonian for calculating the expectation value of the Hamiltonian.
+    Allocate shots to each group of terms in the Hamiltonian for calculating the
+    expectation value of the Hamiltonian.
 
     Args:
-        grouped_terms (list): Output of measurement_basis_rotations; list of two-tuples with the first term a
-            :class:`sympy.Expr` and the second the list of corresponding measurement gates (not used here).
-        n_shots (int): Total number of shots to be allocated
-        method (str): How to allocate the shots. The available options are: ``"c"``/``"coefficients"``: ``n_shots`` is
-            distributed based on the relative magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots``
-            is distributed evenly amongst each term. Default value: ``"c"``.
-        max_shots_per_term (int): Upper limit for the number of shots allocated to an individual group of terms. If not
-            given, will be defined as a fraction (largest coefficient over the sum of all coefficients in the
-            Hamiltonian) of ``n_shots``.
+        grouped_terms (list):
+            Output of measurement_basis_rotations; list of two-tuples with the first
+            term a :class:`sympy.Expr` and the second the list of corresponding
+            measurement gates (not used here).
+        n_shots (int):
+            Total number of shots to be allocated
+        method (str):
+            How to allocate the shots. The available options are:
+            ``"c"``/``"coefficients"``: ``n_shots`` is distributed based on the relative
+            magnitudes of the term coefficients, ``"u"``/``"uniform"``: ``n_shots`` is
+            distributed evenly amongst each term. Default value: ``"c"``.
+        max_shots_per_term (int):
+            Upper limit for the number of shots allocated to an individual group of
+            terms. If not given, will be defined as a fraction (largest coefficient over
+            the sum of all coefficients in the Hamiltonian) of ``n_shots``.
 
     Returns:
-        list: A list containing the number of shots to be used for each group of Pauli terms respectively.
+        list:
+            Number of shots to be used for each group of Pauli terms respectively.
     """
     if method is None:
         method = "c"
     if max_shots_per_term is None:
-        # Define based on the fraction of the term group with the largest coefficients w.r.t. sum of all coefficients.
+        # Define based on the fraction of the term group with the largest coefficients
+        # w.r.t. sum of all coefficients.
         # Using coefficients**(2/3) following arxiv:2307.06504
         term_coefficients = np.array(
             [
@@ -68,28 +79,31 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
             continue
 
         if method in ("c", "coefficients"):
-            # Split shots based on the relative magnitudes of the coefficients of the (group of) Pauli term(s)
-            # and only for terms that haven't reached the upper limit yet
+            # Split shots based on relative magnitudes of coefficients of the (group of)
+            # Pauli term(s) and only for terms that haven't reached the upper limit yet
             # Using coefficients**(2/3) following arxiv:2307.06504
             term_coefficients = np.array(
                 [
                     coefficients_sum(expression) ** (2 / 3)
                     if shots < max_shots_per_term
                     else 0.0
-                    for shots, (expression, _, _) in zip(shot_allocation, grouped_terms)
+                    for shots, (expression, _, _) in zip(
+                        shot_allocation, grouped_terms, strict=True
+                    )
                 ],
                 dtype=float,
             )
-            # Normalise term_coefficients, then get an initial distribution of remaining_shots
+            # Normalise term_coeffs, then get initial distribution of remaining_shots
             term_coefficients /= sum(term_coefficients)
             _shot_allocation = (remaining_shots * term_coefficients).astype(int)
-            # Only keep the terms with >0 shots allocated, renormalise term_coefficients, and distribute again
+            # Only keep terms with >0 shots allocated, renormalise term_coefficients,
+            # and distribute again
             term_coefficients *= _shot_allocation > 0
             if _shot_allocation.any():
                 term_coefficients /= sum(term_coefficients)
                 _shot_allocation = (remaining_shots * term_coefficients).astype(int)
             else:
-                # For distributing the remaining few shots, i.e. remaining_shots << n_terms
+                # For distributing remaining few shots, i.e. remaining_shots << n_terms
                 _shot_allocation = np.array(
                     allocate_shots(
                         grouped_terms,
@@ -100,19 +114,21 @@ def allocate_shots(grouped_terms, n_shots, method=None, max_shots_per_term=None)
                 )
 
         elif method in ("u", "uniform"):
-            # Uniform distribution of shots for every term. Extra shots are randomly distributed
+            # Uniform distribution of shots. Extra shots are randomly distributed
             _shot_allocation = np.array(
                 [remaining_shots // n_terms for _ in range(n_terms)]
             )
             if not _shot_allocation.any():
+                rng = np.random.default_rng()
                 _shot_allocation = np.zeros(n_terms)
                 _shot_allocation[:remaining_shots] = 1
-                np.random.shuffle(_shot_allocation)
+                rng.shuffle(_shot_allocation)
 
         else:
-            raise NameError("Unknown method!")
+            error = "Unknown method!"
+            raise NameError(error)
 
-        # Add on to the current allocation, and set upper limit to the number of shots for a given term
+        # Add on to current allocation, and set upper limit to number of shots per term
         shot_allocation += _shot_allocation.astype(int)
         shot_allocation = np.clip(shot_allocation, 0, max_shots_per_term)
 
@@ -123,15 +139,20 @@ def allocate_shots_by_variance(
     total_shots, n_trial_shots, variance_values, method="vmsa"
 ):
     """
-    Allocate shots for each term in a Hamiltonian based on the computed sample variances of each term.
+    Allocate shots for each term in a Hamiltonian based on the computed sample
+    variances of each term.
 
     Args:
-        total_shots (int): Total shot budget for each expectation value evaluation
-        n_trial_shots (int): Number of shots used to obtain the sample variances of each term group
-        variance_values (List[float]): Sample variances for each term group
+        total_shots (int):
+            Total shot budget for each expectation value evaluation
+        n_trial_shots (int):
+            Number of shots used to obtain the sample variances of each term group
+        variance_values (List[float]):
+            Sample variances for each term group
 
     Returns:
-        list: List of integers corresponding to the allocation of the remaining shots
+        list:
+            Integers corresponding to the allocation of the remaining shots
     """
     assert method in ("vmsa", "vpsr"), (
         f"Unknown shot assignment method ({method}) called"

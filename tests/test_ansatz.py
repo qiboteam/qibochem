@@ -638,7 +638,7 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
         # Manually build the circuit ansatz
         if ansatz_kwargs.get("include_hf", True):
             control_circuit += hf_circuit(nqubits, nelec)
-        for excitation, theta in zip(excitations, thetas):
+        for excitation, theta in zip(excitations, thetas, strict=False):
             theta = (
                 theta
                 if not theta

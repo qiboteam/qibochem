@@ -365,7 +365,6 @@ def test_col_reduce_x_matrix():
     )
     phases = np.array([0, 0], dtype=np.uint8)
     gates_list = _col_reduce_x_matrix(stabiliser_matrix, phases)
-    print(phases)
     # Single column operation, should have only CNOT gate
     assert len(gates_list) == 1 and gates_list[0].name == "cx"
     assert np.array_equal(phases, np.array([0, 0], dtype=np.uint8))

@@ -132,8 +132,11 @@ def circuit_ansatz(
         if excitations is None:
             # Up to double excitations and reversed to get higher excitations first
             excitations = [
-                generate_excitations(order, range(nelec), range(nelec, nqubits))
+                excitation
                 for order in range(2, 0, -1)
+                for excitation in generate_excitations(
+                    order, range(nelec), range(nelec, nqubits)
+                )
             ]
         else:
             # Some checks to ensure the input excitations are valid
@@ -642,7 +645,9 @@ def symm_preserving_circuit(
     a_gates = [
         _a_gate(qubit1, qubit2, theta, phi)
         for (qubit1, qubit2), (theta, phi) in zip(
-            a_gate_qubits, zip(param_iterator, param_iterator, strict=True), strict=True
+            a_gate_qubits,
+            zip(param_iterator, param_iterator, strict=False),
+            strict=False,
         )
     ]
     # Each a_gate is a list of elementary gates => a_gates is a nested list, need unpack
