@@ -49,6 +49,8 @@ extend-select = ["I", "UP"]
 # Psi4 driver should work but is not actively supported
 "src/qibochem/driver/molecule.py" = ["ERA001"]
 "tests/*.py" = ["INP001", "PT011", "SLF001", "ERA001"]
+"examples/*.py" = ["ERA001", "T201", "E501", "INP001"]
+"tutorials/*.ipynb" = ["E501", "T201", "I001"]
 
 [tool.poetry.group.docs]
 optional = true

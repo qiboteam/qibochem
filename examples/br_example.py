@@ -14,19 +14,19 @@ def guess_mo_coeffs(hcore, overlap):
     """Generate guess coefficients for MOs using the core Hamiltonian (1-electron terms) and overlap integrals"""
     # Symmetric orthogonalization of overlap matrix S using np:
     u, s, vh = np.linalg.svd(overlap)
-    A = u @ np.diag(s ** (-0.5)) @ vh
+    a = u @ np.diag(s ** (-0.5)) @ vh
 
     # Transform guess Fock matrix formed with H_core
-    F_p = A.dot(hcore).dot(A)
+    f_p = a.dot(hcore).dot(a)
     # Diagonalize F_p for eigenvalues and eigenvectors
-    _e, C_p = np.linalg.eigh(F_p)
-    # Transform C_p back into AO basis
-    mo_coeff = A.dot(C_p)  # MO coefficients using a H_core guess
-    return mo_coeff
+    _e, c_p = np.linalg.eigh(f_p)
+    # Transform c_p back into AO basis and return it
+    return a.dot(c_p)  # MO coefficients using a H_core guess
 
 
 def main():
     """Main function"""
+    rng = np.random.default_rng()
     # Define molecule and populate
     mol = Molecule(xyz_file="h3p.xyz")
     mol.run_pyscf()
@@ -45,7 +45,7 @@ def main():
     print(f"        HF energy: {mol.e_hf:.8f} (Hartree-Fock energy from PySCF)")
 
     circuit += circuit_ansatz(mol, ansatz="br", include_hf=False)
-    qubit_parameters = np.random.rand(len(circuit.get_parameters()))
+    qubit_parameters = rng.random(len(circuit.get_parameters()))
     vqe = VQE(circuit, hamiltonian)
     vqe_result = vqe.minimize(qubit_parameters)
 

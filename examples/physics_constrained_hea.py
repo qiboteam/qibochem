@@ -39,14 +39,14 @@ def single_layer_parameters(parameters: np.ndarray, nqubits: int) -> list[float]
     u1_dag_parameters = [-param for param in u1_parameters[nqubits:]] + [
         -param for param in u1_parameters[:nqubits]
     ]
-    circuit_parameters = (
+    # Return circuit parameters
+    return (
         u1_parameters
         + u2_parameters
         + rz_parameters
         + u2_dag_parameters
         + u1_dag_parameters
     )
-    return circuit_parameters
 
 
 def energy(parameters, circuit, hamiltonian, nlayers, nqubits):
@@ -83,7 +83,8 @@ def main():
 
     fci_energy = hamiltonian.eigenvalues()[0]
 
-    params = np.random.rand(len(circuit.get_parameters()))
+    rng = np.random.default_rng()
+    params = rng.random(len(circuit.get_parameters()))
     best, params, _extra = optimize(
         energy, params, args=(circuit, hamiltonian, nlayers, nqubits)
     )

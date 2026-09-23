@@ -33,7 +33,7 @@ def electronic_energy(parameters, hamiltonian, circuit, excitations):
     ]
     all_parameters = []
     # Iterate through each excitation, with the list of coefficients dependent on whether S/D excitation
-    for _ex, _parameter in zip(excitations, ucc_parameters):
+    for _ex, _parameter in zip(excitations, ucc_parameters, strict=True):
         coeffs = coeff_dict[len(_ex) // 2]
         # Convert a single value to a array with dimension=n_param_gates
         ucc_parameter = np.repeat(_parameter, len(coeffs))
