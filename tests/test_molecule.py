@@ -12,9 +12,11 @@ from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 
+rng = np.random.default_rng()
+
 
 @pytest.mark.parametrize(
-    "xyz_file,expected",
+    ("xyz_file", "expected"),
     [
         (None, -1.117349035),
         ("lih.xyz", -7.83561582555692),
@@ -28,7 +30,7 @@ def test_pyscf_driver(xyz_file, expected):
         file_path = Path("tests", "data") / Path(xyz_file)
         # In case .xyz files somehow not found
         if not file_path.is_file():
-            with open(file_path, "w", encoding="utf-8") as file_handler:
+            with Path.open(file_path, "w", encoding="utf-8") as file_handler:
                 if xyz_file == "lih.xyz":
                     file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
                 elif xyz_file == "h2.xyz":
@@ -47,7 +49,10 @@ def test_pyscf_driver(xyz_file, expected):
 
 
 # Commenting out since not actively supporting PSI4 at the moment
-# @pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
+# @pytest.mark.skip(
+#     reason="Psi4 doesn't offer pip install;"
+#     " so needs to be installed through conda or manually."
+# )
 # def test_run_psi4():
 #     """PSI4 driver"""
 #     # Hardcoded benchmark results
@@ -66,7 +71,7 @@ def test_molecule_custom_basis():
 
 
 @pytest.mark.parametrize(
-    "active,frozen,expected",
+    ("active", "frozen", "expected"),
     [
         (None, None, (list(range(6)), [])),  # Default arguments: Nothing given
         ([1, 2, 5], None, ([1, 2, 5], [0])),  # Default frozen argument if active given
@@ -154,7 +159,7 @@ def test_mp2_natorbs():
 
 
 @pytest.mark.parametrize(
-    "option,expected",
+    ("option", "expected"),
     [
         (
             "f",
@@ -189,8 +194,8 @@ def test_hamiltonian(option, expected):
 def test_hamiltonian_input_errors():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.e_nuc = 0.0
-    h2.oei = np.random.rand(4, 4)
-    h2.tei = np.random.rand(4, 4, 4, 4)
+    h2.oei = rng.random((4, 4))
+    h2.tei = rng.random((4, 4, 4, 4))
     # Hamiltonian type error
     with pytest.raises(NameError):
         h2.hamiltonian("ihpc")
@@ -231,7 +236,7 @@ def test_fs_hamiltonian_default():
 
 
 @pytest.mark.parametrize(
-    "hamiltonian,n_eigvals",
+    ("hamiltonian", "n_eigvals"),
     [
         (openfermion.reverse_jordan_wigner(openfermion.QubitOperator("Z0 Z1")), 2),
         (openfermion.QubitOperator("Z0 Z1"), 2),

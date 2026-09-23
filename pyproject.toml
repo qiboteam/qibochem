@@ -48,7 +48,7 @@ extend-select = ["I", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # Psi4 driver should work but is not actively supported
 "src/qibochem/driver/molecule.py" = ["ERA001"]
-"tests/test_molecule.py" = ["ERA001"]
+"tests/*.py" = ["INP001", "PT011", "SLF001", "ERA001"]
 
 [tool.poetry.group.docs]
 optional = true

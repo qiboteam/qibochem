@@ -18,7 +18,7 @@ from qibochem.measurement.result import (
 
 
 @pytest.mark.parametrize(
-    "term,frequencies,qubit_map,expected",
+    ("term", "frequencies", "qubit_map", "expected"),
     [
         (X(0), {"10": 5}, [0, 1], -1.0),
         (X(2), {"010": 5}, [0, 2, 5], -1.0),
@@ -40,7 +40,7 @@ def test_measurement_basis_rotations_error():
 
 
 @pytest.mark.parametrize(
-    "gates_to_add,shot_allocation,expected",
+    ("gates_to_add", "shot_allocation", "expected"),
     [
         ([gates.H(0)], [10, 0], 1.0),  # State vector: 1/sqrt(2)(|0> + |1>), Measuring X
         ([gates.X(0), gates.Z(0)], [0, 10], -1.0),  # State vector: -|1>, Measuring Z
@@ -106,7 +106,7 @@ def test_measurement_grouping_functionality(grouping, terms):
 
 @pytest.mark.parametrize("grouping", ["gc", "gc2"])
 @pytest.mark.parametrize(
-    "terms,nqubits,gates_to_add",
+    ("terms", "nqubits", "gates_to_add"),
     [
         (X(0) * X(1) + Y(0) * Z(1), 2, (gates.H(0), gates.H(1))),
         (
@@ -168,7 +168,7 @@ def test_h2_hf_energy():
 
 
 @pytest.mark.parametrize(
-    "terms,grouping,expected_means,expected_variances",
+    ("terms", "grouping", "expected_means", "expected_variances"),
     [
         (X(0), None, [1.0], [0.0]),
         (X(0) + Z(0), None, [1.0, 0.0], [0.0, 0.0]),
@@ -190,7 +190,7 @@ def test_sample_statistics(terms, grouping, expected_means, expected_variances):
 
 
 @pytest.mark.parametrize(
-    "terms,grouping",
+    ("terms", "grouping"),
     [
         (0.2 * X(0) + Y(2) + 13.0, None),
         (0.2 * X(0) + Y(2) + 13.0, "qwc"),

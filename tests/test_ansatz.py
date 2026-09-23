@@ -43,9 +43,12 @@ CIRCUIT_FNS = {
     "ham": hamming_weight_encoder,
 }
 
+# Global numpy random Generator
+rng = np.random.default_rng()
+
 
 @pytest.mark.parametrize(
-    "rotation_gates,entangling_gate",
+    ("rotation_gates", "entangling_gate"),
     [
         (None, gates.CNOT),
         (["RX"], "CNOT"),
@@ -82,7 +85,7 @@ def test_he_circuit(rotation_gates, entangling_gate):
             for _i in range(nqubits - 1)
         )
 
-    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+    for gate, target in zip(control_circuit.queue, test_circuit.queue, strict=False):
         assert gate.__class__.__name__ == target.__class__.__name__
         assert gate.qubits == target.qubits
         assert gate.target_qubits == target.target_qubits
@@ -120,7 +123,7 @@ def test_pche_circuit():
         + 2 * qubits
     )
     for gate, (control_gate, control_qubits) in zip(
-        test_circuit.queue, zip(names, gate_qubits)
+        test_circuit.queue, zip(names, gate_qubits, strict=False), strict=False
     ):
         assert gate.__class__.__name__ == control_gate
         assert gate.qubits == control_qubits
@@ -135,17 +138,12 @@ def test_pche_circuit():
 )
 def test_hf_circuit(mapping):
     """Tests the HF circuit for H2"""
-    # Hardcoded benchmark results
-    h2_ref_energy = -1.117349035
-
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
     hamiltonian = h2.hamiltonian(ferm_qubit_map=mapping)
     circuit = hf_circuit(h2.nso, h2.nelec, ferm_qubit_map=mapping)
     hf_energy = hamiltonian.expectation(circuit)
-
-    # assert h2.e_hf == pytest.approx(hf_energy)
-    assert pytest.approx(hf_energy) == h2_ref_energy
+    assert h2.e_hf == pytest.approx(hf_energy)
 
 
 @pytest.mark.parametrize(
@@ -159,7 +157,7 @@ def test_hf_circuit(mapping):
 )
 def test_expi_pauli(pauli_string):
     nqubits = 2
-    theta = np.random.rand(1)
+    theta = rng.random(1)
 
     # Build using exp(-i*theta*SymbolicHamiltonian)
     pauli_ops = sorted(
@@ -182,7 +180,7 @@ def test_expi_pauli(pauli_string):
 
 
 @pytest.mark.parametrize(
-    "excitation,mapping,pauli_terms,coeffs",
+    ("excitation", "mapping", "pauli_terms", "coeffs"),
     [
         ([0, 2], None, ("Y0 X2", "X0 Y2"), (0.5, -0.5)),  # JW singles
         (
@@ -209,10 +207,10 @@ def test_ucc_circuit(excitation, mapping, pauli_terms, coeffs):
     nqubits = 4
 
     # Build the control array using SymbolicHamiltonian.circuit
-    # But need to multiply theta by some coefficient introduced by the fermion->qubit mapping
+    # Note: Multiply theta by some coefficient introduced by the fermion->qubit mapping
 
     control_circuit = Circuit(nqubits)
-    for coeff, pauli_string in zip(coeffs, pauli_terms):
+    for coeff, pauli_string in zip(coeffs, pauli_terms, strict=False):
         pauli_ops = sorted(
             ((int(_op[1:]), _op[0]) for _op in pauli_string.split()), key=lambda x: x[0]
         )
@@ -241,10 +239,11 @@ def test_ucc_circuit(excitation, mapping, pauli_terms, coeffs):
 
 def _givens_single_excitation(sorted_orbitals, theta):
     """
-    Testing helper function: Decomposition of a Givens single excitation gate into single qubit rotations and CNOTs
+    Testing helper function: Decomposition of a Givens single excitation gate into
+    single qubit rotations and CNOTs
 
     Args:
-        sorted_orbitals (Sequence[int]): Sorted list of orbitals involved in the excitation
+        sorted_orbitals (Sequence[int]): Sorted orbitals involved in the excitation
         theta (float): Rotation angle
 
     Returns:
@@ -262,10 +261,11 @@ def _givens_single_excitation(sorted_orbitals, theta):
 
 def _givens_double_excitation(sorted_orbitals, theta):
     """
-    Testing helper function: Decomposition of a Givens double excitation gate into single qubit rotations and CNOTs
+    Testing helper function: Decomposition of a Givens double excitation gate into
+    single qubit rotations and CNOTs
 
     Args:
-        sorted_orbitals (Sequence[int]): Sorted list of orbitals involved in the excitation
+        sorted_orbitals (Sequence[int]): Sorted orbitals involved in the excitation
         theta (float): Rotation angle
 
     Returns:
@@ -308,7 +308,9 @@ def test_givens_circuit():
     nqubits = 4
     theta = 0.27183
     for excitation, decomposition in zip(
-        ([0, 2], [0, 1, 2, 3]), (_givens_single_excitation, _givens_double_excitation)
+        ([0, 2], [0, 1, 2, 3]),
+        (_givens_single_excitation, _givens_double_excitation),
+        strict=True,
     ):
         control_circuit = Circuit(nqubits)
         control_circuit.add(decomposition(excitation, theta))
@@ -377,7 +379,7 @@ def test_qr_decompose_givens():
 
 
 @pytest.mark.parametrize(
-    "nqubits,control",
+    ("nqubits", "control"),
     [
         (
             4,
@@ -433,16 +435,16 @@ def test_basis_rotation_layout(nqubits, control):
     test = _basis_rotation_layout(nqubits, z_angles)
     assert all(
         (test_item[0] == control_item[0]) and (test_item[1] == control_item[1])
-        for test_item, control_item in zip(test, control)
+        for test_item, control_item in zip(test, control, strict=True)
     )
     assert all(
         np.isclose(test_item[2], control_item[2])
-        for test_item, control_item in zip(test, control)
+        for test_item, control_item in zip(test, control, strict=True)
     )
 
 
 @pytest.mark.parametrize(
-    "parameters,control_parameters",
+    ("parameters", "control_parameters"),
     [
         (None, np.zeros(15)),
         (
@@ -504,7 +506,7 @@ def test_basis_rotation_circuit(parameters, control_parameters):
 
     test_circuit = basis_rotation_circuit(nqubits, nelectrons, parameters=parameters)
 
-    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+    for gate, target in zip(control_circuit.queue, test_circuit.queue, strict=True):
         assert gate.__class__.__name__ == target.__class__.__name__
         assert gate.qubits == target.qubits
         assert gate.target_qubits == target.target_qubits
@@ -513,7 +515,7 @@ def test_basis_rotation_circuit(parameters, control_parameters):
 
 
 @pytest.mark.parametrize(
-    "theta,phi,expected",
+    ("theta", "phi", "expected"),
     [
         (0.5 * np.pi, 0.0, np.array([0.0, 1.0, 0.0, 00])),
         (0.5 * np.pi, np.pi, np.array([0.0, -1.0, 0.0, 00])),
@@ -531,7 +533,7 @@ def test_a_gate(theta, phi, expected):
 
 
 @pytest.mark.parametrize(
-    "nqubits,nelectrons,expected",
+    ("nqubits", "nelectrons", "expected"),
     [
         (4, 2, [0, 2]),
         (4, 3, [0, 1, 2]),
@@ -544,7 +546,7 @@ def test_x_gate_indices(nqubits, nelectrons, expected):
 
 
 @pytest.mark.parametrize(
-    "nqubits,nelectrons,x_gates,expected",
+    ("nqubits", "nelectrons", "x_gates", "expected"),
     [
         (4, 2, [0, 2], 2 * [(0, 1), (2, 3), (1, 2)]),
         (6, 4, [0, 1, 2, 4], 3 * [(2, 3), (4, 5), (3, 4), (1, 2), (0, 1)]),
@@ -556,7 +558,7 @@ def test_a_gate_indices(nqubits, nelectrons, x_gates, expected):
 
 
 @pytest.mark.parametrize(
-    "nqubits,nelectrons,parameters,control_parameters",
+    ("nqubits", "nelectrons", "parameters", "control_parameters"),
     [
         (
             4,
@@ -584,7 +586,7 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
 
     test_circuit = symm_preserving_circuit(nqubits, nelectrons, parameters)
 
-    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+    for gate, target in zip(control_circuit.queue, test_circuit.queue, strict=True):
         assert gate.__class__.__name__ == target.__class__.__name__
         assert gate.qubits == target.qubits
         assert gate.target_qubits == target.target_qubits
@@ -600,7 +602,7 @@ def test_symm_preserving_circuit(nqubits, nelectrons, parameters, control_parame
     ],
 )
 @pytest.mark.parametrize(
-    "ansatz,ansatz_kwargs",
+    ("ansatz", "ansatz_kwargs"),
     [
         ("ucc", {"excitations": [[0, 1, 2, 3]]}),
         ("qeb", {"include_hf": False}),
@@ -649,7 +651,7 @@ def test_circuit_ansatz(mol_geom, ansatz, ansatz_kwargs):
     # Test circuit
     test_circuit = circuit_ansatz(molecule, ansatz, **ansatz_kwargs)
 
-    for gate, target in zip(control_circuit.queue, test_circuit.queue):
+    for gate, target in zip(control_circuit.queue, test_circuit.queue, strict=False):
         assert gate.__class__.__name__ == target.__class__.__name__
         assert gate.qubits == target.qubits
         assert gate.target_qubits == target.target_qubits
@@ -688,7 +690,7 @@ def test_ansatz_argument_checks():
 
 # Utility function tests
 @pytest.mark.parametrize(
-    "order,excite_from,excite_to,expected",
+    ("order", "excite_from", "excite_to", "expected"),
     [
         (1, [0, 1], [2, 3], [[0, 2], [1, 3]]),
         (2, [2, 3], [4, 5], [[2, 3, 4, 5]]),
@@ -702,7 +704,7 @@ def test_generate_excitations(order, excite_from, excite_to, expected):
 
 
 @pytest.mark.parametrize(
-    "test,expected",
+    ("test", "expected"),
     [
         ([[0, 2], [0, 4], [1, 3], [1, 5]], [[0, 2], [1, 3], [0, 4], [1, 5]]),
         (
@@ -726,13 +728,13 @@ def test_sort_excitations_argument_checks():
 
 def test_mp2_amplitude():
     # Single excitation
-    assert mp2_amplitude([0, 2], np.random.rand(4), np.random.rand(4, 4)) == 0.0
+    assert mp2_amplitude([0, 2], rng.random(4), rng.random((4, 4))) == 0.0
     # Double excitation
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.run_pyscf()
-    l = mp2_amplitude([0, 1, 2, 3], h2.eps, h2.tei)
-    ref_l = 0.06834019757197053
-    assert np.isclose(l, ref_l)
+    result = mp2_amplitude([0, 1, 2, 3], h2.eps, h2.tei)
+    ref_result = 0.06834019757197053
+    assert np.isclose(result, ref_result)
     # Argument check
     with pytest.raises(ValueError):
         _ = mp2_amplitude([0, 1, 2], h2.eps, h2.tei)
