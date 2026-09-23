@@ -35,6 +35,8 @@ ruff = "^0.16.8"
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+# Exclude symlinked notebook
+extend-exclude = ["doc/source/tutorials/excited_states.ipynb"]
 
 [tool.ruff.lint]
 select = [
@@ -51,6 +53,8 @@ extend-select = ["I", "UP"]
 "tests/*.py" = ["INP001", "PT011", "SLF001", "ERA001"]
 "examples/*.py" = ["ERA001", "T201", "E501", "INP001"]
 "tutorials/*.ipynb" = ["E501", "T201", "I001"]
+"doc/source/conf.py" = ["INP001", "E501", "A001"]
+
 
 [tool.poetry.group.docs]
 optional = true
