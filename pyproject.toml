@@ -1,53 +1,65 @@
-[tool.poetry]
+[project]
 name = "qibochem"
 version = "0.0.6"
 description = "Quantum chemistry module for quantum computing with Qibo"
-authors = ["The Qibo team"]
-license = "Apache License 2.0"
+authors = [{ name = "The Qibo team" }]
+requires-python = ">=3.11,<3.14"
 readme = "README.md"
-repository = "https://github.com/qiboteam/qibochem/"
-documentation = "https://qibo.science/qibochem/stable"
+license = "Apache-2.0"
 keywords = []
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
-packages = [{ include = "qibochem", from = "src" }]
+dependencies = [
+    "qibo>=0.3.4,<0.4",
+    "openfermion>=1.8.1,<2",
+    "pyscf>=2.14.0,<3",
+    "scipy>=1.15.2,<2",
+    "numpy>=2.0.0,<3",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.14"
-qibo = "^0.3.4"
-openfermion = "^1.8.1"
-pyscf = "^2.14.0"
-scipy = "^1.15.2"
-numpy = "^2.0.0"
+[project.urls]
+Repository = "https://github.com/qiboteam/qibochem/"
+Documentation = "https://qibo.science/qibochem/stable"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
+docs = [
+    "sphinx>=7.0.0,<8",
+    "furo>=2023.3.27,<2024",
+    "recommonmark>=0.7.1,<0.8",
+    "sphinxcontrib-bibtex>=2.5.0,<3",
+    "sphinxcontrib-katex>=0.9.6,<0.10",
+    "sphinx-markdown-tables>=0.0.17,<0.0.18",
+    "nbsphinx>=0.9.1,<0.10",
+    "ipython>=8.34.0,<9",
+    "sphinx-copybutton>=0.5.2,<0.6",
+]
+tests = [
+    "pytest>=7.2.1",
+    "pytest-cov>=4.0.0",
+    "pytest-env>=0.8.1",
+    "pylint>=3.3.5,<4",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/qibochem"]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/qibochem"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/qibochem" = "qibochem"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "^7.0.0"
-furo = "^2023.3.27"
-recommonmark = "^0.7.1"
-sphinxcontrib-bibtex = "^2.5.0"
-sphinxcontrib-katex = "^0.9.6"
-sphinx-markdown-tables = "^0.0.17"
-nbsphinx = "^0.9.1"
-ipython = "^8.34.0"
-sphinx-copybutton = "^0.5.2"
-
-[tool.poetry.group.tests]
-optional = true
-
-[tool.poetry.group.tests.dependencies]
-pytest = ">=7.2.1"
-pytest-cov = ">=4.0.0"
-pytest-env = ">=0.8.1"
-pylint = "^3.3.5"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.poe.tasks]
 test = "pytest"
