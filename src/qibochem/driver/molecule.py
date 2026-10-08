@@ -5,6 +5,7 @@ TODO:
 - Add type hinting
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -122,7 +123,7 @@ class Molecule:
         if self.xyz_file is not None:
             self._process_xyz_file()
 
-    def _process_xyz_file(self):
+    def _process_xyz_file(self) -> None:
         """
         Reads the .xyz file given when defining the Molecule to obtain the molecular
         coordinates (in OpenFermion format), charge, and multiplicity
@@ -153,11 +154,11 @@ class Molecule:
                 _geometry.append(tuple(atom_xyz))
         self.geometry = _geometry
 
-    def _calc_oei(self, mo_coeff):
+    def _calc_oei(self, mo_coeff: np.ndarray) -> np.ndarray:
         oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff, optimize=True)
         return np.einsum("ab,ac->bc", mo_coeff, oei, optimize=True)
 
-    def _calc_tei(self, mo_coeff):
+    def _calc_tei(self, mo_coeff: np.ndarray) -> np.ndarray:
         # tei = np.asarray(pyscf_mol.intor('int2e'))  # Using PySCF mol
         # Using NumPy:
         # https://pycrawfordprogproj.readthedocs.io/en/latest/Project_04/Project_04.html
@@ -174,12 +175,12 @@ class Molecule:
         return np.einsum("pqrs->prsq", tei, optimize=True)
 
     @property
-    def ca(self):
+    def ca(self) -> np.ndarray:
         """Coefficients of the Hartree-Fock molecular orbitals"""
         return self._ca
 
     @ca.setter
-    def ca(self, new_ca):
+    def ca(self, new_ca: np.ndarray) -> None:
         # Update molecular integrals when MO coefficients are updated and hcore exists
         if new_ca is not None:
             if self.hcore is not None:
@@ -199,7 +200,7 @@ class Molecule:
     #     ca_occ = self.ca[:, : self.nalpha]
     #     return self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
-    def run_pyscf(self, max_scf_cycles=50, do_mp2=False):
+    def run_pyscf(self, max_scf_cycles: int = 50, do_mp2: bool = False) -> None:
         """
         Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
         molecular integrals
@@ -338,7 +339,7 @@ class Molecule:
     #     self.fa = np.asarray(wavefn.Fa())
 
     # HF embedding functions
-    def _inactive_fock_matrix(self, frozen):
+    def _inactive_fock_matrix(self, frozen: Sequence) -> np.ndarray:
         """
         Returns the full inactive Fock matrix
 
@@ -360,7 +361,7 @@ class Molecule:
                     )
         return inactive_fock
 
-    def _active_space(self, active, frozen):
+    def _active_space(self, active: Sequence, frozen: Sequence) -> tuple[list, list]:
         """
         Helper function to check the input for active/frozen space and define the
         default values for them where necessary
@@ -373,7 +374,7 @@ class Molecule:
                 simulation
 
         Returns:
-            active, frozen: Iterables representing the active/frozen space
+            tuple[list, list]: Active and frozen orbital space
         """
         n_orbs = self.norb
         n_occ_orbs = self.nalpha
@@ -415,7 +416,9 @@ class Molecule:
             )
         return active, frozen
 
-    def hf_embedding(self, active=None, frozen=None):
+    def hf_embedding(
+        self, active: Sequence | None = None, frozen: Sequence | None = None
+    ) -> None:
         """
         Turns on HF embedding for a given active/frozen space, and fills in the class
         attributes: ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
@@ -458,7 +461,7 @@ class Molecule:
         self.n_active_e = self.nelec - 2 * len(self.frozen)
 
     @staticmethod
-    def _filter_array(array, threshold):
+    def _filter_array(array: np.ndarray, threshold: float) -> np.ndarray:
         """Helper function to filter out v. small values from an array"""
         cp_array = np.copy(array)
         cp_array[np.abs(array) < threshold] = 0.0
@@ -466,13 +469,13 @@ class Molecule:
 
     def hamiltonian(
         self,
-        ham_type=None,
-        oei=None,
-        tei=None,
-        constant=None,
-        ferm_qubit_map=None,
-        threshold=1e-12,
-    ):
+        ham_type: str | None = None,
+        oei: np.ndarray | None = None,
+        tei: np.ndarray | None = None,
+        constant: float | None = None,
+        ferm_qubit_map: str | None = None,
+        threshold: float = 1e-12,
+    ) -> openfermion.FermionOperator | openfermion.QubitOperator | SymbolicHamiltonian:
         """
         Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF
         embedding has been applied, (i.e. the ``embed_oei``, ``embed_tei``, and
@@ -549,7 +552,9 @@ class Molecule:
         error = f"Unknown {ham_type}!"
         raise NameError(error)  # Shouldn't ever reach here
 
-    def fs_hamiltonian(self, omega, hamiltonian=None):
+    def fs_hamiltonian(
+        self, omega: float, hamiltonian: SymbolicHamiltonian | None = None
+    ) -> SymbolicHamiltonian:
         """
         Constructs the folded spectrum Hamiltonian :math:`(H - \\omega)^2`
 
@@ -569,7 +574,11 @@ class Molecule:
         return (hamiltonian - omega) @ (hamiltonian - omega)
 
     @staticmethod
-    def eigenvalues(hamiltonian):
+    def eigenvalues(
+        hamiltonian: openfermion.FermionOperator
+        | openfermion.QubitOperator
+        | SymbolicHamiltonian,
+    ) -> np.ndarray:
         """
         Finds the lowest 6 exact eigenvalues of a given Hamiltonian
 

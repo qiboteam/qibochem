@@ -4,26 +4,28 @@ Helper functions for obtaining and transforming the molecular Hamiltonian
 
 from functools import reduce
 
+import numpy as np
 import openfermion
 from qibo import symbols
 from qibo.hamiltonians import SymbolicHamiltonian
 
 
-def _fermionic_hamiltonian(oei, tei, constant):
+def _fermionic_hamiltonian(
+    oei: np.ndarray, tei: np.ndarray, constant: float
+) -> openfermion.InteractionOperator:
     """
-    Build molecular Hamiltonian as an InteractionOperator using the 1-/2- electron
-    integrals
+    Build molecular Hamiltonian using the 1-/2- electron integrals
 
     Args:
-        oei:
+        oei (np.ndarray):
             1-electron integrals in the MO basis
-        tei:
+        tei (np.ndarray):
             2-electron integrals in 2ndQ notation and MO basis
-        constant:
+        constant (float):
             Nuclear-nuclear repulsion, and inactive Fock energy if HF embedding used
 
     Returns:
-        Molecular Hamiltonian as an InteractionOperator
+        openfermion.InteractionOperator: Molecular Hamiltonian
     """
     oei_so, tei_so = openfermion.ops.representations.get_tensors_from_integrals(
         oei, tei
@@ -32,18 +34,20 @@ def _fermionic_hamiltonian(oei, tei, constant):
     return openfermion.InteractionOperator(constant, oei_so, tei_so)
 
 
-def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
+def _qubit_hamiltonian(
+    fermion_hamiltonian: openfermion.InteractionOperator, ferm_qubit_map: str
+) -> openfermion.QubitOperator:
     """
     Converts the molecular Hamiltonian to a QubitOperator
 
     Args:
-        fermion_hamiltonian:
-             Molecular Hamiltonian as an InteractionOperator/FermionOperator
-        ferm_qubit_map:
+        fermion_hamiltonian (openfermion.InteractionOperator):
+             Molecular Hamiltonian
+        ferm_qubit_map (str):
             Which Fermion->Qubit mapping to use
 
     Returns:
-        qubit_operator : Molecular Hamiltonian as a QubitOperator
+        openfermion.QubitOperator: Molecular Hamiltonian
     """
     # Map the fermionic molecular Hamiltonian to a QubitHamiltonian
     if ferm_qubit_map == "jw":
@@ -57,15 +61,17 @@ def _qubit_hamiltonian(fermion_hamiltonian, ferm_qubit_map):
     return q_hamiltonian
 
 
-def _qubit_to_symbolic_hamiltonian(q_hamiltonian):
+def _qubit_to_symbolic_hamiltonian(
+    q_hamiltonian: openfermion.QubitOperator,
+) -> SymbolicHamiltonian:
     """
     Converts a OpenFermion QubitOperator to a Qibo SymbolicHamiltonian
 
     Args:
-        q_hamiltonian (QubitOperator): Molecular Hamiltonian
+        q_hamiltonian (openfermion.QubitOperator): Molecular Hamiltonian
 
     Returns:
-        (qibo.hamiltonians.SymbolicHamiltonian): Molecular Hamiltonian
+        SymbolicHamiltonian: Molecular Hamiltonian
     """
     symbolic_ham = sum(
         reduce(
