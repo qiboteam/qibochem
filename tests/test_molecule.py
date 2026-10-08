@@ -12,9 +12,11 @@ from qibo.symbols import X, Z
 
 from qibochem.driver import Molecule
 
+rng = np.random.default_rng()
+
 
 @pytest.mark.parametrize(
-    "xyz_file,expected",
+    ("xyz_file", "expected"),
     [
         (None, -1.117349035),
         ("lih.xyz", -7.83561582555692),
@@ -28,7 +30,7 @@ def test_pyscf_driver(xyz_file, expected):
         file_path = Path("tests", "data") / Path(xyz_file)
         # In case .xyz files somehow not found
         if not file_path.is_file():
-            with open(file_path, "w", encoding="utf-8") as file_handler:
+            with Path.open(file_path, "w", encoding="utf-8") as file_handler:
                 if xyz_file == "lih.xyz":
                     file_handler.write("2\n0 1\nLi 0.0 0.0 0.0\nH 0.0 0.0 1.2\n")
                 elif xyz_file == "h2.xyz":
@@ -41,9 +43,16 @@ def test_pyscf_driver(xyz_file, expected):
     mol.run_pyscf()
     assert mol.e_hf == pytest.approx(expected)
 
+    # .xyz file not found
+    with pytest.raises(FileNotFoundError):
+        mol = Molecule(xyz_file="fullerene.xyz")
+
 
 # Commenting out since not actively supporting PSI4 at the moment
-# @pytest.mark.skip(reason="Psi4 doesn't offer pip install, so needs to be installed through conda or manually.")
+# @pytest.mark.skip(
+#     reason="Psi4 doesn't offer pip install;"
+#     " so needs to be installed through conda or manually."
+# )
 # def test_run_psi4():
 #     """PSI4 driver"""
 #     # Hardcoded benchmark results
@@ -62,13 +71,21 @@ def test_molecule_custom_basis():
 
 
 @pytest.mark.parametrize(
-    "active,frozen,expected",
+    ("active", "frozen", "expected"),
     [
         (None, None, (list(range(6)), [])),  # Default arguments: Nothing given
         ([1, 2, 5], None, ([1, 2, 5], [0])),  # Default frozen argument if active given
-        (None, [0], (list(range(1, 6)), [0])),  # Default active argument if frozen given
+        (
+            None,
+            [0],
+            (list(range(1, 6)), [0]),
+        ),  # Default active argument if frozen given
         ([0, 1, 2, 3], [], (list(range(4)), [])),  # active, frozen arguments both given
-        ([1, 2, 3], [0], (list(range(1, 4)), [0])),  # active, frozen arguments both given
+        (
+            [1, 2, 3],
+            [0],
+            (list(range(1, 4)), [0]),
+        ),  # active, frozen arguments both given
     ],
 )
 def test_define_active_space(active, frozen, expected):
@@ -78,20 +95,23 @@ def test_define_active_space(active, frozen, expected):
     assert mol._active_space(active, frozen) == expected
 
 
-def test_define_active_space_assertions():
+def test_define_active_space_checks():
     mol = Molecule([("Li", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 1.2))])
     mol.nalpha = 2
     mol.norb = 6
 
     # Invalid active argument
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space([10], None)
     # Invalid frozen argument
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space(None, [100])
     # active/frozen spaces overlap
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _ = mol._active_space([0, 1], [0])
+    # Missing orbital assignments
+    with pytest.raises(ValueError):
+        _ = mol._active_space([2], [0])
 
 
 def test_hf_embedding():
@@ -128,7 +148,9 @@ def test_mp2_natorbs():
         2.34539023,
         3.79150695,
     ]
-    mol = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD")
+    mol = Molecule(
+        [("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7414))], basis="def2-SVPD"
+    )
     mol.run_pyscf(do_mp2=True)
     # Check that eps tally
     assert np.allclose(mol.eps, reference_eps)
@@ -137,10 +159,23 @@ def test_mp2_natorbs():
 
 
 @pytest.mark.parametrize(
-    "option,expected",
+    ("option", "expected"),
     [
-        ("f", sum(openfermion.FermionOperator(f"{_i}^ {_i}", (-1) ** ((_i // 2) + 1)) for _i in range(4))),
-        ("q", 0.5 * sum(openfermion.QubitOperator(f"Z{_i}", (-1) ** (_i // 2)) for _i in range(4))),
+        (
+            "f",
+            sum(
+                openfermion.FermionOperator(f"{_i}^ {_i}", (-1) ** ((_i // 2) + 1))
+                for _i in range(4)
+            ),
+        ),
+        (
+            "q",
+            0.5
+            * sum(
+                openfermion.QubitOperator(f"Z{_i}", (-1) ** (_i // 2))
+                for _i in range(4)
+            ),
+        ),
     ],
 )
 def test_hamiltonian(option, expected):
@@ -148,7 +183,9 @@ def test_hamiltonian(option, expected):
     dummy = Molecule()
     dummy.e_nuc = 0.0
     dummy.oei = np.diag((-1.0, 1.0))
-    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
+    dummy.tei = np.zeros(
+        (2, 2, 2, 2)
+    )  # Basically, only one-electron operators in the Hamiltonian
 
     test_ham = dummy.hamiltonian(option)
     assert test_ham.isclose(expected)
@@ -157,8 +194,8 @@ def test_hamiltonian(option, expected):
 def test_hamiltonian_input_errors():
     h2 = Molecule([("H", (0.0, 0.0, 0.0)), ("H", (0.0, 0.0, 0.7))])
     h2.e_nuc = 0.0
-    h2.oei = np.random.rand(4, 4)
-    h2.tei = np.random.rand(4, 4, 4, 4)
+    h2.oei = rng.random((4, 4))
+    h2.tei = rng.random((4, 4, 4, 4))
     # Hamiltonian type error
     with pytest.raises(NameError):
         h2.hamiltonian("ihpc")
@@ -174,8 +211,12 @@ def test_fs_hamiltonian():
     omega = 1.1
     folded = mol.fs_hamiltonian(omega, hamiltonian)
     # Check matrix of the folded Hamiltonian (H - omega*I)^2
-    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(np.eye(2), X(1).matrix)
-    folded_matrix = (original_ham - omega * np.eye(4)) @ (original_ham - omega * np.eye(4))
+    original_ham = 0.5 * np.kron(Z(0).matrix, np.eye(2)) + 0.3 * np.kron(
+        np.eye(2), X(1).matrix
+    )
+    folded_matrix = (original_ham - omega * np.eye(4)) @ (
+        original_ham - omega * np.eye(4)
+    )
     assert np.allclose(folded.matrix, folded_matrix)
 
 
@@ -184,7 +225,9 @@ def test_fs_hamiltonian_default():
     dummy = Molecule()
     dummy.e_nuc = 0.0
     dummy.oei = np.diag((-1.0, 0.0))
-    dummy.tei = np.zeros((2, 2, 2, 2))  # Basically, only one-electron operators in the Hamiltonian
+    dummy.tei = np.zeros(
+        (2, 2, 2, 2)
+    )  # Basically, only one-electron operators in the Hamiltonian
     dummy_ham = dummy.hamiltonian()
 
     omega = 0.0
@@ -193,7 +236,7 @@ def test_fs_hamiltonian_default():
 
 
 @pytest.mark.parametrize(
-    "hamiltonian,n_eigvals",
+    ("hamiltonian", "n_eigvals"),
     [
         (openfermion.reverse_jordan_wigner(openfermion.QubitOperator("Z0 Z1")), 2),
         (openfermion.QubitOperator("Z0 Z1"), 2),

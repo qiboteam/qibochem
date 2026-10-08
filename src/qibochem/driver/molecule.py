@@ -1,7 +1,11 @@
 """
 Driver for obtaining molecular integrals from either PySCF or PSI4
+
+TODO:
+- Add type hinting
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -10,6 +14,7 @@ import openfermion
 import pyscf
 import scipy
 from pyscf import mp
+from qibo.config import raise_error
 from qibo.hamiltonians import SymbolicHamiltonian
 
 from qibochem.driver.hamiltonian import (
@@ -25,15 +30,23 @@ class Molecule:
     Class representing a single molecule
 
     Args:
-        geometry (list): Molecular coordinates in OpenFermion format,  e.g.
+        geometry (list):
+            Molecular coordinates in OpenFermion format,  e.g.
             ``[('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7))]``
-        charge (int): Net electronic charge of molecule. Default: ``0``
-        multiplicity (int): Spin multiplicity of molecule, given as 2S + 1, where S is half the number of unpaired
-            electrons. Default: ``1``
-        basis (str): Atomic orbital basis set, used for the PySCF calculations. Default: ``"STO-3G"`` (minimal basis)
-        xyz_file (str): .xyz file containing the molecular coordinates. The comment line can be used to define the
-            electronic charge and spin multiplity if it is given in this format: ``{charge} {multiplicity}``
-        active (list): Iterable representing the set of MOs to be included in the quantum simulation
+        charge (int):
+            Net electronic charge of molecule. Default: ``0``
+        multiplicity (int):
+            Spin multiplicity of molecule, given as 2S + 1, where S is half the number
+            of unpaired electrons. Default: ``1``
+        basis (str):
+            Atomic orbital basis set, used for the PySCF calculations.
+            Default:``"STO-3G"`` (minimal basis)
+        xyz_file (str):
+            .xyz file containing the molecular coordinates. The comment line can be
+            used to define the electronic charge and spin multiplity if it is given in
+            this format: ``{charge} {multiplicity}``
+        active (list):
+            Iterable representing the set of MOs included in the quantum simulation;
             e.g. ``list(range(3,6))`` for an active space with orbitals 3, 4 and 5.
 
     """
@@ -44,30 +57,45 @@ class Molecule:
     basis: str = "sto-3g"
     xyz_file: str = None
 
-    nelec: int = field(default=None, init=False)  #: Total number of electrons for the molecule
-    norb: int = field(default=None, init=False)  #: Number of molecular orbitals considered for the molecule
-    nso: int = field(default=None, init=False)  #: Number of molecular spin-orbitals considered for the molecule
+    nelec: int = field(
+        default=None, init=False
+    )  #: Total number of electrons for the molecule
+    norb: int = field(
+        default=None, init=False
+    )  #: Number of molecular orbitals considered for the molecule
+    nso: int = field(
+        default=None, init=False
+    )  #: Number of molecular spin-orbitals considered for the molecule
     e_hf: float = field(default=None, init=False)  #: Hartree-Fock energy
     oei: np.ndarray = field(default=None, init=False)  #: One-electron integrals
     tei: np.ndarray = field(
         default=None, init=False
     )  #: Two-electron integrals, order follows the second quantization notation
 
-    nalpha: int = field(default=None, init=False)  #: Number of electrons with :math:`\alpha`-spin
-    nbeta: int = field(default=None, init=False)  #: Number of electrons with :math:`\beta`-spin
-    e_nuc: float = field(default=None, init=False)  #: Nuclear repulsion energy for the given molecular geometry
+    nalpha: int = field(
+        default=None, init=False
+    )  #: Number of electrons with :math:`\alpha`-spin
+    nbeta: int = field(
+        default=None, init=False
+    )  #: Number of electrons with :math:`\beta`-spin
+    e_nuc: float = field(
+        default=None, init=False
+    )  #: Nuclear repulsion energy for the given molecular geometry
     hcore: np.ndarray = field(default=None, init=False)
     aoeri: np.ndarray = field(default=None, init=False)
-    ca: np.ndarray = field(default=None, init=False)  #: Coefficients of the Hartree-Fock molecular orbitals
-    eps: np.ndarray = field(default=None, init=False)  #: Hartree-Fock orbital eigenvalues
+    eps: np.ndarray = field(
+        default=None, init=False
+    )  #: Hartree-Fock orbital eigenvalues
     # Molecular properties that are currently not used/needed for anything?
     # overlap: np.ndarray = field(default=None, init=False)  #: Overlap integrals
-    # ja: np.ndarray = field(default=None, init=False)  #: Coulomb repulsion between electrons
-    # ka: np.ndarray = field(default=None, init=False)  #: Exchange interaction between electrons
+    # ja: np.ndarray = field(default=None, init=False
+    # )  #: Coulomb repulsion between electrons
+    # ka: np.ndarray = field(default=None, init=False
+    # )  #: Exchange interaction between electrons
     # fa: np.ndarray = field(default=None, init=False)  #: Fock matrix
 
     # MP2 attributes
-    mp2_E: float = field(default=None, init=False)
+    mp2_e: float = field(default=None, init=False)
     # mp2_t2: np.ndarray = field(default=None, init=False)
     # mp2_rdm1: np.ndarray = field(default=None, init=False)
     # mp2_virtual_no: np.ndarray = field(default=None, init=False)
@@ -77,7 +105,7 @@ class Molecule:
     active: list = None  #: Iterable of molecular orbitals included in the active space
     frozen: list = field(
         default=None, init=False
-    )  #: Iterable representing the occupied molecular orbitals removed from the simulation
+    )  #: Iterable representing occupied molecular orbitals removed from the simulation
 
     inactive_energy: float = field(default=None, init=False)
     embed_oei: np.ndarray = field(default=None, init=False)
@@ -95,13 +123,14 @@ class Molecule:
         if self.xyz_file is not None:
             self._process_xyz_file()
 
-    def _process_xyz_file(self):
+    def _process_xyz_file(self) -> None:
         """
-        Reads the .xyz file given when defining the Molecule to obtain the molecular coordinates (in OpenFermion
-        format), charge, and multiplicity
+        Reads the .xyz file given when defining the Molecule to obtain the molecular
+        coordinates (in OpenFermion format), charge, and multiplicity
         """
-        assert Path(f"{self.xyz_file}").exists(), f"{self.xyz_file} not found!"
-        with open(self.xyz_file, encoding="utf-8") as file_handler:
+        if not Path(f"{self.xyz_file}").exists():
+            raise_error(FileNotFoundError, f"{self.xyz_file} not found!")
+        with Path.open(self.xyz_file, encoding="utf-8") as file_handler:
             # First two lines: # atoms and comment line (charge, multiplicity)
             _n_atoms = int(file_handler.readline())  # Not needed/used
 
@@ -117,31 +146,41 @@ class Molecule:
             _geometry = []
             for line in file_handler:
                 split_line = line.split()
-                # OpenFermion format: [('H', (0.0, 0.0, 0.0)), ('H', (0.0, 0.0, 0.7)), ...]
-                atom_xyz = [split_line[0], tuple(float(_xyz) for _xyz in split_line[1:4])]
+                # OpenFermion format: [('H', (.0, .0, .0)), ('H', (.0, .0, .7)), ...]
+                atom_xyz = [
+                    split_line[0],
+                    tuple(float(_xyz) for _xyz in split_line[1:4]),
+                ]
                 _geometry.append(tuple(atom_xyz))
         self.geometry = _geometry
 
-    def _calc_oei(self, mo_coeff):
+    def _calc_oei(self, mo_coeff: np.ndarray) -> np.ndarray:
         oei = np.einsum("ab,bc->ac", self.hcore, mo_coeff, optimize=True)
-        oei = np.einsum("ab,ac->bc", mo_coeff, oei, optimize=True)
-        return oei
+        return np.einsum("ab,ac->bc", mo_coeff, oei, optimize=True)
 
-    def _calc_tei(self, mo_coeff):
-        tei = pyscf.ao2mo.kernel(self.aoeri, mo_coeff)
-        tei = np.einsum("pqrs->prsq", tei, optimize=True)
-        # tei = np.asarray(pyscf_mol.intor('int2e'))  # Alternative using PySCF mol directly
+    def _calc_tei(self, mo_coeff: np.ndarray) -> np.ndarray:
+        # tei = np.asarray(pyscf_mol.intor('int2e'))  # Using PySCF mol
+        # Using NumPy:
+        # https://pycrawfordprogproj.readthedocs.io/en/latest/Project_04/Project_04.html
         # tei = np.einsum(
-        #     "up, vq, uvkl, kr, ls -> prsq", mo_coeff, mo_coeff, self.aoeri, mo_coeff, mo_coeff, optimize=True
-        # )  # NumPy alternative. From https://pycrawfordprogproj.readthedocs.io/en/latest/Project_04/Project_04.html
-        return tei
+        #     "up, vq, uvkl, kr, ls -> prsq",
+        #     mo_coeff,
+        #     mo_coeff,
+        #     self.aoeri,
+        #     mo_coeff,
+        #     mo_coeff,
+        #     optimize=True,
+        # )
+        tei = pyscf.ao2mo.kernel(self.aoeri, mo_coeff)
+        return np.einsum("pqrs->prsq", tei, optimize=True)
 
     @property
-    def ca(self):
+    def ca(self) -> np.ndarray:
+        """Coefficients of the Hartree-Fock molecular orbitals"""
         return self._ca
 
     @ca.setter
-    def ca(self, new_ca):
+    def ca(self, new_ca: np.ndarray) -> None:
         # Update molecular integrals when MO coefficients are updated and hcore exists
         if new_ca is not None:
             if self.hcore is not None:
@@ -161,17 +200,28 @@ class Molecule:
     #     ca_occ = self.ca[:, : self.nalpha]
     #     return self.ca.T @ self.overlap @ self.pa @ self.overlap @ self.ca
 
-    def run_pyscf(self, max_scf_cycles=50, do_mp2=False):
+    def run_pyscf(self, max_scf_cycles: int = 50, do_mp2: bool = False) -> None:
         """
-        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and molecular integrals
+        Run a Hartree-Fock calculation with PySCF to obtain molecule quantities and
+        molecular integrals
 
         Args:
-            max_scf_cycles (int): Maximum number of SCF cycles in PySCF (Default: ``50``)
+            max_scf_cycles (int):
+                Maximum number of SCF cycles in PySCF (Default: ``50``)
         """
         # Set up and run PySCF calculation
-        geom_string = "".join("{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1]) for _atom in self.geometry)
+        geom_string = "".join(
+            "{} {:.6f} {:.6f} {:.6f} ; ".format(_atom[0], *_atom[1])
+            for _atom in self.geometry
+        )
         spin = self.multiplicity - 1  # PySCF spin is 2S
-        pyscf_mol = pyscf.gto.M(charge=self.charge, spin=spin, atom=geom_string, basis=self.basis, symmetry="C1")
+        pyscf_mol = pyscf.gto.M(
+            charge=self.charge,
+            spin=spin,
+            atom=geom_string,
+            basis=self.basis,
+            symmetry="C1",
+        )
         pyscf_mol.verbose = 0
 
         pyscf_job = pyscf.scf.RHF(pyscf_mol)
@@ -185,8 +235,11 @@ class Molecule:
         self.e_hf = pyscf_job.e_tot  # HF energy
         self.eps = np.asarray(pyscf_job.mo_energy)
         self.e_nuc = pyscf_mol.energy_nuc()
-        # Alternative: hcore = np.asarray(pyscf_mol.intor("int1e_kin")) + np.asarray(pyscf_mol.intor("int1e_nuc"))
         self.hcore = pyscf_job.get_hcore()  # 'Core' (potential + kinetic) integrals
+        # Alternative: hcore = (
+        #   np.asarray(pyscf_mol.intor("int1e_kin"))
+        #   + np.asarray(pyscf_mol.intor("int1e_nuc"))
+        # )
         self.aoeri = np.asarray(pyscf_mol.intor("int2e"))
         self.ca = np.asarray(pyscf_job.mo_coeff)  # MO coeffcients
         self.norb = self.ca.shape[1]
@@ -199,11 +252,12 @@ class Molecule:
         # self.ka = pyscf_job.get_k()
 
         if do_mp2:
-
             mp2 = mp.MP2(pyscf_job)
-            self.mp2_E, mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
+            self.mp2_e, _mp2_t2 = mp2.kernel(pyscf_job.mo_energy, pyscf_job.mo_coeff)
             mp2_rdm1 = mp2.make_rdm1()  # One body density matrix
-            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(mp2_rdm1[self.nalpha :, self.nalpha :])
+            mp2_virtual_no_occ, mp2_virtual_no = scipy.linalg.eigh(
+                mp2_rdm1[self.nalpha :, self.nalpha :]
+            )
             mp2_virtual_no_occ = mp2_virtual_no_occ[::-1]
             mp2_virtual_no = mp2_virtual_no[:, ::-1]
             # Cast the natural orbitals in AO basis
@@ -222,22 +276,31 @@ class Molecule:
 
     # def run_psi4(self, output=None):
     #     """
-    #     Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities and
-    #         molecular integrals
+    #     Run a Hartree-Fock calculation with PSI4 to obtain the molecular quantities
+    #     and molecular integrals
 
     #     Args:
-    #         output: Name of PSI4 output file. ``None`` suppresses the output on non-Windows systems,
-    #             and uses ``psi4_output.dat`` otherwise
+    #         output:
+    #             Name of PSI4 output file. ``None`` suppresses the output on
+    #             non-Windows systems, and uses ``psi4_output.dat`` otherwise
     #     """
-    #     import psi4  # pylint: disable=C0415
+    #     import psi4
 
     #     # PSI4 input string
     #     chgmul_string = f"{self.charge} {self.multiplicity} \n"
-    #     geom_string = "\n".join("{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1]) for _atom in self.geometry)
+    #     geom_string = "\n".join(
+    #         "{} {:.6f} {:.6f} {:.6f}".format(_atom[0], *_atom[1])
+    #     for _atom in self.geometry
+    #     )
     #     opt1_string = "\n\nunits angstrom\nsymmetry c1\n"
     #     mol_string = f"{chgmul_string}{geom_string}{opt1_string}"
     #     # PSI4 calculation options
-    #     opts = {"basis": self.basis, "scf_type": "direct", "reference": "rhf", "save_jk": True}
+    #     opts = {
+    #         "basis": self.basis,
+    #         "scf_type": "direct",
+    #         "reference": "rhf",
+    #         "save_jk": True,
+    #     }
     #     psi4.core.clean()
     #     psi4.set_memory("500 MB")
     #     psi4.set_options(opts)
@@ -276,12 +339,12 @@ class Molecule:
     #     self.fa = np.asarray(wavefn.Fa())
 
     # HF embedding functions
-    def _inactive_fock_matrix(self, frozen):
+    def _inactive_fock_matrix(self, frozen: Sequence) -> np.ndarray:
         """
         Returns the full inactive Fock matrix
 
         Args:
-            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+            frozen: Iterable representing the occupied orbitals to be removed
         """
         # Copy the original OEI as a starting point
         inactive_fock = np.copy(self.oei)
@@ -293,83 +356,90 @@ class Molecule:
                 # Iterate over the inactive orbitals
                 for _orb in frozen:
                     # Add (2J - K) using TEI (in OpenFermion format)
-                    inactive_fock[_p][_q] += 2 * self.tei[_orb][_p][_q][_orb] - self.tei[_orb][_p][_orb][_q]
+                    inactive_fock[_p][_q] += (
+                        2 * self.tei[_orb][_p][_q][_orb] - self.tei[_orb][_p][_orb][_q]
+                    )
         return inactive_fock
 
-    def _active_space(self, active, frozen):
+    def _active_space(self, active: Sequence, frozen: Sequence) -> tuple[list, list]:
         """
-        Helper function to check the input for active/frozen space and define the default values
-        for them where necessary
+        Helper function to check the input for active/frozen space and define the
+        default values for them where necessary
 
         Args:
-            active: Iterable representing the active-space for quantum simulation
-            frozen: Iterable representing the occupied orbitals to be removed from the simulation
+            active:
+                Iterable representing the active-space for quantum simulation
+            frozen:
+                Iterable representing the occupied orbitals to be removed from the
+                simulation
 
         Returns:
-            _active, _frozen: Iterables representing the active/frozen space
+            tuple[list, list]: Active and frozen orbital space
         """
         n_orbs = self.norb
         n_occ_orbs = self.nalpha
 
-        _active, _frozen = None, None
-        if active is None:
-            # No arguments given
-            if frozen is None:
-                # Default active: Full set of orbitals, frozen: empty list
-                _active = list(range(n_orbs))
-                _frozen = []
-            # Only frozen argument given
-            else:
-                if frozen:
-                    # Non-empty frozen space must be occupied orbitals
-                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
-                _frozen = frozen
-                # Default active: All orbitals not in frozen
-                _active = [_i for _i in range(n_orbs) if _i not in _frozen]
-        # active argument given
-        else:
-            # Check that active argument is valid
-            assert max(active) < n_orbs and min(active) >= 0, "Active space must be between 0 and the number of MOs"
-            _active = active
-            # frozen argument not given
-            if frozen is None:
-                # Default frozen: All occupied orbitals not in active
-                _frozen = [_i for _i in range(n_occ_orbs) if _i not in _active]
-            # active, frozen arguments both given:
-            else:
-                # Check that active/frozen arguments don't overlap
-                assert not (set(active) & set(frozen)), "Active and frozen space cannot overlap"
-                if frozen:
-                    # Non-empty frozen space must be occupied orbitals
-                    assert max(frozen) + 1 < n_occ_orbs and min(frozen) >= 0, "Frozen orbital must be occupied orbitals"
-                # All occupied orbitals have to be in active or frozen
-                assert all(
-                    _occ in set(active + frozen) for _occ in range(n_occ_orbs)
-                ), "All occupied orbitals have to be in either the active or frozen space"
-                # Hopefully no more problems with the input
-                _frozen = frozen
-        return _active, _frozen
+        def _check_frozen_is_occupied(frozen):
+            if frozen and (max(frozen) >= n_occ_orbs or min(frozen) < 0):
+                raise_error(ValueError, "Frozen orbital must be occupied orbitals")
 
-    def hf_embedding(self, active=None, frozen=None):
+        if active is None and frozen is None:
+            # Default if no arguments given: Full set of orbitals, frozen: empty list
+            return list(range(n_orbs)), []
+
+        if active is None:
+            # Only frozen argument given
+            _check_frozen_is_occupied(frozen)
+            # Default active: All orbitals not in frozen
+            _active = [i for i in range(n_orbs) if i not in frozen]
+            return _active, frozen
+
+        # Active argument given: validate it
+        if max(active) >= n_orbs or min(active) < 0:
+            raise_error(
+                ValueError, "Active space must be between 0 and the number of MOs"
+            )
+
+        if frozen is None:
+            # Default frozen: All occupied orbitals not in active
+            _frozen = [i for i in range(n_occ_orbs) if i not in active]
+            return active, _frozen
+
+        # Both active and frozen given
+        if set(active) & set(frozen):
+            raise_error(ValueError, "Active and frozen space cannot overlap")
+        _check_frozen_is_occupied(frozen)
+        if not all(_occ in set(active) | set(frozen) for _occ in range(n_occ_orbs)):
+            raise_error(
+                ValueError,
+                "All occupied orbitals have to be in either the active or frozen space",
+            )
+        return active, frozen
+
+    def hf_embedding(
+        self, active: Sequence | None = None, frozen: Sequence | None = None
+    ) -> None:
         """
-        Turns on HF embedding for a given active/frozen space, and fills in the class attributes: ``inactive_energy``
-        , ``embed_oei``, and ``embed_tei``.
+        Turns on HF embedding for a given active/frozen space, and fills in the class
+        attributes: ``inactive_energy``, ``embed_oei``, and ``embed_tei``.
 
         Args:
-            active (list): Iterable representing the active-space for quantum simulation. Uses the ``Molecule.active``
-                class attribute if not given.
-            frozen (list): Iterable representing the occupied orbitals to be removed from the simulation. Depends on the
-                `active` argument if not given.
+            active (list):
+                Iterable representing the active-space for quantum simulation. Uses the
+                ``Molecule.active`` class attribute if not given.
+            frozen (list):
+                Iterable representing the occupied orbitals to be removed from the
+                simulation. Depends on the `active` argument if not given.
         """
         # Default arguments for active and frozen if no arguments given
         if active is None and frozen is None:
-            _active, _frozen = self._active_space(self.active, self.frozen)
+            active, frozen = self._active_space(self.active, self.frozen)
         else:
             # active/frozen arguments given, process them using _active_space similarly
-            _active, _frozen = self._active_space(active, frozen)
+            active, frozen = self._active_space(active, frozen)
         # Update the class attributes with the checked arguments
-        self.active = _active
-        self.frozen = _frozen
+        self.active = active
+        self.frozen = frozen
 
         # Build the inactive Fock matrix first
         inactive_fock = self._inactive_fock_matrix(self.frozen)
@@ -382,14 +452,16 @@ class Molecule:
 
         # Keep only the active part
         self.embed_oei = inactive_fock[np.ix_(self.active, self.active)]
-        self.embed_tei = self.tei[np.ix_(self.active, self.active, self.active, self.active)]
+        self.embed_tei = self.tei[
+            np.ix_(self.active, self.active, self.active, self.active)
+        ]
 
         # Update other class attributes
         self.n_active_orbs = 2 * len(self.active)
         self.n_active_e = self.nelec - 2 * len(self.frozen)
 
     @staticmethod
-    def _filter_array(array, threshold):
+    def _filter_array(array: np.ndarray, threshold: float) -> np.ndarray:
         """Helper function to filter out v. small values from an array"""
         cp_array = np.copy(array)
         cp_array[np.abs(array) < threshold] = 0.0
@@ -397,39 +469,53 @@ class Molecule:
 
     def hamiltonian(
         self,
-        ham_type=None,
-        oei=None,
-        tei=None,
-        constant=None,
-        ferm_qubit_map=None,
-        threshold=1e-12,
-    ):
+        ham_type: str | None = None,
+        oei: np.ndarray | None = None,
+        tei: np.ndarray | None = None,
+        constant: float | None = None,
+        ferm_qubit_map: str | None = None,
+        threshold: float = 1e-12,
+    ) -> openfermion.FermionOperator | openfermion.QubitOperator | SymbolicHamiltonian:
         """
-        Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF embedding has been applied,
-        (i.e. the ``embed_oei``, ``embed_tei``, and ``inactive_energy`` class attributes are all not ``None``), the
-        corresponding values for the molecular integrals will be used instead.
+        Builds a molecular Hamiltonian using the one-/two- electron integrals. If HF
+        embedding has been applied, (i.e. the ``embed_oei``, ``embed_tei``, and
+        ``inactive_energy`` class attributes are all not ``None``), the corresponding
+        values for the molecular integrals will be used instead.
 
         Args:
-            ham_type (str): Format of molecular Hamiltonian returned. The available options are:
-                ``("f", "ferm")``: :class:`openfermion.FermionOperator`,
-                ``("q", "qubit")``: :class:`openfermion.QubitOperator`, or
-                ``("s", "sym")``: :class:`qibo.hamiltonians.SymbolicHamiltonian` (default)
-            oei (ndarray): 1-electron integrals (in the MO basis). The default value is the ``oei`` class attribute,
-                unless the ``embed_oei`` attribute exists and is not ``None``, then ``embed_oei`` is used.
-            tei (ndarray): 2-electron integrals in the second-quantization notation (and MO basis). The default value
-                is the ``tei`` class attribute , unless the ``embed_tei`` attribute exists and is not ``None``, then
-                ``embed_tei`` is used.
-            constant (float): Constant value to be added to the electronic energy. Mainly used for adding the inactive
-                Fock energy if HF embedding was applied. Default: 0.0, unless the ``inactive_energy`` class attribute
+            ham_type (str):
+                Format of molecular Hamiltonian returned.
+
+                Options:
+                  - ``("f", "ferm")``: :class:`openfermion.FermionOperator`
+                  - ``("q", "qubit")``: :class:`openfermion.QubitOperator`
+                  - ``("s", "sym")``:
+                    :class:`qibo.hamiltonians.SymbolicHamiltonian` (default)
+
+            oei (ndarray):
+                1-electron integrals (in the MO basis). The default value is the ``oei``
+                class attribute, unless the ``embed_oei`` attribute exists and is not
+                ``None``, then ``embed_oei`` is used.
+            tei (ndarray):
+                2-electron integrals in the second-quantization notation (and MO basis).
+                The default value is the ``tei`` class attribute , unless the
+                ``embed_tei`` attribute exists and is not ``None``, then ``embed_tei``
+                is used.
+            constant (float):
+                Constant value to be added to the electronic energy. Mainly used for
+                adding the inactive Fock energy if HF embedding was applied. Default:
+                0.0, unless the ``inactive_energy`` class attribute
                 exists and is not ``None``, then ``inactive_energy`` is used.
-            ferm_qubit_map (str): Which fermion to qubit transformation to use. Must be either ``"jw"`` (Default)
-                or ``"bk"``
-            threshold (float): Threshold at which the elements of ``oei``/``tei`` are ignored, i.e. set to 0.0.
-                Default: ``1e-12``
+            ferm_qubit_map (str):
+                Which fermion to qubit transformation to use. Must be either ``"jw"``
+                (Default) or ``"bk"``
+            threshold (float): Threshold at which the elements of ``oei``/``tei`` are
+                ignored, i.e. set to 0.0. Default: ``1e-12``
 
         Returns:
-            :class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator`
-            or :class:`qibo.hamiltonians.SymbolicHamiltonian`: Molecular Hamiltonian in the format of choice
+            (:class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator`\
+             or :class:`qibo.hamiltonians.SymbolicHamiltonian`):
+                Molecular Hamiltonian in the format of choice
         """
         # Define default variables
         if ham_type is None:
@@ -463,45 +549,62 @@ class Molecule:
         if ham_type in ("s", "sym"):
             # Qibo SymbolicHamiltonian
             return _qubit_to_symbolic_hamiltonian(ham)
-        raise NameError(f"Unknown {ham_type}!")  # Shouldn't ever reach here
+        error = f"Unknown {ham_type}!"
+        raise NameError(error)  # Shouldn't ever reach here
 
-    def fs_hamiltonian(self, omega, hamiltonian=None):
+    def fs_hamiltonian(
+        self, omega: float, hamiltonian: SymbolicHamiltonian | None = None
+    ) -> SymbolicHamiltonian:
         """
         Constructs the folded spectrum Hamiltonian :math:`(H - \\omega)^2`
 
         Args:
-            omega (float): Scalar value to 'fold' the Hamiltonian about.
-            hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`): Hamiltonian to be 'folded'. Defaults to
-                the molecular Hamiltonian (``Molecule.hamiltonian()``) if not given
+            omega (float):
+                Scalar value to 'fold' the Hamiltonian about.
+            hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`):
+                Hamiltonian to be 'folded'. Defaults to the molecular Hamiltonian
+                (``Molecule.hamiltonian()``) if not given
 
         Returns:
-            :class:`qibo.hamiltonians.SymbolicHamiltonian`: Folded spectrum Hamiltonian :math:`(H - \\omega)^2`
+            :class:`qibo.hamiltonians.SymbolicHamiltonian`:
+                Folded spectrum Hamiltonian :math:`(H - \\omega)^2`
         """
         if hamiltonian is None:
             hamiltonian = self.hamiltonian()
         return (hamiltonian - omega) @ (hamiltonian - omega)
 
     @staticmethod
-    def eigenvalues(hamiltonian):
+    def eigenvalues(
+        hamiltonian: openfermion.FermionOperator
+        | openfermion.QubitOperator
+        | SymbolicHamiltonian,
+    ) -> np.ndarray:
         """
         Finds the lowest 6 exact eigenvalues of a given Hamiltonian
 
         Args:
-            hamiltonian (:class:`openfermion.FermionOperator` or :class:`openfermion.QubitOperator` \
-            or :class:`qibo.hamiltonians.SymbolicHamiltonian`):
-                Hamiltonian of interest. If the input is a :class:`qibo.hamiltonians.SymbolicHamiltonian`, the whole
+            hamiltonian (:class:`openfermion.FermionOperator` or \
+            :class:`openfermion.QubitOperator` or \
+            :class:`qibo.hamiltonians.SymbolicHamiltonian`):
+                Hamiltonian of interest. If the input is a
+                :class:`qibo.hamiltonians.SymbolicHamiltonian`, the whole
                 Hamiltonian matrix has to be built first (not recommended).
         """
-        if isinstance(hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)):
+        if isinstance(
+            hamiltonian, (openfermion.FermionOperator, openfermion.QubitOperator)
+        ):
             from scipy.sparse import linalg  # pylint: disable=C0415
 
             hamiltonian_matrix = openfermion.get_sparse_operator(hamiltonian)
             # k argument in eigsh will depend on the size of the Hamiltonian
             n_eigenvals = min(6, hamiltonian_matrix.shape[0] - 2)
-            # which=SA and return_eigenvalues=False returns the eigenvalues sorted by absolute value
-            eigenvalues = linalg.eigsh(hamiltonian_matrix, k=n_eigenvals, which="SA", return_eigenvectors=False)
-            # So need to sort again by their (algebraic) value to get the order: smallest->largest
+            # which=SA returns eigenvalues sorted by absolute value
+            eigenvalues = linalg.eigsh(
+                hamiltonian_matrix, k=n_eigenvals, which="SA", return_eigenvectors=False
+            )
+            # So need to sort again to get the order: smallest->largest
             return sorted(eigenvalues)
         if isinstance(hamiltonian, SymbolicHamiltonian):
             return hamiltonian.eigenvalues()
-        raise TypeError("Type of Hamiltonian unknown")
+        error = f"Invalid Hamiltonian type: {type(hamiltonian)}"
+        raise TypeError(error)
