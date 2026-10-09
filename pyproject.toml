@@ -1,36 +1,59 @@
-[tool.poetry]
+[project]
 name = "qibochem"
 version = "0.0.6"
 description = "Quantum chemistry module for quantum computing with Qibo"
-authors = ["The Qibo team"]
-license = "Apache License 2.0"
+authors = [{ name = "The Qibo team" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
-repository = "https://github.com/qiboteam/qibochem/"
-documentation = "https://qibo.science/qibochem/stable"
+requires-python = ">=3.11,<3.14"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Chemistry",
 ]
-packages = [{ include = "qibochem", from = "src" }]
+dependencies = [
+  "qibo>=0.3.5",
+  "numpy>=2.0.0",
+  "scipy>=1.15.2",
+  "sympy>=1.13.1",
+  "openfermion>=1.8.1",
+  "pyscf>=2.14.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.11,<3.14"
-qibo = "^0.3.4"
-openfermion = "^1.8.1"
-pyscf = "^2.14.0"
-scipy = "^1.15.2"
-numpy = "^2.0.0"
+[project.urls]
+Repository = "https://github.com/qiboteam/qibochem/"
+Documentation = "https://qibo.science/qibochem/stable/"
+
+[dependency-groups]
+analysis = ["ruff>=0.16.8"]
+docs = [
+  "sphinx>=7.0.0",
+  "furo>=2023.3.27",
+  "recommonmark>=0.7.1",
+  "sphinxcontrib-bibtex>=2.5.0",
+  "sphinxcontrib-katex>=0.9.6",
+  "sphinx-markdown-tables>=0.0.17",
+  "nbsphinx>=0.9.1",
+  "ipython>=8.34.0",
+  "sphinx-copybutton>=0.5.2",
+]
+tests = [
+  "pytest>=7.2.1",
+  "pytest-cov>=4.0.0",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.12.9"]
+build-backend = "uv_build"
 
-[tool.poetry.group.analysis]
-optional = true
-
-[tool.poetry.group.analysis.dependencies]
-ruff = "^0.16.8"
+[tool.poe.tasks]
+test = "pytest"
+lint = "ruff check"
+lint-warnings = "ruff check --exit-zero"
+docs = "make -C doc html"
+docs-clean = "make -C doc clean"
+test-docs = "make -C doc doctest"
 
 [tool.ruff]
 target-version = "py311"
@@ -55,37 +78,7 @@ extend-select = ["I", "UP"]
 "tutorials/*.ipynb" = ["E501", "T201", "I001"]
 "doc/source/conf.py" = ["INP001", "E501", "A001"]
 
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "^7.0.0"
-furo = "^2023.3.27"
-recommonmark = "^0.7.1"
-sphinxcontrib-bibtex = "^2.5.0"
-sphinxcontrib-katex = "^0.9.6"
-sphinx-markdown-tables = "^0.0.17"
-nbsphinx = "^0.9.1"
-ipython = "^8.34.0"
-sphinx-copybutton = "^0.5.2"
-
-[tool.poetry.group.tests]
-optional = true
-
-[tool.poetry.group.tests.dependencies]
-pytest = ">=7.2.1"
-pytest-cov = ">=4.0.0"
-pytest-env = ">=0.8.1"
-
-[tool.poe.tasks]
-test = "pytest"
-lint = "ruff check"
-lint-warnings = "ruff check --exit-zero"
-docs = "make -C doc html"
-docs-clean = "make -C doc clean"
-test-docs = "make -C doc doctest"
-
 [tool.pytest.ini_options]
 testpaths = ['tests/']
+filterwarnings = ['ignore::RuntimeWarning']
 addopts = ['--cov=qibochem', '--cov-report=xml', '--cov-report=html']
