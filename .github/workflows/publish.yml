@@ -11,7 +11,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      label: ${{ steps.classify.outputs.version }}
+      version: ${{ steps.classify.outputs.version }}
     steps:
       - id: classify
         uses: qiboteam/workflows/actions/docs/version@uv
