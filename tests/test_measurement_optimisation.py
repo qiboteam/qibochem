@@ -20,11 +20,13 @@ from qibochem.measurement.shot_allocation import (
 def test_gc_measurement_mapping_error():
     """Remaining coverage tests for _gc_measurement_mapping"""
     with pytest.raises(ValueError):
-        _ = _gc_measurement_mapping([Z(0)], {Z(0): (1.0, np.array([0, 1], dtype=np.uint8))}, "zc")
+        _ = _gc_measurement_mapping(
+            [Z(0)], {Z(0): (1.0, np.array([0, 1], dtype=np.uint8))}, "zc"
+        )
 
 
 @pytest.mark.parametrize(
-    "method,max_shots_per_term,expected",
+    ("method", "max_shots_per_term", "expected"),
     [
         ("u", None, [66, 67, 67]),  # Control test; i.e. working normally
         (None, None, [23, 168, 9]),  # Default arguments test
@@ -34,20 +36,29 @@ def test_gc_measurement_mapping_error():
     ],
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
-    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Y(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
+    hamiltonian = SymbolicHamiltonian(
+        94 * Z(0) + Y(1) + 5 * X(0)
+    )  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
     grouped_terms, _constant = _measurement_basis_rotations(hamiltonian, None, "sorted")
     n_shots = 200
     test_allocation = allocate_shots(
-        grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term
+        grouped_terms,
+        method=method,
+        n_shots=n_shots,
+        max_shots_per_term=max_shots_per_term,
     )
-    # Might have the occasional off by one error, hence set the max allowed difference to be 1
-    assert max(abs(_i - _j) for _i, _j in zip(test_allocation, expected)) <= 1
+    # Might have occasional off by one error, hence set max allowed difference to be 1
+    assert (
+        max(abs(_i - _j) for _i, _j in zip(test_allocation, expected, strict=True)) <= 1
+    )
 
 
 def test_allocate_shots_coefficient_edge_case():
     """Edge cases of allocate_shots"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    grouped_terms, _constant = _measurement_basis_rotations(hamiltonian, "qwc", "sorted")
+    grouped_terms, _constant = _measurement_basis_rotations(
+        hamiltonian, "qwc", "sorted"
+    )
     n_shots = 1
     assert allocate_shots(grouped_terms, n_shots=n_shots) in ([0, 1], [1, 0])
 
@@ -60,7 +71,7 @@ def test_allocate_shots_input_validity():
 
 
 @pytest.mark.parametrize(
-    "method,expected",
+    ("method", "expected"),
     [
         ("vmsa", [0, 20, 40]),
         ("vpsr", [0, 12, 24]),
@@ -70,5 +81,7 @@ def test_allocate_shots_by_variance(method, expected):
     total_shots = 120
     n_trial_shots = 20
     variance_values = [0.0, 16.0, 64.0]
-    test_allocation = allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, method=method)
+    test_allocation = allocate_shots_by_variance(
+        total_shots, n_trial_shots, variance_values, method=method
+    )
     assert test_allocation == expected

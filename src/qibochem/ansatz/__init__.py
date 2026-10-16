@@ -11,3 +11,18 @@ from qibochem.ansatz.ansatz import (
     ucc_circuit,
 )
 from qibochem.ansatz.utils import generate_excitations, mp2_amplitude
+
+__all__ = [
+    "basis_rotation_circuit",
+    "circuit_ansatz",
+    "generate_excitations",
+    "givens_circuit",
+    "hamming_weight_circuit",
+    "he_circuit",
+    "hf_circuit",
+    "mp2_amplitude",
+    "pche_circuit",
+    "qeb_circuit",
+    "symm_preserving_circuit",
+    "ucc_circuit",
+]
