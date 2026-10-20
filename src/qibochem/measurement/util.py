@@ -2,12 +2,20 @@
 Utility functions for optimising measurements and calculation of expectation value
 """
 
+from math import prod
+
 import networkx as nx
 import numpy as np
 from qibo import gates
+from qibo.config import raise_error
+from qibo.hamiltonians import SymbolicHamiltonian
+from qibo.symbols import I, X, Y, Z
+from sympy import Mul
+from sympy.core.expr import Expr
+from sympy.core.numbers import One
 
-# Mapping of Pauli operators to symplectic (binary) representation. Convention: (X|Z)
-PAULI_BINARY = {"I": (0, 0), "X": (1, 0), "Y": (1, 1), "Z": (0, 1)}
+# Mapping Pauli operators to symplectic representation, with the convention of (X|Z)
+PAULI_BINARY = {I: (0, 0), X: (1, 0), Y: (1, 1), Z: (0, 1)}
 BINARY_PAULI = {symplectic: pauli for pauli, symplectic in PAULI_BINARY.items()}
 
 SYMPLECTIC_PHASE_TABLE = [1.0, 1.0j, -1.0j]
@@ -16,124 +24,239 @@ SYMPLECTIC_INDEX = {
 }
 
 
-def _get_qubit(pauli_op: str) -> int:
-    """Extract the qubit index from a Pauli operator, e.g. "X12" -> 12"""
-    return int(pauli_op[1:])
-
-
-def _check_terms_commutativity(term1: str, term2: str, qubitwise: bool) -> bool:
+def _pauli_to_symplectic(pauli_term: Expr, nqubits: int) -> np.ndarray:
     """
-    Check if terms 1 and 2 (e.g. "X0 Z1 Y3") are mutually commuting. The 'qubitwise'
-    argument determines if the check is for general commutativity (False), or the
-    stricter qubitwise commutativity.
+    Map a single Pauli term to the corresponding symplectic vector ((1D np.ndarray)).
+    `nqubits` is the number of qubits used for the molecular Hamiltonian; needed to
+    define dimensions of the vector
     """
-    # Get a list of common qubits for each term
-    common_qubits = {_get_qubit(_op) for _op in term1.split() if _op[0] != "I"} & {
-        _get_qubit(_op) for _op in term2.split() if _op[0] != "I"
-    }
-    if not common_qubits:
-        return True
-    # Get the single Pauli operators for the common qubits for both Pauli terms
-    term1_ops = [_op for _op in term1.split() if _get_qubit(_op) in common_qubits]
-    term2_ops = [_op for _op in term2.split() if _get_qubit(_op) in common_qubits]
-    if qubitwise:
-        # Qubitwise: Compare Pauli terms at the common qubits. Any difference => False
-        return all(
-            _op1 == _op2 for _op1, _op2 in zip(term1_ops, term2_ops, strict=True)
-        )
-    # General commutativity:
-    # Get the number of single Pauli operators that do NOT commute
-    n_noncommuting_ops = sum(
-        _op1 != _op2 for _op1, _op2 in zip(term1_ops, term2_ops, strict=True)
+    # Pauli operator for each qubit
+    pauli_ops = (
+        {
+            pauli_op.target_qubit: type(pauli_op)
+            for pauli_op in pauli_term.args
+            if isinstance(pauli_op, (X, Y, Z))
+        }
+        if pauli_term.args
+        else {pauli_term.target_qubit: type(pauli_term)}
     )
-    # term1 and term2 have general commutativity iff n_noncommuting_ops is even
-    return n_noncommuting_ops % 2 == 0
-
-
-def _group_commuting_terms(terms_list: list[str], qubitwise: bool) -> list[list[str]]:
-    """
-    Groups the terms in terms_list into as few groups as possible, where all the terms
-    in each group commute mutually == Finding the minimum clique cover (i.e. as few
-    cliques as possible) for the graph whereby each node is a Pauli string, and an edge
-    exists between two nodes iff they commute.
-
-    This is equivalent to the graph colouring problem of the complement graph (i.e. edge
-    between nodes if they DO NOT commute), which this function follows.
-
-    Args:
-        terms_list (list(str)):
-            Strings should follow the output from
-            ``" ".join(factor.name for factor in term.factors)``, where term is a Qibo
-            SymbolicTerm. E.g. "X0 Z1".
-        qubitwise (bool):
-            Determines if the check is for general commutativity, or the stricter
-            qubitwise commutativity
-
-    Returns:
-        list[list[str]]:
-            Containing groups (lists) of Pauli strings that all commute mutually
-    """
-    complement_graph = nx.Graph()
-    # Complement graph: Add all terms as nodes, then add edges between nodes if they DO
-    # NOT commute
-    complement_graph.add_nodes_from(terms_list)
-    complement_graph.add_edges_from(
-        (term1, term2)
-        for _i1, term1 in enumerate(terms_list)
-        for _i2, term2 in enumerate(terms_list)
-        if _i2 > _i1 and not _check_terms_commutativity(term1, term2, qubitwise)
-    )
-    # Solve using Greedy Colouring on NetworkX
-    sorted_groups = nx.coloring.greedy_color(complement_graph)
-    group_ids = set(sorted_groups.values())
-    # Sort results so that test results will be replicable
-    return sorted(
-        sorted(group for group, group_id in sorted_groups.items() if group_id == _id)
-        for _id in group_ids
-    )
-
-
-def _pauli_to_symplectic(pauli_string: list[str], nqubits: int) -> np.ndarray:
-    """
-    Map a single Pauli term (e.g. ["X0", "Y26", "Z200"]) to the corresponding symplectic
-    vector ((1D np.ndarray)). `nqubits` is the number of qubits for the Hamiltonian;
-    needed to define dimensions of the vector
-    """
-    pauli_ops = {
-        _get_qubit(pauli_op): pauli_op[0] for pauli_op in pauli_string
-    }  # Pauli operator for each qubit
     # Convert to the symplectic vector
     return np.reshape(
         np.array(
-            [PAULI_BINARY[pauli_ops.get(i, "I")] for i in range(nqubits)],
-            dtype=np.uint8,
+            [PAULI_BINARY[pauli_ops.get(i, I)] for i in range(nqubits)], dtype=np.uint8
         ),
         shape=2 * nqubits,
         order="F",
     )
 
 
-def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> list[str]:
+def _check_terms_commutativity(
+    term1: np.ndarray, term2: np.ndarray, qubitwise: bool
+) -> bool:
     """
-    Map a single symplectic vector to its corresponding Pauli term (E.g. ['Y0', 'X2'])
+    Check if terms 1 and 2 (in symplectic form) are mutually commuting. The 'qubitwise'
+    argument determines if the check is for general  or qubitwise commutativity
     """
-    dim = symplectic_vector.shape[0] // 2
-    pauli_op_vectors = [tuple(symplectic_vector[[_i, _i + dim]]) for _i in range(dim)]
+    term1_nqubits = term1.shape[0] // 2
+    term2_nqubits = term2.shape[0] // 2
+    nqubits = min(term1_nqubits, term2_nqubits)  # Only compare common qubits
+    if qubitwise:
+        # Qubitwise condition: x1z2 + x2z1 == 0
+        return all(
+            (
+                (term1[i] & term2[i + term2_nqubits])
+                ^ (term1[i + term1_nqubits] & term2[i])
+            )
+            == 0
+            for i in range(nqubits)
+        )
+    # General commutativity: Even number of anti-commuting operators
+    n_noncommuting_ops = sum(
+        (term1[i] & term2[i + term2_nqubits]) ^ (term1[i + term1_nqubits] & term2[i])
+        for i in range(nqubits)
+    )
+    return n_noncommuting_ops % 2 == 0
+
+
+def _graph_colouring(
+    terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool
+) -> list[list[Expr]]:
+    """
+    Groups Pauli terms by solving the minimum clique cover (i.e. as few cliques as
+    possible) problem for the graph whereby each node is a Pauli string, and an edge
+    exists between two nodes iff they commute. This is equivalent to the graph colouring
+    problem of the complement graph (i.e. edge between nodes if they DO NOT commute),
+    which this function follows.
+
+    Args:
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]):
+            Pauli terms to be grouped; given as a dict whereby the keys are the Pauli
+            terms (Expr), and their corresponding values are two-tuples: term
+            coefficient and the symplectic form of the Pauli term respectively.
+        qubitwise (bool):
+            Determines if check is for general or qubitwise commutativity
+
+    Returns:
+        list[list[Expr]]:
+            Groups (lists) of Pauli strings that mutually commute within each group
+    """
+    complement_graph = nx.Graph()
+    # Complement graph: Add all terms as nodes first
+    complement_graph.add_nodes_from(
+        term for term in terms_dict if not isinstance(term, One)
+    )
+    # Then add edges between nodes if they DO NOT commute
+    complement_graph.add_edges_from(
+        (term1, term2)
+        for i1, term1 in enumerate(terms_dict)
+        for i2, term2 in enumerate(terms_dict)
+        if i2 > i1
+        and not _check_terms_commutativity(
+            terms_dict[term1][1], terms_dict[term2][1], qubitwise
+        )
+    )
+    # Solve using Greedy Colouring on NetworkX
+    sorted_groups = nx.coloring.greedy_color(complement_graph)
+    group_ids = set(sorted_groups.values())
+    # Sort results so that test results will be replicable
     return [
-        f"{BINARY_PAULI[vector]}{_q}"
-        for _q, vector in zip(range(dim), pauli_op_vectors, strict=True)
-        if vector != (0, 0)  # Not retaining I terms
+        [group for group, group_id in sorted_groups.items() if group_id == _id]
+        for _id in group_ids
     ]
 
 
-def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
+def _greedy_clique_cover(
+    terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool
+) -> list[list[Expr]]:
     """
-    Inner product of the symplectic vector space := (u, Jv), where
-    J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]]. Returns 0 or 1, where 0 means that u
-    commutes with v, and 1 implies that they do not commute
+    Use a greedy clique cover algorithm to partition all Pauli strings in terms_dict
+    into groups of mutually commuting terms, i.e. for each Pauli term, if it is
+    compatible with an existing group, allocate it there; otherwise, assign it to a new
+    group. Should be faster than the _graph_colouring function
+
+    Args:
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]):
+            Pauli terms to be grouped; given as a dict whereby the keys are the Pauli
+            terms (Expr), and their corresponding values are two-tuples: term
+            coefficient and the symplectic form of the Pauli term respectively.
+        qubitwise (bool):
+            Determines if the check is for general commutativity or the stricter
+            qubitwise commutativity
+
+    Returns:
+        list[list[Expr]]:
+            Groups (lists) of Pauli strings that mutually commute within each group
     """
-    dim = u.shape[0] // 2
-    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
+    term_groups = []
+
+    for term, term_data in terms_dict.items():
+        if isinstance(term, One):
+            continue
+        added = False
+        for group in term_groups:
+            # Check if current term commutes with all terms in current group
+            if all(
+                _check_terms_commutativity(
+                    term_data[1], terms_dict[_term][1], qubitwise
+                )
+                for _term in group
+            ):
+                group.append(term)
+                added = True
+                break
+        if not added:
+            term_groups.append([term])
+    return term_groups
+
+
+def _sorted_insertion(
+    terms_dict: dict[Expr, tuple[float, np.ndarray]], qubitwise: bool
+) -> list[list[Expr]]:
+    """
+    Groups Pauli terms by sorting the terms w.r.t. their coefficients (largest first),
+    then applying a greedy clique cover approach.
+
+    Args:
+        terms_dict (dict[Expr, tuple[float, np.ndarray]]):
+            Pauli terms to be grouped; given as a dict whereby the keys are the Pauli
+            terms (Expr), and their corresponding values are two-tuples: term
+            coefficient and the symplectic form of the Pauli term respectively.
+        qubitwise (bool):
+            Determines if check is for general or qubitwise commutativity
+
+    Returns:
+        list[list[Expr]]:
+            Groups (lists) of Pauli strings that mutually commute within each group
+    """
+    sorted_terms = sorted(
+        (term for term in terms_dict if not isinstance(term, One)),
+        key=lambda x: abs(terms_dict[x][0]),
+        reverse=True,
+    )
+    term_groups = []
+    for term in sorted_terms:
+        added = False
+        for group in term_groups:
+            # Check if current term commutes with all terms in current group
+            if all(
+                _check_terms_commutativity(
+                    terms_dict[term][1], terms_dict[_term][1], qubitwise
+                )
+                for _term in group
+            ):
+                group.append(term)
+                added = True
+                break
+        if not added:
+            term_groups.append([term])
+    return term_groups
+
+
+def _group_commuting_terms(
+    hamiltonian: SymbolicHamiltonian, qubitwise: bool, method: str
+) -> list[list[Expr]]:
+    """
+    Group Pauli terms in hamiltonian into groups of (possibly qubitwise) commuting terms
+
+    Args:
+        hamiltonian (SymbolicHamiltonian):
+            Hamiltonian to be sorted into groups of commuting terms
+        qubitwise (bool):
+            Determines if the check is for general commutativity, or the stricter
+            qubitwise commutativity
+        method (str):
+            Method used to group the Pauli terms. Must be either "sorted" (default),
+            "greedy" or "graph". More details on both methods are given in their
+            respective functions
+
+    Returns:
+        tuple[dict[Expr, tuple[float, np.ndarray]], list[list[Expr]]]:
+            Dict with (keys, values) as the Pauli terms and a tuple of the respective
+            term coefficients and symplectic form respectively, and groups (lists) of
+            Pauli terms that all commute mutually
+    """
+    terms_dict = {
+        term: (
+            (coeff, _pauli_to_symplectic(term, hamiltonian.nqubits))
+            if not isinstance(term, One)
+            else (
+                coeff,
+                np.zeros(hamiltonian.nqubits, dtype=np.uint8),
+            )  # Constant term left out in grouping functions
+        )
+        for term, coeff in hamiltonian.form.as_coefficients_dict().items()
+    }
+
+    term_groups = []
+    if method == "sorted":
+        term_groups = _sorted_insertion(terms_dict, qubitwise)
+    elif method == "greedy":
+        term_groups = _greedy_clique_cover(terms_dict, qubitwise)
+    elif method == "graph":
+        term_groups = _graph_colouring(terms_dict, qubitwise)
+    else:
+        raise_error(ValueError, "Invalid method argument for grouping commuting terms!")
+    return terms_dict, term_groups
 
 
 def _binary_gaussian_elimination(vector_space: np.ndarray) -> np.ndarray:
@@ -184,6 +307,16 @@ def _binary_nullspace(binary_matrix: np.ndarray) -> np.ndarray:
     return rref_aug_matrix[dim:, dim:]
 
 
+def _symplectic_inner_product(u: np.ndarray, v: np.ndarray) -> int:
+    """
+    Inner product of the symplectic vector space := (u, Jv), where
+    J = [[0_{NxN}, I_{NxN}], [I_{NxN}, 0_{NxN}]]. Returns 0 or 1, where 0 means that u
+    commutes with v, and 1 implies that they do not commute
+    """
+    dim = u.shape[0] // 2
+    return (np.dot(u[:dim], v[dim:]) + np.dot(u[dim:], v[:dim])) % 2
+
+
 def _lagrangian_subspace(vector_space: np.ndarray) -> np.ndarray:
     """
     Find Lagrangian subspace of vector_space; the symplectic nullspace in this context
@@ -228,61 +361,79 @@ def _sort_tau_terms(v_basis: np.ndarray) -> np.ndarray:
     i'th basis vector i is NOT I
     """
     dim = v_basis.shape[0]
-    while not all(v_basis[i, i] or v_basis[i, i + dim] for i in range(dim)):
-        # Sort unmatched qubits
-        unmatched_qubits = [
-            i for i in range(dim) if not (v_basis[i, i] or v_basis[i, i + dim])
+
+    # Define possible candidates for each row
+    candidates = [
+        [
+            qubit
+            for qubit in range(dim)
+            if v_basis[row, qubit] or v_basis[row, qubit + dim]
         ]
-        matches_for_unmatched_qubits = {
-            i: [
-                qubit
-                for qubit in range(dim)
-                if v_basis[i, qubit] or v_basis[i, qubit + dim]
-            ]
-            for i in unmatched_qubits
-        }
-        # Preference: Qubits with fewest candidates (tie-break: min(qubit index))
-        row_to_swap = min(
-            matches_for_unmatched_qubits,
-            key=lambda x: (len(matches_for_unmatched_qubits[x]), x),
-        )
-        target = min(matches_for_unmatched_qubits[row_to_swap])
-        v_basis[[row_to_swap, target]] = v_basis[[target, row_to_swap]]
-    return v_basis
+        for row in range(dim)
+    ]
+    mapping = [-1] * dim  # Mapping source->output rows
+
+    def augment(row: int, seen: list[bool]) -> bool:
+        for qubit in candidates[row]:
+            if seen[qubit]:
+                continue
+            seen[qubit] = True
+
+            previous_row = mapping[qubit]
+            # If qubit is free, assign directly.
+            # Otherwise, try to re-assign its current owner to another qubit
+            if previous_row == -1 or augment(previous_row, seen):
+                mapping[qubit] = row
+                return True
+        return False
+
+    # Try constrained rows first
+    for row in sorted(range(dim), key=lambda row: (len(candidates[row]), row)):
+        if not augment(row, [False] * dim):
+            error = "No row-to-qubit perfect matching exists"
+            raise ValueError(error)
+
+    # mapping[q] is the source row assigned to output row q.
+    return v_basis[mapping]
 
 
 def _get_sigma_terms(tau_terms: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Find the set of sigma terms for a given array of tau terms's, with
-    (sigma_i|tau_j) = 1 if i == j else 0, and (sigma_i|sigma_j) == 0 if i != j, i.e. all
-    sigma_i's must correspond to different qubits. Note that tau_terms is also
-    re-orthogonalised to follow the first relation given above in the process.
+    Returns re-orthogonalized tau_terms and sigma terms such that
+    (sigma_i | tau_j) =delta_ij, and (sigma_i|sigma_j) == 0 if i != j
     """
-    sigma_terms = []
-    dim = tau_terms[0].shape[0] // 2
-    # Make a copy of the original basis set for orthogonalization
-    new_tau_terms = np.array(tau_terms, dtype=np.uint8)
-    # Iterate over the original tau_i to make changes to new_tau_i
-    for _i in range(dim):
-        tau_i = new_tau_terms[_i]
+    new_tau_terms = np.array(
+        tau_terms, dtype=np.uint8
+    )  # Copy of original basis set for orthogonalization
+    dim = new_tau_terms.shape[0]
+    sigma_terms = np.zeros((dim, 2 * dim), dtype=np.uint8)
+
+    # Iterate over each row in tau/sigma_terms
+    for row in range(dim):
+        pivot_tau = new_tau_terms[row]
         # Let sigma_i be x_i if z_i is in tau_i, otherwise let sigma_i be z_i
-        _sigma_i = (0, 1) if tuple(tau_i[[_i, _i + dim]].tolist()) != (0, 1) else (1, 0)
-        # Convert and broadcast _sigma_i back to the correct size using I's
-        sigma_i = np.ravel(
-            np.array([(0, 0) if _j != _i else _sigma_i for _j in range(dim)]).T
+        sigma_col = row if pivot_tau[row + dim] else row + dim
+        sigma_terms[row, sigma_col] = 1
+        # Update new_tau_terms w.r.t. sigma_i
+        for latter_row in range(dim):
+            if latter_row != row and _symplectic_inner_product(
+                new_tau_terms[latter_row], sigma_terms[row]
+            ):
+                new_tau_terms[latter_row] ^= pivot_tau
+    return new_tau_terms, sigma_terms
+
+
+def _symplectic_to_pauli(symplectic_vector: np.ndarray) -> Expr:
+    """Map a single symplectic vector to its corresponding Pauli term"""
+    dim = symplectic_vector.shape[0] // 2
+    return Mul(
+        *(
+            BINARY_PAULI[vector](qubit)
+            for qubit in range(dim)
+            if (vector := (symplectic_vector[qubit], symplectic_vector[qubit + dim]))
+            != (0, 0)
         )
-        sigma_terms.append(sigma_i)
-        # Orthogonalise the non-i^th terms:
-        new_tau_terms ^= np.array(
-            [
-                _symplectic_inner_product(new_tau_terms[_j], sigma_i) * tau_i
-                if _j != _i
-                else np.zeros(2 * dim)
-                for _j in range(dim)
-            ],
-            dtype=np.uint8,
-        )
-    return new_tau_terms, np.array(sigma_terms, dtype=np.uint8)
+    )
 
 
 def _solve_linear_system(
@@ -303,13 +454,13 @@ def _solve_linear_system(
     ]
 
 
-def _single_qubit_phase_factor(pauli_ops: list[np.ndarray]) -> complex:
+def _single_qubit_phase_factor(pauli_ops: np.ndarray) -> complex:
     """
     Compute phase factor w.r.t. the product of multiple Pauli operators for a single
     qubit
     """
     # Initialise as 1.0*I, then multiply with each Pauli operator acting on that qubit
-    coeff, current_pauli_op = 1.0, np.zeros(2)
+    coeff, current_pauli_op = 1.0, np.zeros(2, dtype=np.uint8)
     for pauli_op in pauli_ops:
         # If I, just skip
         if SYMPLECTIC_INDEX[tuple(current_pauli_op)] == 0:
@@ -332,15 +483,14 @@ def _phase_factor(pauli_terms: list[np.ndarray]) -> int:
     form). Returns: 1 or -1
     """
     # Singleton case is trivial: 1
-    if len(pauli_terms) == 1:
+    nterms, nqubits = pauli_terms.shape
+    if nterms == 1:
         return 1
-    # >1 term:
-    dim = pauli_terms[0].shape[0] // 2
-    coefficient = 1.0
-    for qubit in range(dim):
-        # Get all Pauli operators for a particular qubit
-        pauli_ops = [pauli_term[[qubit, qubit + dim]] for pauli_term in pauli_terms]
-        coefficient *= _single_qubit_phase_factor(pauli_ops)
+    nqubits //= 2
+    coefficient = prod(
+        _single_qubit_phase_factor(pauli_terms[:, [qubit, qubit + nqubits]])
+        for qubit in range(nqubits)
+    )
     return int(np.real_if_close(coefficient))
 
 
@@ -391,7 +541,7 @@ def _col_reduce_x_matrix(
     CNOT/SWAP gates
 
     Returns:
-        list[gates.Gate]: List of CNOT/SWAP gates to be added to the circuit
+        list[gates.Gate]: List of CNOT and SWAP gates to be added to the circuit
     """
     gates_list = []
     dim, dim_space = stabiliser_matrix.shape
