@@ -1,6 +1,6 @@
 [project]
 name = "qibochem"
-version = "0.0.6"
+version = "0.0.7"
 description = "Quantum chemistry module for quantum computing with Qibo"
 authors = [{ name = "The Qibo team" }]
 license = "Apache-2.0"
