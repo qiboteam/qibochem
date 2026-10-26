@@ -4,39 +4,20 @@ either from a state vector simulation, or from sample measurements
 """
 
 from collections import Counter
-from functools import reduce
 
 from qibo import Circuit
+from qibo.config import raise_error
 from qibo.gates import Gate
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
 from sympy import Add, Mul
 from sympy.core.expr import Expr
-from sympy.core.numbers import One
 
 from qibochem.measurement.optimization import _measurement_basis_rotations
 from qibochem.measurement.shot_allocation import (
     allocate_shots,
     allocate_shots_by_variance,
 )
-
-
-def _constant_term(hamiltonian: SymbolicHamiltonian) -> complex:
-    """Extract the constant term (if any) from a given SymbolicHamiltonian"""
-    constant = 0.0
-    ham_form = hamiltonian.form
-    if ham_form.args:
-        # Hamiltonian has >1 term
-        find_constant = [
-            coeff
-            for term, coeff in ham_form.as_coefficients_dict().items()
-            if isinstance(term, One)
-        ]
-        constant = find_constant[0] if find_constant else 0.0
-    else:
-        # Single term is either a Pauli operator or a float
-        constant = float(ham_form) if not isinstance(ham_form, (X, Y, Z)) else 0.0
-    return constant
 
 
 def _pauli_term_measurement_expectation(
@@ -53,14 +34,16 @@ def _pauli_term_measurement_expectation(
             _pauli_term_measurement_expectation(term, frequencies, qubit_map)
             for term in expression.args
         )
-    if isinstance(expression, Mul):
-        # Single Pauli term
-        pauli_z_terms = [
-            Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term
-            for term in expression.args
-        ]
-        z_only_ham = SymbolicHamiltonian(
-            reduce(lambda x, y: x * y, pauli_z_terms, 1.0),
+    # Single Pauli term: Convert to all Z's and evaluate
+    z_only_ham = (
+        SymbolicHamiltonian(
+            Mul(
+                *(
+                    Z(term.target_qubit) if isinstance(term, (X, Y, Z)) else term
+                    for term in expression.args
+                ),
+                evaluate=False,
+            ),
             nqubits=max(
                 term.target_qubit
                 for term in expression.args
@@ -68,10 +51,11 @@ def _pauli_term_measurement_expectation(
             )
             + 1,
         )
-    elif isinstance(expression, (X, Y, Z)):
-        z_only_ham = SymbolicHamiltonian(
+        if expression.args
+        else SymbolicHamiltonian(
             Z(expression.target_qubit), nqubits=expression.target_qubit + 1
         )
+    )
     # Can now apply expectation_from_samples directly
     return z_only_ham.expectation_from_samples(frequencies, qubit_map=qubit_map)
 
@@ -81,6 +65,7 @@ def expectation_from_samples(
     hamiltonian: SymbolicHamiltonian,
     n_shots: int = 1000,
     grouping: str | None = None,
+    method: str = "sorted",
     n_shots_per_pauli_term: bool = True,
     shot_allocation: list[int] | None = None,
 ) -> float:
@@ -102,11 +87,24 @@ def expectation_from_samples(
                 - ``None``: No grouping of Hamiltonian terms (Default)
                 - ``"qwc"``: Qubit-wise commuting terms are grouped together
                 - ``"gc"``: Generally commuting terms are measured simultaneously by
-                  adding additional gates following the formulation by `Gokhale et al.
-                  <https://ieeexplore.ieee.org/abstract/document/9248636/>`_,
-                - ``"gc2"``: Same as ``"gc"``, but uses the circuit formulation by
-                  `Yen et al. <https://pubs.acs.org/doi/abs/10.1021/acs.jctc.0c00008>`_
+                  adding additional gates following the formulation by `Gokhale et
+                  al. <https://ieeexplore.ieee.org/abstract/document/9248636/>`__,
+                - ``"gc2"``: Same as ``"gc"``, but uses the circuit formulation by `Yen
+                  et al. <https://pubs.acs.org/doi/abs/10.1021/acs.jctc.0c00008>`__
                   instead
+        method (str):
+            Algorithm used to group compatible Pauli terms
+
+            Options:
+                - ``"sorted"``: (Default) Sorts the Pauli terms by the magnitude of
+                  their coefficients (largest first), then for each of the sorted terms,
+                  if it is compatible with an existing group, allocate it there;
+                  otherwise, assign it to a new group.
+                  (`Ref <https://quantum-journal.org/papers/q-2021-01-20-385/>`__)
+                - ``"graph"``:  Groups Pauli terms by solving the minimum clique cover
+                  problem for the graph whereby each node is a Pauli string, and an edge
+                  exists between two nodes iff they commute.
+                  (`Ref <https://doi.org/10.1063/1.5141458>`__)
         n_shots_per_pauli_term (bool):
             If ``True`` (Default), uses ``n_shots`` per Pauli term (or group of terms)
             to calculate the expectation value
@@ -120,7 +118,9 @@ def expectation_from_samples(
             measurements
     """
     # Group up Hamiltonian terms to reduce the measurement cost
-    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping=grouping)
+    grouped_terms, constant = _measurement_basis_rotations(
+        hamiltonian, grouping, method
+    )
 
     # Check shot_allocation argument if not using n_shots_per_pauli_term
     if not n_shots_per_pauli_term:
@@ -133,7 +133,7 @@ def expectation_from_samples(
             )
             raise ValueError(error)
 
-    total = _constant_term(hamiltonian)
+    total = constant
     for _i, (expression, measurement_gates, rotation_gates) in enumerate(grouped_terms):
         _circuit = circuit.copy()
         _circuit.add(rotation_gates)
@@ -217,6 +217,7 @@ def v_expectation(
     n_trial_shots: int,
     grouping: str | None = None,
     method: str = "vmsa",
+    grouping_method: str = "sorted",
 ) -> float:
     """
     An alternative loss function for finding the expectation value of a Hamiltonian
@@ -234,7 +235,7 @@ def v_expectation(
 
     Args:
         circuit (:class:`qibo.models.Circuit`):
-            Circuit ansatz for running VQE
+            Circuit ansatz
         hamiltonian (:class:`qibo.hamiltonians.SymbolicHamiltonian`):
             Hamiltonian of interest
         n_shots (int):
@@ -248,6 +249,9 @@ def v_expectation(
             (see :ref:`expectation_from_samples<expectation-samples>` for details)
         method (str):
             Variance-based method to use; must be either `"vmsa"` (default) or `"vpsr"`.
+        grouping_method (str):
+            Method used to group compatible Pauli terms; must be either ``"sorted"``
+            (default) or ``"graph"``.
 
     Returns:
         float:
@@ -261,11 +265,12 @@ def v_expectation(
         (`link <https://pubs.acs.org/doi/10.1021/acs.jctc.3c01113>`__)
     """
     # Input check: method is valid
-    assert method in ("vmsa", "vpsr"), (
-        f"Unknown shot assignment method ({method}) called"
+    if method not in ("vmsa", "vpsr"):
+        raise_error(ValueError, f"Unknown shot assignment method ({method}) called")
+    # Split Hamiltonian into individual groups to get the variance of each group
+    grouped_terms, constant = _measurement_basis_rotations(
+        hamiltonian, grouping, grouping_method
     )
-    # Split H into individual (groups of) terms to get variance of each term (group)
-    grouped_terms = _measurement_basis_rotations(hamiltonian, grouping=grouping)
     # Input check: n_trial_shots * nH terms <= n_shots
     assert n_trial_shots * len(grouped_terms) <= n_shots, (
         f"n(Trial shots = {n_trial_shots}) * n(Term groups = {len(grouped_terms)}) "
@@ -299,4 +304,4 @@ def v_expectation(
         value / (n_trial_shots + _n)
         for value, _n in zip(sum_values, remaining_shot_allocation, strict=True)
     ]
-    return sum(final_mean_values) + _constant_term(hamiltonian)
+    return sum(final_mean_values) + constant

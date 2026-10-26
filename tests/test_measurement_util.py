@@ -4,6 +4,9 @@ Test functionality to reduce the measurement cost of running VQE
 
 import numpy as np
 import pytest
+from qibo.hamiltonians import SymbolicHamiltonian
+from qibo.symbols import I, X, Y, Z
+from sympy import srepr
 
 from qibochem.measurement.util import (
     _binary_gaussian_elimination,
@@ -23,82 +26,16 @@ from qibochem.measurement.util import (
 
 
 @pytest.mark.parametrize(
-    ("term1", "term2", "qwc_expected", "gc_expected"),
+    ("expression", "nqubits", "expected"),
     [
-        ("X0", "Z0", False, False),
-        ("X0", "Z1", True, True),
-        ("X0 X1", "Y0 Y1", False, True),
-        ("X0 Y1", "Y0 Y1", False, False),
+        (X(0) * Y(1) * Z(2), 4, np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)),
+        (Z(1) * X(3), 4, np.array([0, 0, 0, 1, 0, 1, 0, 0], dtype=np.uint8)),
+        (I(2), 4, np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)),
     ],
 )
-def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
-    """Do two Pauli strings commute (qubit-wise or generally)?"""
-    qwc_result = _check_terms_commutativity(term1, term2, qubitwise=True)
-    assert qwc_result == qwc_expected
-    gc_result = _check_terms_commutativity(term1, term2, qubitwise=False)
-    assert gc_result == gc_expected
-
-
-@pytest.mark.parametrize(
-    ("term_list", "qwc_expected", "gc_expected"),
-    [
-        (
-            ["X0 Z1", "X0", "Z0", "Z0 Z1"],
-            [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]],
-            [["X0", "X0 Z1"], ["Z0", "Z0 Z1"]],
-        ),
-        (
-            ["X0 Y1 Z2", "X1 X2", "Z1 Y2"],
-            [["X0 Y1 Z2"], ["X1 X2"], ["Z1 Y2"]],
-            [["X0 Y1 Z2", "X1 X2", "Z1 Y2"]],
-        ),
-    ],
-)
-def test_group_commuting_terms(term_list, qwc_expected, gc_expected):
-    qwc_result = _group_commuting_terms(term_list, qubitwise=True)
-    assert qwc_result == qwc_expected
-    gc_result = _group_commuting_terms(term_list, qubitwise=False)
-    assert gc_result == gc_expected
-
-
-@pytest.mark.parametrize(
-    ("function_args", "expected"),
-    [
-        (
-            {"pauli_string": ["X0", "Y1", "Z2"], "nqubits": 4},
-            np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8),
-        ),
-        (
-            {"pauli_string": ["Z1", "X3"], "nqubits": 4},
-            np.array([0, 0, 0, 1, 0, 1, 0, 0], dtype=np.uint8),
-        ),
-        (
-            {"pauli_string": [], "nqubits": 4},
-            np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8),
-        ),
-    ],
-)
-def test_pauli_to_symplectic(function_args, expected):
-    result = _pauli_to_symplectic(**function_args)
+def test_pauli_to_symplectic(expression, nqubits, expected):
+    result = _pauli_to_symplectic(expression, nqubits)
     assert np.array_equal(result, expected)
-
-
-@pytest.mark.parametrize(
-    ("function_args", "expected"),
-    [
-        (
-            {"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)},
-            ["X0", "Y1", "Z2"],
-        ),
-        (
-            {"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0], dtype=np.uint8)},
-            ["Y1", "X3"],
-        ),
-    ],
-)
-def test_symplectic_to_pauli(function_args, expected):
-    result = _symplectic_to_pauli(**function_args)
-    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -137,6 +74,87 @@ def test_symplectic_inner_product(u, v):
         axis=0,
     )
     assert _symplectic_inner_product(u, v) == (np.dot(u, np.dot(j_matrix, v)) % 2)
+
+
+@pytest.mark.parametrize(
+    ("term1", "term2", "qwc_expected", "gc_expected"),
+    [
+        (_pauli_to_symplectic(X(0), 1), _pauli_to_symplectic(Z(0), 2), False, False),
+        (_pauli_to_symplectic(X(0), 1), _pauli_to_symplectic(Z(1), 3), True, True),
+        (
+            _pauli_to_symplectic(X(0) * X(1), 3),
+            _pauli_to_symplectic(Y(0) * Y(1), 2),
+            False,
+            True,
+        ),
+        (
+            _pauli_to_symplectic(X(0) * Y(1), 2),
+            _pauli_to_symplectic(Y(0) * Y(1), 2),
+            False,
+            False,
+        ),
+    ],
+)
+def test_check_terms_commutativity(term1, term2, qwc_expected, gc_expected):
+    """Do two Pauli strings commute (qubit-wise or generally)?"""
+    qwc_result = _check_terms_commutativity(term1, term2, qubitwise=True)
+    assert qwc_result == qwc_expected
+    gc_result = _check_terms_commutativity(term1, term2, qubitwise=False)
+    assert gc_result == gc_expected
+
+
+@pytest.mark.parametrize(
+    ("ham_terms", "qwc_expected", "gc_expected"),
+    [
+        (
+            3.14 + 0.9 * X(0) * Z(1) + 1.1 * X(0) + 0.8 * Z(0) + 0.5 * Z(0) * Z(1),
+            [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
+            [[X(0), X(0) * Z(1)], [Z(0), Z(0) * Z(1)]],
+        ),
+        (
+            1.2 * X(0) * Y(1) * Z(2) + 1.1 * X(1) * X(2) + Z(1) * Y(2),
+            [[X(0) * Y(1) * Z(2)], [X(1) * X(2)], [Z(1) * Y(2)]],
+            [[X(0) * Y(1) * Z(2), X(1) * X(2), Z(1) * Y(2)]],
+        ),
+    ],
+)
+@pytest.mark.parametrize("method", ["graph", "greedy", "sorted"])
+def test_group_commuting_terms(ham_terms, qwc_expected, gc_expected, method):
+    def canonical_group(group):
+        """For sorting sympy Expr"""
+        return tuple(sorted(srepr(expr) for expr in group))
+
+    hamiltonian = SymbolicHamiltonian(ham_terms, nqubits=4)
+    _term_dict, qwc_result = _group_commuting_terms(
+        hamiltonian, qubitwise=True, method=method
+    )
+    assert sorted(map(canonical_group, qwc_result)) == sorted(
+        map(canonical_group, qwc_expected)
+    )
+    _term_dict, gc_result = _group_commuting_terms(
+        hamiltonian, qubitwise=False, method=method
+    )
+    assert sorted(map(canonical_group, gc_result)) == sorted(
+        map(canonical_group, gc_expected)
+    )
+
+
+@pytest.mark.parametrize(
+    ("function_args", "expected"),
+    [
+        (
+            {"symplectic_vector": np.array([1, 1, 0, 0, 0, 1, 1, 0], dtype=np.uint8)},
+            X(0) * Y(1) * Z(2),
+        ),
+        (
+            {"symplectic_vector": np.array([0, 1, 0, 1, 0, 1, 0, 0], dtype=np.uint8)},
+            Y(1) * X(3),
+        ),
+    ],
+)
+def test_symplectic_to_pauli(function_args, expected):
+    result = _symplectic_to_pauli(**function_args)
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -268,12 +286,12 @@ def test_sort_tau_terms():
     # Using the example given in the function docstring
     nqubits = 6
     test_terms = (
-        ["X0", "X2"],
-        ["Z1", "X3", "Z4", "X5"],
-        ["Z0", "Z2"],
-        ["Z1"],
-        ["Z3", "Z5"],
-        ["Z4"],
+        X(0) * X(2),
+        Z(1) * X(3) * Z(4) * X(5),
+        Z(0) * Z(2),
+        Z(1),
+        Z(3) * Z(5),
+        Z(4),
     )
     test_symplectic_form = np.array(
         [_pauli_to_symplectic(term, nqubits=6) for term in test_terms]
@@ -284,19 +302,24 @@ def test_sort_tau_terms():
         for i in range(nqubits)
     )
 
+    # Failure test
+    v_basis = np.array([[1, 0, 0, 0], [0, 0, 1, 0]], dtype=np.uint8)
+    with pytest.raises(ValueError):
+        _sort_tau_terms(v_basis)
+
 
 def test_get_sigma_terms():
     test_terms = [
-        ["X0", "X2"],
-        ["Z1"],
-        ["Z0", "Z2"],
-        ["Z1", "X3", "Z4", "X5"],
-        ["Z4"],
-        ["Z3", "Z5"],
+        X(0) * X(2),
+        Z(1),
+        Z(0) * Z(2),
+        Z(1) * X(3) * Z(4) * X(5),
+        Z(4),
+        Z(3) * Z(5),
     ]
-    test_symplectic_form = [
-        _pauli_to_symplectic(term, nqubits=6) for term in test_terms
-    ]
+    test_symplectic_form = np.array(
+        [_pauli_to_symplectic(term, nqubits=6) for term in test_terms], dtype=np.uint8
+    )
     new_tau_terms, sigma_terms = _get_sigma_terms(test_symplectic_form)
     # Check new tau terms are still mutually orthogonal
     assert all(
@@ -324,27 +347,26 @@ def test_get_sigma_terms():
 @pytest.mark.parametrize(
     ("vector_space", "expected"),
     [
+        (_pauli_to_symplectic(Z(0), 2).reshape(1, -1), 1),
+        (_pauli_to_symplectic(X(0) * X(1), 2).reshape(1, -1), 1),
         (
-            [
-                _pauli_to_symplectic(["Z0"], 2),
-            ],
-            1,
-        ),
-        (
-            [
-                _pauli_to_symplectic(["X0", "X1"], 2),
-            ],
-            1,
-        ),
-        (
-            [_pauli_to_symplectic(pauli, 2) for pauli in (["X0", "X1"], ["Y0", "Y1"])],
+            np.array(
+                [
+                    _pauli_to_symplectic(pauli, 2)
+                    for pauli in (X(0) * X(1), Y(0) * Y(1))
+                ],
+                dtype=np.uint8,
+            ),
             -1,
         ),
         (
-            [
-                _pauli_to_symplectic(pauli, 3)
-                for pauli in (["X0"], ["Y1", "Z2"], ["Z1", "Y2"])
-            ],
+            np.array(
+                [
+                    _pauli_to_symplectic(pauli, 3)
+                    for pauli in (X(0), Y(1) * Z(2), Z(1) * Y(2))
+                ],
+                dtype=np.uint8,
+            ),
             1,
         ),
     ],
