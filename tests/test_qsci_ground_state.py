@@ -90,9 +90,21 @@ def test_qsci_energy_nonincreasing_with_r():
     hamiltonian = _test_hamiltonian()
     samples = ["00"] * 50 + ["11"] * 40 + ["01"] * 6 + ["10"] * 4
 
-    e_r2 = QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=2)).run_from_samples(samples).gs_energy
-    e_r3 = QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=3)).run_from_samples(samples).gs_energy
-    e_r4 = QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=4)).run_from_samples(samples).gs_energy
+    e_r2 = (
+        QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=2))
+        .run_from_samples(samples)
+        .gs_energy
+    )
+    e_r3 = (
+        QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=3))
+        .run_from_samples(samples)
+        .gs_energy
+    )
+    e_r4 = (
+        QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=4))
+        .run_from_samples(samples)
+        .gs_energy
+    )
 
     assert e_r3 <= e_r2 + 1e-10
     assert e_r4 <= e_r3 + 1e-10
@@ -151,7 +163,10 @@ def test_qsci_result_root_access_and_coefficient_map():
 
     coeffs_map = result.coefficients_dict(0)
     assert set(coeffs_map) == set(result.selected_bitstrings)
-    assert np.allclose(np.array([coeffs_map[b] for b in result.selected_bitstrings]), result.eigenvectors[:, 0])
+    assert np.allclose(
+        np.array([coeffs_map[b] for b in result.selected_bitstrings]),
+        result.eigenvectors[:, 0],
+    )
 
     with pytest.raises(IndexError):
         result.get_root(2)
@@ -215,7 +230,9 @@ def test_run_from_circuit_requires_n_shots_when_not_configured():
 
 def test_run_from_circuit_seeded_sampling_is_reproducible():
     hamiltonian = QubitOperator("Z0")
-    runner = QSCI(hamiltonian, n_qubits=1, config=QSCIConfig(r=2, n_shots=256, seed=123))
+    runner = QSCI(
+        hamiltonian, n_qubits=1, config=QSCIConfig(r=2, n_shots=256, seed=123)
+    )
 
     circuit = models.Circuit(1)
     circuit.add(gates.H(0))
@@ -315,7 +332,9 @@ def test_spin_resolved_postselection_works():
 
 def test_validate_counts_truncates_and_aggregates_when_enabled():
     with pytest.warns(UserWarning, match="truncating"):
-        counts = _validate_and_copy_counts({"100": 2, "101": 3, "01": 4}, 2, allow_truncation=True)
+        counts = _validate_and_copy_counts(
+            {"100": 2, "101": 3, "01": 4}, 2, allow_truncation=True
+        )
 
     assert counts == {"10": 5, "01": 4}
 
@@ -332,7 +351,9 @@ def test_apply_pauli_term_invalid_operator_raises():
 
 def test_degenerate_groups_single_root_returns_empty_list():
     hamiltonian = _test_hamiltonian()
-    result = QSCI(hamiltonian, n_qubits=2, config=QSCIConfig(r=1, n_roots=1)).run_from_samples(["00"] * 16)
+    result = QSCI(
+        hamiltonian, n_qubits=2, config=QSCIConfig(r=1, n_roots=1)
+    ).run_from_samples(["00"] * 16)
     assert result.degenerate_groups() == []
 
 

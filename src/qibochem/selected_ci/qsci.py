@@ -31,22 +31,30 @@ class QSCIConfig:
         if self.r <= 0:
             raise ValueError("`r` must be a positive integer.")
         if self.n_roots is not None and (self.n_roots <= 0 or self.n_roots > self.r):
-            raise ValueError("`n_roots` must be a positive integer and cannot exceed `r`.")
+            raise ValueError(
+                "`n_roots` must be a positive integer and cannot exceed `r`."
+            )
         if self.n_shots is not None and self.n_shots <= 0:
             raise ValueError("`n_shots` must be a positive integer when provided.")
         if self.n_electrons is not None and self.n_electrons < 0:
             raise ValueError("`n_electrons` must be non-negative when provided.")
         if (self.n_alpha is None) != (self.n_beta is None):
-            raise ValueError("`n_alpha` and `n_beta` must either both be set or both be None.")
+            raise ValueError(
+                "`n_alpha` and `n_beta` must either both be set or both be None."
+            )
         if self.n_alpha is not None and self.n_alpha < 0:
             raise ValueError("`n_alpha` must be non-negative when provided.")
         if self.n_beta is not None and self.n_beta < 0:
             raise ValueError("`n_beta` must be non-negative when provided.")
         if self.n_alpha is not None and self.n_electrons is not None:
             if self.n_alpha + self.n_beta != self.n_electrons:
-                raise ValueError("`n_alpha + n_beta` must match `n_electrons` when all are provided.")
+                raise ValueError(
+                    "`n_alpha + n_beta` must match `n_electrons` when all are provided."
+                )
         if self.postselect and self.n_electrons is None and self.n_alpha is None:
-            raise ValueError("`postselect=True` requires `n_electrons` and/or (`n_alpha`, `n_beta`).")
+            raise ValueError(
+                "`postselect=True` requires `n_electrons` and/or (`n_alpha`, `n_beta`)."
+            )
 
 
 @dataclass(frozen=True)
@@ -63,7 +71,7 @@ class QSCIResult:
     @property
     def n_roots(self) -> int:
         """Number of eigenpairs returned."""
-        return int(len(self.energies))
+        return len(self.energies)
 
     @property
     def gs_energy(self) -> float:
@@ -79,14 +87,20 @@ class QSCIResult:
         """Return ``(energy, coefficients)`` for the selected root index."""
         if root_index < 0 or root_index >= self.n_roots:
             raise IndexError(f"`root_index` must be in [0, {self.n_roots - 1}].")
-        return float(np.real_if_close(self.energies[root_index])), self.eigenvectors[:, root_index]
+        return float(np.real_if_close(self.energies[root_index])), self.eigenvectors[
+            :, root_index
+        ]
 
     def coefficients_dict(self, root_index: int = 0) -> dict[str, complex]:
         """Return coefficients of one root as ``{bitstring: coefficient}``."""
         _, coeffs = self.get_root(root_index)
-        return {bitstring: coeffs[i] for i, bitstring in enumerate(self.selected_bitstrings)}
+        return {
+            bitstring: coeffs[i] for i, bitstring in enumerate(self.selected_bitstrings)
+        }
 
-    def degenerate_groups(self, atol: float = 1e-8, rtol: float = 1e-5) -> list[list[int]]:
+    def degenerate_groups(
+        self, atol: float = 1e-8, rtol: float = 1e-5
+    ) -> list[list[int]]:
         """Return index groups for numerically degenerate roots."""
         if self.n_roots < 2:
             return []
@@ -94,7 +108,9 @@ class QSCIResult:
         groups = []
         group_start = 0
         for idx in range(1, self.n_roots):
-            if not np.isclose(self.energies[idx], self.energies[idx - 1], atol=atol, rtol=rtol):
+            if not np.isclose(
+                self.energies[idx], self.energies[idx - 1], atol=atol, rtol=rtol
+            ):
                 if idx - group_start > 1:
                     groups.append(list(range(group_start, idx)))
                 group_start = idx
@@ -108,9 +124,13 @@ class QSCIResult:
 class QSCI:
     """Ground-state quantum-selected configuration interaction (QSCI)."""
 
-    def __init__(self, qubit_hamiltonian: QubitOperator, n_qubits: int, config: QSCIConfig):
+    def __init__(
+        self, qubit_hamiltonian: QubitOperator, n_qubits: int, config: QSCIConfig
+    ):
         if not isinstance(qubit_hamiltonian, QubitOperator):
-            raise TypeError("`qubit_hamiltonian` must be an `openfermion.QubitOperator`.")
+            raise TypeError(
+                "`qubit_hamiltonian` must be an `openfermion.QubitOperator`."
+            )
         if n_qubits <= 0:
             raise ValueError("`n_qubits` must be a positive integer.")
         self.qubit_hamiltonian = qubit_hamiltonian
@@ -128,7 +148,9 @@ class QSCI:
 
         nshots = self.config.n_shots if n_shots is None else n_shots
         if nshots is None or nshots <= 0:
-            raise ValueError("`n_shots` must be provided either in config or method call.")
+            raise ValueError(
+                "`n_shots` must be provided either in config or method call."
+            )
 
         sampled_circuit = circuit.copy()
         circuit_nqubits = getattr(sampled_circuit, "nqubits", None)
@@ -161,7 +183,9 @@ class QSCI:
         else:
             frequencies = sampled_circuit(nshots=nshots).frequencies(binary=True)
 
-        counts = _validate_and_copy_counts(dict(frequencies), self.n_qubits, allow_truncation=True)
+        counts = _validate_and_copy_counts(
+            dict(frequencies), self.n_qubits, allow_truncation=True
+        )
         return self._run_from_counts(counts, n_shots_used=nshots)
 
     def _run_from_counts(self, counts: dict[str, int], n_shots_used: int) -> QSCIResult:
@@ -175,13 +199,21 @@ class QSCI:
             )
 
         if not working_counts:
-            raise ValueError("No valid bitstrings available after applying selection/post-selection.")
+            raise ValueError(
+                "No valid bitstrings available after applying selection/post-selection."
+            )
 
         selected = _select_top_r(working_counts, self.config.r)
-        projected_hamiltonian = _project_hamiltonian_subspace(self.qubit_hamiltonian, selected)
+        projected_hamiltonian = _project_hamiltonian_subspace(
+            self.qubit_hamiltonian, selected
+        )
 
         eigenvalues, eigenvectors = np.linalg.eigh(projected_hamiltonian)
-        n_roots = len(selected) if self.config.n_roots is None else min(self.config.n_roots, len(selected))
+        n_roots = (
+            len(selected)
+            if self.config.n_roots is None
+            else min(self.config.n_roots, len(selected))
+        )
         energies = np.real_if_close(eigenvalues[:n_roots])
         root_vectors = eigenvectors[:, :n_roots]
 
@@ -226,7 +258,9 @@ def _count_samples(samples: list[str], n_qubits: int) -> dict[str, int]:
     return _validate_and_copy_counts(dict(counts), n_qubits)
 
 
-def _validate_and_copy_counts(counts: dict[str, int], n_qubits: int, allow_truncation: bool = False) -> dict[str, int]:
+def _validate_and_copy_counts(
+    counts: dict[str, int], n_qubits: int, allow_truncation: bool = False
+) -> dict[str, int]:
     validated = {}
     warned_truncation = False
     for bitstring, count in counts.items():
@@ -236,7 +270,9 @@ def _validate_and_copy_counts(counts: dict[str, int], n_qubits: int, allow_trunc
         if allow_truncation and len(bitstring) > n_qubits:
             if not warned_truncation:
                 warnings.warn(
-                    ("Measured bitstrings are longer than `n_qubits`; " "truncating to the first `n_qubits` bits."),
+                    (
+                        "Measured bitstrings are longer than `n_qubits`; truncating to the first `n_qubits` bits."
+                    ),
                     UserWarning,
                     stacklevel=2,
                 )
@@ -252,7 +288,9 @@ def _validate_and_copy_counts(counts: dict[str, int], n_qubits: int, allow_trunc
 
 def _validate_bitstring(bitstring: str, n_qubits: int):
     if len(bitstring) != n_qubits:
-        raise ValueError(f"Invalid bitstring length: expected {n_qubits}, got {len(bitstring)} ({bitstring}).")
+        raise ValueError(
+            f"Invalid bitstring length: expected {n_qubits}, got {len(bitstring)} ({bitstring})."
+        )
     if any(bit not in {"0", "1"} for bit in bitstring):
         raise ValueError(f"Bitstring must contain only 0/1 characters ({bitstring}).")
 
@@ -288,7 +326,9 @@ def _select_top_r(counts: dict[str, int], r: int) -> list[str]:
     return [bitstring for bitstring, _ in sorted_by_freq[: min(r, len(sorted_by_freq))]]
 
 
-def _project_hamiltonian_subspace(qubit_hamiltonian: QubitOperator, basis_bitstrings: list[str]) -> np.ndarray:
+def _project_hamiltonian_subspace(
+    qubit_hamiltonian: QubitOperator, basis_bitstrings: list[str]
+) -> np.ndarray:
     dim = len(basis_bitstrings)
     matrix = np.zeros((dim, dim), dtype=complex)
     basis_index = {bitstring: idx for idx, bitstring in enumerate(basis_bitstrings)}
@@ -300,7 +340,9 @@ def _project_hamiltonian_subspace(qubit_hamiltonian: QubitOperator, basis_bitstr
             if row is not None:
                 matrix[row, col] += coeff * phase
 
-    hermitian_deviation = np.max(np.abs(matrix - matrix.conj().T)) if matrix.size else 0.0
+    hermitian_deviation = (
+        np.max(np.abs(matrix - matrix.conj().T)) if matrix.size else 0.0
+    )
     if hermitian_deviation > DEFAULT_HERMITICITY_TOL:
         warnings.warn(
             (
@@ -318,7 +360,9 @@ def _project_hamiltonian_subspace(qubit_hamiltonian: QubitOperator, basis_bitstr
     return matrix
 
 
-def _apply_pauli_term(pauli_term: tuple[tuple[int, str], ...], bitstring: str) -> tuple[str, complex]:
+def _apply_pauli_term(
+    pauli_term: tuple[tuple[int, str], ...], bitstring: str
+) -> tuple[str, complex]:
     bits = list(bitstring)
     phase = 1.0 + 0.0j
 
@@ -332,6 +376,8 @@ def _apply_pauli_term(pauli_term: tuple[tuple[int, str], ...], bitstring: str) -
         elif operator == "Z":
             phase *= 1.0 if bit == "0" else -1.0
         else:
-            raise ValueError(f"Unsupported Pauli operator `{operator}` in term `{pauli_term}`.")
+            raise ValueError(
+                f"Unsupported Pauli operator `{operator}` in term `{pauli_term}`."
+            )
 
     return "".join(bits), phase
