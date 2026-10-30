@@ -1,7 +1,8 @@
 """
 Qibochem provides functions to construct various chemistry circuit ansatzes.
 
-The easiest way to construct a circuit ansatz for a given :class:`qibochem.driver.Molecule` is by using the :func:`circuit_ansatz` function:
+The easiest way to construct a circuit ansatz for a given
+:class:`qibochem.driver.Molecule` is by using the :func:`circuit_ansatz` function:
 
 .. code-block:: python
 
@@ -13,7 +14,8 @@ The easiest way to construct a circuit ansatz for a given :class:`qibochem.drive
     circuit = circuit_ansatz(molecule, "ucc")
 
 
-Alternatively, the individual functions can be called to manually construct a circuit ansatz:
+Alternatively, the individual functions can be called to manually construct a circuit
+ansatz:
 
 .. code-block:: python
 
@@ -25,7 +27,8 @@ Alternatively, the individual functions can be called to manually construct a ci
     circuit = hf_circuit(molecule.nso, molecule.nelec)
     circuit += ucc_circuit(molecule.nso, [8, 9, 10, 11])
 
-More examples can be found in the :ref:`Tutorial <Ansatz tutorial>` section of the documentation.
+More examples can be found in the :ref:`Tutorial <Ansatz tutorial>` section of the
+documentation.
 
 """
 
@@ -67,8 +70,9 @@ def circuit_ansatz(
     **kwargs: dict,
 ):
     """
-    Convenience function for constructing a parameterized quantum circuit ansatz to represent the electronic wave
-    function (using the the Jordan-Wigner fermion to qubit mapping) of a molecular system.
+    Convenience function for constructing a parameterized quantum circuit ansatz to
+    represent the electronic wave function (using the the Jordan-Wigner fermion to qubit
+    mapping) of a molecular system.
 
     Args:
         molecule (:class:`qibochem.driver.Molecule`):
@@ -77,29 +81,34 @@ def circuit_ansatz(
             Circuit ansatz to be used for the molecule. The possible options are:
 
             Options:
-                - ``"ucc"``: Unitary coupled-cluster (UCC) ansatz with a single Trotter step
-                  (:func:`details <qibochem.ansatz.ansatz.ucc_circuit>`)
-                - ``"qeb"``: Alternative qubit-excitation-based formulation of the UCC ansatz
-                  (:func:`details <qibochem.ansatz.ansatz.qeb_circuit>`)
-                - ``"givens"``: Givens rotation ansatz (:func:`details <qibochem.ansatz.ansatz.givens_circuit>`)
-                - ``"br"``: Basis rotation ansatz (:func:`details <qibochem.ansatz.ansatz.basis_rotation_circuit>`)
+                - ``"ucc"``: Unitary coupled-cluster (UCC) ansatz with a single Trotter
+                  step (:func:`details <qibochem.ansatz.ansatz.ucc_circuit>`)
+                - ``"qeb"``: Alternative qubit-excitation-based formulation of the UCC
+                  ansatz (:func:`details <qibochem.ansatz.ansatz.qeb_circuit>`)
+                - ``"givens"``: Givens rotation ansatz
+                  (:func:`details <qibochem.ansatz.ansatz.givens_circuit>`)
+                - ``"br"``: Basis rotation ansatz
+                  (:func:`details <qibochem.ansatz.ansatz.basis_rotation_circuit>`)
                 - ``"symm"``: Symmetry-preserving ansatz
                   (:func:`details <qibochem.ansatz.ansatz.symm_preserving_circuit>`)
                 - ``"ham"``: Fixed Hamming-weight ansatz
                   (:func:`details <qibochem.ansatz.ansatz.hamming_weight_circuit>`)
 
             Note:
-                The hardware-efficient circuit ansatz (:func:`details <qibochem.ansatz.ansatz.he_circuit>`) is not
-                included here
+                The hardware-efficient circuit ansatz
+                (:func:`details <qibochem.ansatz.ansatz.he_circuit>`) is not included
         excitations (Sequence[Sequence[int]] | None, optional):
-            Fermionic excitations used to build the circuit. If not given, will include all singles and doubles
-            excitations in the circuit by default.
+            Fermionic excitations used to build the circuit. If not given, will include
+            all singles and doubles excitations in the circuit by default.
         thetas (Sequence[float] | None, optional):
-            Initial parameters for the circuit ansatz. If not given, defaults to MP2 amplitudes for ansatzes involving
-            fermionic excitations (``"ucc"``, ``"qeb"``, or ``"givens"``), or a zero array otherwise.
-        include_hf (bool, optional): Initialise circuit ansatz in a HF reference state if `True` (default)
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+            Initial parameters for the circuit ansatz. If not given, defaults to MP2
+            amplitudes for ansatzes involving fermionic excitations (``"ucc"``,
+            ``"qeb"``, or ``"givens"``), or a zero array otherwise.
+        include_hf (bool, optional):
+            Initialise circuit ansatz in a HF reference state if `True` (default)
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
 
     Returns:
@@ -121,34 +130,45 @@ def circuit_ansatz(
     if ansatz in ("ucc", "qeb", "givens"):
         # Build the list of excitations if not given
         if excitations is None:
-            # Generate and sort all the possible excitations
-            excitations = []
-            for order in range(2, 0, -1):  # Up to double excitations and reversed to get higher excitations first
-                excitations += generate_excitations(order, range(0, nelec), range(nelec, nqubits))
+            # Up to double excitations and reversed to get higher excitations first
+            excitations = [
+                excitation
+                for order in range(2, 0, -1)
+                for excitation in generate_excitations(
+                    order, range(nelec), range(nelec, nqubits)
+                )
+            ]
         else:
             # Some checks to ensure the input excitations are valid
             if not all(len(_ex) % 2 == 0 for _ex in excitations):
-                raise_error(ValueError, "Excitation with an odd number of orbitals found!")
+                error = "Excitation with an odd number of orbitals found!"
+                raise_error(ValueError, error)
 
         # Check if thetas argument given. If not, define to be MP2 amplitudes
         if thetas is None:
-            thetas = np.array([mp2_amplitude(excitation, molecule.eps, molecule.tei) for excitation in excitations])
+            thetas = np.array(
+                [
+                    mp2_amplitude(excitation, molecule.eps, molecule.tei)
+                    for excitation in excitations
+                ]
+            )
         else:
             # Check that the number of parameters matches the number of excitations
+            error = "Number of input parameters doesn't match the number of excitations"
             if len(thetas) != len(excitations):
-                raise_error(ValueError, "Number of input parameters doesn't match the number of excitations")
-
+                raise_error(ValueError, error)
         # Build the circuit
         if include_hf:
             circuit += hf_circuit(nqubits, nelec, **kwargs)
-        for excitation, theta in zip(excitations, thetas):
+        for excitation, theta in zip(excitations, thetas, strict=False):
             circuit += circuit_fns[ansatz](nqubits, excitation, theta, **kwargs)
     elif ansatz in ("br", "symm"):
         circuit += circuit_fns[ansatz](nqubits, nelec, thetas, **kwargs)
     elif ansatz == "ham":
         circuit += circuit_fns[ansatz](nqubits, nelec, **kwargs)
     else:
-        raise_error(ValueError, 'Invalid argument for "ansatz"')
+        error = 'Invalid argument for "ansatz"'
+        raise_error(ValueError, error)
     return circuit
 
 
@@ -162,33 +182,47 @@ def he_circuit(
     **kwargs,
 ) -> Circuit:
     """
-    Builds a general hardware-efficient ansatz, in which the rotation and entangling gates used can be chosen by the
-    user. For more details on the arguments related to the entangling layer, see the documentation for
+    Builds a general hardware-efficient ansatz, in which the rotation and entangling
+    gates used can be chosen by the user. For more details on the arguments related to
+    the entangling layer, see the documentation for
     :class:`qibo.models.encodings.entangling_layer`.
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit.
-        nlayers (int): Number of layers of rotation and entangling gates.
-        rotation_gates (Sequence[str | Gate] | None, optional): Single-qubit rotation gates used in the ansatz. These
-            can be given as strings representing valid one-qubit gates, or as :class:`qibo.gates.Gate` directly.
-            Default: ``["RY", "RZ"]``
-        entangling_gate (str | Gate, optional): Two-qubit entangling gate used in the ansatz. This can be given as
-            strings representing valid two-qubit gates, or as a :class:`qibo.gates.Gate` directly. Default: ``"CNOT"``
-        architecture (str, optional): Architecture of the entangling layer, with the possible options: ``"diagonal"``,
-            ``"even_layer"``, ``"next_nearest"``, ``"odd_layer"``, ``"pyramid"``, ``"shifted"``, ``"v"``, and ``"x"``
-            (defined only for an even number of qubits. Default: ``"diagonal"``
-        closed_boundary (bool, optional): If ``True`` (default) and ``architecture not in ["pyramid", "v", "x"]``, adds
-            a closed-boundary condition to the entangling layer
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+        nqubits (int):
+            Number of qubits in the quantum circuit.
+        nlayers (int):
+            Number of layers of rotation and entangling gates.
+        rotation_gates (Sequence[str | Gate] | None, optional):
+            Single-qubit rotation gates used in the ansatz. These can be given as
+            strings representing valid one-qubit gates, or as :class:`qibo.gates.Gate`
+            directly. Default: ``["RY", "RZ"]``
+        entangling_gate (str | Gate, optional):
+            Two-qubit entangling gate used in the ansatz. This can be given as strings
+            representing valid two-qubit gates, or as a :class:`qibo.gates.Gate`
+            directly. Default: ``"CNOT"``
+        architecture (str, optional):
+            Architecture of the entangling layer, with the possible options:
+            ``"diagonal"``, ``"even_layer"``, ``"next_nearest"``, ``"odd_layer"``,
+            ``"pyramid"``, ``"shifted"``, ``"v"``, and ``"x"`` (defined only for an even
+            number of qubits. Default: ``"diagonal"``
+        closed_boundary (bool, optional):
+            If ``True`` (default) and ``architecture not in ["pyramid", "v", "x"]``,
+            adds a closed-boundary condition to the entangling layer
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the hardware-efficient ansatz
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit corresponding to the hardware-efficient ansatz
     """
     # Default variables
     if rotation_gates is None:
         rotation_gates = ["RY", "RZ"]
-    rotation_gates = [getattr(gates, _gate) if isinstance(_gate, str) else _gate for _gate in rotation_gates]
+    rotation_gates = [
+        getattr(gates, _gate) if isinstance(_gate, str) else _gate
+        for _gate in rotation_gates
+    ]
 
     circuit = Circuit(nqubits, **kwargs)
     for _ in range(nlayers):
@@ -199,7 +233,9 @@ def he_circuit(
             for rgate in rotation_gates
         )
         # Entangling gates
-        circuit += entangling_layer(nqubits, architecture, entangling_gate, closed_boundary, **kwargs)
+        circuit += entangling_layer(
+            nqubits, architecture, entangling_gate, closed_boundary, **kwargs
+        )
     return circuit
 
 
@@ -212,18 +248,23 @@ def pche_circuit(
     Physics-constrained Hardware-Efficient Ansatz
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit.
-        nlayers (int): Number of layers used to construct the circuit ansatz
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+        nqubits (int):
+            Number of qubits in the quantum circuit.
+        nlayers (int):
+            Number of layers used to construct the circuit ansatz
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the Physics-Constrained Hardware-Efficient ansatz
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit corresponding to the Physics-Constrained Hardware-Efficient ansatz
 
     References:
-        1. X. Xiao, H. Zhao, J. Ren, W. Fang, and Z. Li, *Physics-Constrained Hardware-Efficient Ansatz on Quantum
-        Computers That Is Universal, Systematically Improvable, and Size-Consistent*, Journal of Chemical Theory and
-        Computation, 2024, 20, 1912-1922.
+        1. X. Xiao, H. Zhao, J. Ren, W. Fang, and Z. Li, *Physics-Constrained
+        Hardware-Efficient Ansatz on Quantum Computers That Is Universal, Systematically
+        Improvable, and Size-Consistent*, Journal of Chemical Theory and Computation,
+        2024, 20, 1912-1922.
         (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.3c00966>`__ or
         on `arXiv <https://arxiv.org/abs/2307.03563>`__)
     """
@@ -250,30 +291,43 @@ def pche_circuit(
     return circuit
 
 
-def hf_circuit(nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs) -> Circuit:
+def hf_circuit(
+    nqubits: int, nelectrons: int, ferm_qubit_map: str = "jw", **kwargs
+) -> Circuit:
     """
     Quantum circuit to prepare a Hartree-Fock state
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        nelectrons (int): Number of electrons in the molecular system
-        ferm_qubit_map (str, optional): Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        nelectrons (int):
+            Number of electrons in the molecular system
+        ferm_qubit_map (str, optional):
+            Fermion to qubit map. Must be either Jordan-Wigner (``"jw"``) or
             Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``.
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`.
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit initialized in a HF reference state
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit initialized in a HF reference state
     """
     # Which fermion-to-qubit map to use
     if ferm_qubit_map is None:
         ferm_qubit_map = "jw"
     if ferm_qubit_map not in ("jw", "bk"):
-        raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        error = "Fermon-to-qubit mapping must be either 'jw' or 'bk'"
+        raise_error(NotImplementedError, error)
 
     # Occupation number of SOs
     mapped_occ_n = None
-    occ_n = np.concatenate((np.ones(nelectrons, dtype=np.int8), np.zeros(nqubits - nelectrons, dtype=np.int8)))
+    occ_n = np.concatenate(
+        (
+            np.ones(nelectrons, dtype=np.int8),
+            np.zeros(nqubits - nelectrons, dtype=np.int8),
+        )
+    )
     if ferm_qubit_map == "jw":
         mapped_occ_n = occ_n
     elif ferm_qubit_map == "bk":
@@ -291,38 +345,50 @@ def ucc_circuit(
     **kwargs: dict,
 ) -> Circuit:
     r"""
-    Quantum circuit corresponding to the unitary coupled-cluster ansatz for a single excitation
+    Quantum circuit corresponding to the unitary coupled-cluster ansatz for a single
+    excitation
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements
-            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
-        theta (float, optional): UCC parameter. Defaults to 0.0
-        trotter_steps (int, optional): Number of Trotter steps; i.e. number of times the UCC ansatz is applied
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        excitation (Sequence[int]):
+            Orbitals involved in the excitation; must have an even number of elements.
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals
+            ``(0, 1)`` to ``(2, 3)``
+        theta (float, optional):
+            UCC parameter. Defaults to 0.0
+        trotter_steps (int, optional):
+            Number of Trotter steps; i.e. number of times the UCC ansatz is applied
             with :math:`\theta = \theta` / ``trotter_steps``. Default: 1
-        ferm_qubit_map (str, optional): Fermion-to-qubit transformation. Must be either Jordan-Wigner (``"jw"``) or
+        ferm_qubit_map (str, optional):
+            Fermion-to-qubit transformation. Must be either Jordan-Wigner (``"jw"``) or
             Brayvi-Kitaev (``"bk"``). Default value is ``"jw"``
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit corresponding to a single UCC excitation
     """
     # Check size of orbitals input
     n_orbitals = len(excitation)
     if not n_orbitals:
-        raise_error(ValueError, "No excitations given")
+        error = "No excitations given"
+        raise_error(ValueError, error)
     if n_orbitals % 2 != 0:
-        raise_error(ValueError, f"{excitation} must have an even number of items")
+        error = f"{excitation} must have an even number of items"
+        raise_error(ValueError, error)
     # Reverse sort orbitals to get largest-->smallest
     sorted_orbitals = sorted(excitation, reverse=True)
 
     # Define default mapping and check input is valid
     if ferm_qubit_map not in ("jw", "bk"):
-        raise_error(NotImplementedError, "Fermon-to-qubit mapping must be either 'jw' or 'bk'")
+        error = "Fermon-to-qubit mapping must be either 'jw' or 'bk'"
+        raise_error(NotImplementedError, error)
 
     # Define the UCC excitation operator corresponding to the given list of orbitals
-    fermion_op_str_template = f"{(n_orbitals//2)*'{}^ '}{(n_orbitals//2)*'{} '}"
+    fermion_op_str_template = f"{(n_orbitals // 2) * '{}^ '}{(n_orbitals // 2) * '{} '}"
     fermion_operator_str = fermion_op_str_template.format(*sorted_orbitals)
     # Build the FermionOperator and make it unitary
     fermion_operator = openfermion.FermionOperator(fermion_operator_str)
@@ -337,12 +403,15 @@ def ucc_circuit(
 
     # Apply the qubit_ucc_operator 'trotter_steps' times:
     if trotter_steps < 1:
-        raise_error(ValueError, f"{trotter_steps} must be > 0!")
+        error = f"{trotter_steps} must be > 0!"
+        raise_error(ValueError, error)
     circuit = Circuit(nqubits, **kwargs)
     for _i in range(trotter_steps):
         for pauli_ops, coeff in qubit_ucc_operator.terms.items():
             # Convert each operator into a string and get the associated coefficient
-            pauli_string = " ".join(f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops)
+            pauli_string = " ".join(
+                f"{pauli_op[1]}{pauli_op[0]}" for pauli_op in pauli_ops
+            )
             # Build the circuit and add it on
             circuit += _expi_pauli(
                 nqubits, pauli_string, -1.0j * coeff * theta / trotter_steps
@@ -350,33 +419,45 @@ def ucc_circuit(
     return circuit
 
 
-def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
+def qeb_circuit(
+    nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict
+) -> Circuit:
     r"""
-    Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster ansatz for a single excitation.
-    This circuit ansatz is only valid for the Jordan-Wigner fermion to qubit mapping.
+    Qubit-excitation-based (QEB) circuit corresponding to the unitary coupled-cluster
+    ansatz for a single excitation. This circuit ansatz is only valid for the
+    Jordan-Wigner fermion to qubit mapping.
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements.
-            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
-        theta (float, optional): UCC parameter. Defaults to 0.0
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        excitation (Sequence[int]):
+            Orbitals involved in the excitation; must have an even number of elements.
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals
+            ``(0, 1)`` to ``(2, 3)``
+        theta (float, optional):
+            UCC parameter. Defaults to 0.0
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to a single UCC excitation
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit corresponding to a single UCC excitation
 
     References:
-        1. I. Magoulas and F. A. Evangelista, *CNOT-Efficient Circuits for Arbitrary Rank Many-Body Fermionic and Qubit
-        Excitations*, Journal of Chemical Theory and Computation, 2023, 19(3), 822-836.
+        1. I. Magoulas and F. A. Evangelista, *CNOT-Efficient Circuits for Arbitrary
+        Rank Many-Body Fermionic and Qubit Excitations*, Journal of Chemical Theory and
+        Computation, 2023, 19(3), 822-836.
         (links: `here <https://pubs.acs.org/doi/10.1021/acs.jctc.2c01016>`__ or
         on `arXiv <https://arxiv.org/abs/2210.05771>`__)
     """
     n_orbitals = len(excitation)
     if not n_orbitals:
-        raise_error(ValueError, "No excitations given")
+        error = "No excitations given"
+        raise_error(ValueError, error)
     if n_orbitals % 2 != 0:
-        raise_error(ValueError, f"{excitation} must have an even number of items")
+        error = f"{excitation} must have an even number of items"
+        raise_error(ValueError, error)
 
     n_tuples = len(excitation) // 2
     i_array = excitation[:n_tuples]
@@ -384,7 +465,9 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     fwd_gates = [gates.CNOT(i_array[-1], _i) for _i in i_array[-2::-1]]
     fwd_gates += [gates.CNOT(a_array[-1], _a) for _a in a_array[-2::-1]]
     fwd_gates.append(gates.CNOT(a_array[-1], i_array[-1]))
-    fwd_gates += [gates.X(_ia) for _ia in excitation if _ia not in (i_array[-1], a_array[-1])]
+    fwd_gates += [
+        gates.X(_ia) for _ia in excitation if _ia not in (i_array[-1], a_array[-1])
+    ]
     circuit = Circuit(nqubits, **kwargs)
     circuit.add(gate for gate in fwd_gates)
     # MCRY
@@ -398,64 +481,88 @@ def qeb_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **k
     return circuit
 
 
-def givens_circuit(nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict) -> Circuit:
+def givens_circuit(
+    nqubits: int, excitation: Sequence[int], theta: float = 0.0, **kwargs: dict
+) -> Circuit:
     """
     Quantum circuit performing fermionic excitations using Givens rotations.
 
     Args:
-        nqubits (int): Number of qubits in the circuit
-        excitation (Sequence[int]): Orbitals involved in the excitation; must have an even number of elements
-            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals ``(0, 1)`` to ``(2, 3)``
-        theta (float, optional): Rotation angle. Default: 0.0
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`
+        nqubits (int):
+            Number of qubits in the circuit
+        excitation (Sequence[int]):
+            Orbitals involved in the excitation; must have an even number of elements.
+            E.g. ``[0, 1, 2, 3]`` represents the excitation of electrons in orbitals
+            ``(0, 1)`` to ``(2, 3)``
+        theta (float, optional):
+            Rotation angle. Default: 0.0
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit ansatz for a single Givens rotation
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit ansatz for a single Givens rotation
 
     References:
-        1. J. M. Arrazola, O. D. Matteo, N. Quesada, S. Jahangiri, A. Delgado, and Nathan Killoran, *Universal quantum
-        circuits for quantum chemistry*, Quantum, 2022, 6, 742.
-        (`link <https://quantum-journal.org/papers/q-2022-06-20-742>`__)
+        1. J. M. Arrazola, O. D. Matteo, N. Quesada, S. Jahangiri, A. Delgado, and
+        Nathan Killoran, *Universal quantum circuits for quantum chemistry*, Quantum,
+        2022, 6, 742. (`link <https://quantum-journal.org/papers/q-2022-06-20-742>`__)
     """
     n_orbitals = len(excitation)
     # Check excitation input
     if not n_orbitals:
-        raise_error(ValueError, "No excitations given")
+        error = "No excitations given"
+        raise_error(ValueError, error)
     if n_orbitals % 2 != 0:
-        raise_error(ValueError, f"{excitation} must have an even number of items")
+        error = f"{excitation} must have an even number of items"
+        raise_error(ValueError, error)
     sorted_orbitals = sorted(excitation)
-    qubits_in, qubits_out = sorted_orbitals[: (n_orbitals // 2)], sorted_orbitals[(n_orbitals // 2) :]
+    qubits_in, qubits_out = (
+        sorted_orbitals[: (n_orbitals // 2)],
+        sorted_orbitals[(n_orbitals // 2) :],
+    )
 
     circuit = Circuit(nqubits, **kwargs)
     if n_orbitals == 2:
         circuit.add(gates.GIVENS(qubits_in[0], qubits_out[0], theta))
     else:
-        circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))  # phi parameter not used here
+        # phi parameter not used here
+        circuit.add(gates.GeneralizedRBS(qubits_in, qubits_out, -theta))
     return circuit
 
 
 def basis_rotation_circuit(
-    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs
+    nqubits: int,
+    nelectrons: int,
+    parameters: Sequence[float] | float | None = None,
+    **kwargs,
 ) -> Circuit:
     """
-    Quantum circuit that performs a basis rotation between the occupied-virtual orbitals using Givens rotations
+    Quantum circuit that performs a basis rotation between the occupied-virtual orbitals
+    using Givens rotations
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        nelectrons (int): Number of electrons in the molecular system
-        parameters (Sequence[float] | float | None, optional): Rotation parameters; must have
-            `nelectrons * (nqubits - nelectrons) // 2` elements. Defaults to a zero array if not given
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`.
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        nelectrons (int):
+            Number of electrons in the molecular system
+        parameters (Sequence[float] | float | None, optional):
+            Rotation parameters; must have `nelectrons * (nqubits - nelectrons) // 2`
+            elements. Defaults to a zero array if not given
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit that performs a unitary rotation between the occupied-virtual
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit that performs a unitary rotation between the occupied-virtual
             orbitals
 
     References:
-        1. Google AI Quantum and Collaborators, *Hartree-Fock on a superconducting qubit quantum computer*, Science, 2020,
-        369 (6507), 1084-1089 (`link <https://www.science.org/doi/10.1126/science.abb9811>`__)
+        1. Google AI Quantum and Collaborators, *Hartree-Fock on a superconducting qubit
+        quantum computer*, Science, 2020, 369 (6507), 1084-1089
+        (`link <https://www.science.org/doi/10.1126/science.abb9811>`__)
     """
     n_parameters = nelectrons * (nqubits - nelectrons) // 2
     if parameters is None:
@@ -464,49 +571,70 @@ def basis_rotation_circuit(
         parameters = np.full(n_parameters, parameters)
     else:
         if len(parameters) != n_parameters:
-            raise_error(ValueError, "Invalid number of parameters")
+            error = "Invalid number of parameters"
+            raise_error(ValueError, error)
 
-    unitary_matrix = _basis_rotation_unitary(range(nelectrons), range(nelectrons, nqubits), parameters=parameters)
+    unitary_matrix = _basis_rotation_unitary(
+        range(nelectrons), range(nelectrons, nqubits), parameters=parameters
+    )
     z_angles = _qr_decompose_givens(unitary_matrix)
     basis_rotation_layout = _basis_rotation_layout(nqubits, z_angles)
     # Build circuit ansatz
     circuit = Circuit(nqubits, **kwargs)
-    circuit.add(gates.GIVENS(_q1 + 1, _q1, rot_angle) for (_q1, _q2, rot_angle) in basis_rotation_layout)
+    circuit.add(
+        gates.GIVENS(_q1 + 1, _q1, rot_angle)
+        for (_q1, _q2, rot_angle) in basis_rotation_layout
+    )
     return circuit
 
 
 def symm_preserving_circuit(
-    nqubits: int, nelectrons: int, parameters: Sequence[float] | float | None = None, **kwargs: dict
+    nqubits: int,
+    nelectrons: int,
+    parameters: Sequence[float] | float | None = None,
+    **kwargs: dict,
 ) -> Circuit:
     """
-    Quantum circuit that preserves particle number, total spin, spin projection, and time-reversal symmetries of the
-    simulated system
+    Quantum circuit that preserves particle number, total spin, spin projection, and
+    time-reversal symmetries of the simulated system
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        nelectrons (int): Number of electrons in the molecular system
-        parameters (Sequence[float] | float | None, optional): Rotation parameters; must have
-            :math:`{}^{\\text{nqubits}} C_{\\text{nelectrons}}` elements. Defaults to a zero array if not given
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`.
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        nelectrons (int):
+            Number of electrons in the molecular system
+        parameters (Sequence[float] | float | None, optional):
+            Rotation parameters; must have
+            :math:`{}^{\\text{nqubits}} C_{\\text{nelectrons}}` elements. Defaults to a
+            zero array if not given
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit corresponding to the symmetry-preserving ansatz
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit corresponding to the symmetry-preserving ansatz
 
     References:
-        1. B. T. Gard, L. Zhu, G. S. Barron, N. J. Mayhall, S. E. Economou, and E. Barnes, *Efficient
-        symmetry-preserving state preparation circuits for the variational quantum eigensolver algorithm*, npj Quantum
-        Information, 2020, 6, 10. (`link <https://www.nature.com/articles/s41534-019-0240-1>`__)
+        1. B. T. Gard, L. Zhu, G. S. Barron, N. J. Mayhall, S. E. Economou, and E.
+        Barnes, *Efficient symmetry-preserving state preparation circuits for the
+        variational quantum eigensolver algorithm*, npj Quantum Information, 2020, 6,
+        10. (`link <https://www.nature.com/articles/s41534-019-0240-1>`__)
     """
     # Default parameters:
-    n_parameters = 4 * factorial(nqubits) // (factorial(nqubits - nelectrons) * factorial(nelectrons))
+    n_parameters = (
+        4
+        * factorial(nqubits)
+        // (factorial(nqubits - nelectrons) * factorial(nelectrons))
+    )
     if parameters is None:
         parameters = np.zeros(n_parameters)
     elif isinstance(parameters, float):
         parameters = np.full(n_parameters, parameters)
     else:
         if len(parameters) != n_parameters:
-            raise_error(ValueError, "Invalid number of parameters")
+            error = "Invalid number of parameters"
+            raise_error(ValueError, error)
 
     circuit = Circuit(nqubits, **kwargs)
     x_gates = _x_gate_indices(nqubits, nelectrons)
@@ -516,33 +644,46 @@ def symm_preserving_circuit(
     param_iterator = iter(parameters)
     a_gates = [
         _a_gate(qubit1, qubit2, theta, phi)
-        for (qubit1, qubit2), (theta, phi) in zip(a_gate_qubits, zip(param_iterator, param_iterator))
+        for (qubit1, qubit2), (theta, phi) in zip(
+            a_gate_qubits,
+            zip(param_iterator, param_iterator, strict=False),
+            strict=False,
+        )
     ]
-    # Each a_gate is a list of elementary gates, so a_gates is a nested list; need to unpack it
+    # Each a_gate is a list of elementary gates => a_gates is a nested list, need unpack
     circuit.add(_gate for a_gate in a_gates for _gate in a_gate)
     return circuit
 
 
 def hamming_weight_circuit(nqubits: int, nelectrons: int, **kwargs: dict) -> Circuit:
     """
-    Quantum circuit that preserves the Hamming weight (particle number) of the simulated system
+    Quantum circuit that preserves the Hamming weight (particle number) of the
+    simulated system
 
     Note:
-        This function is a wrapper for the original :func:`qibo.models.encodings.hamming_weight_encoder` function in
-        the main Qibo repository.
+        This function is a wrapper for the original
+        :func:`qibo.models.encodings.hamming_weight_encoder` function in the main Qibo
+        repository.
 
     Args:
-        nqubits (int): Number of qubits in the quantum circuit
-        nelectrons (int): Number of electrons in the molecular system
-        kwargs (dict, optional): Additional arguments used to initialize a Circuit object. Details are given in the
-            documentation of :class:`qibo.models.circuit.Circuit`.
+        nqubits (int):
+            Number of qubits in the quantum circuit
+        nelectrons (int):
+            Number of electrons in the molecular system
+        kwargs (dict, optional):
+            Additional arguments used to initialize a Circuit object. Details are given
+            in the documentation of :class:`qibo.models.circuit.Circuit`.
 
     Returns:
-        :class:`qibo.models.circuit.Circuit`: Circuit restricted to a fixed Hamming-weight subspace
+        :class:`qibo.models.circuit.Circuit`:
+            Circuit restricted to a fixed Hamming-weight subspace
 
     References:
-        1. R. M. S. Farias, T. O. Maciel, G. Camilo, R. Lin, S. Ramos-Calderer, and L. Aolita,
-        *Quantum encoder for fixed-Hamming-weight subspaces*
-        `Phys. Rev. Applied 23, 044014 (2025) <https://doi.org/10.1103/PhysRevApplied.23.044014>`_.
+        1. R. M. S. Farias, T. O. Maciel, G. Camilo, R. Lin, S. Ramos-Calderer, and L.
+        Aolita, *Quantum encoder for fixed-Hamming-weight subspaces*, Phys. Rev.
+        Applied, 2025, 23, 044014.
+        (`link <https://doi.org/10.1103/PhysRevApplied.23.044014>`__).
     """
-    return hamming_weight_encoder(nqubits, weight=nelectrons, phase_correction=False, **kwargs)
+    return hamming_weight_encoder(
+        nqubits, weight=nelectrons, phase_correction=False, **kwargs
+    )

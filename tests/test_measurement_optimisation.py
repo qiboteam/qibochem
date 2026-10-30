@@ -2,6 +2,7 @@
 Test functionality to reduce the measurement cost of running VQE
 """
 
+import numpy as np
 import pytest
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.symbols import X, Y, Z
@@ -16,21 +17,16 @@ from qibochem.measurement.shot_allocation import (
 )
 
 
-def test_gc_measurement_mapping():
+def test_gc_measurement_mapping_error():
     """Remaining coverage tests for _gc_measurement_mapping"""
-    # Single term Hamiltonian
-    ham = SymbolicHamiltonian(Z(2))
-    mapping, m_gates = _gc_measurement_mapping(ham.form, 2, "izmaylov")
-    assert mapping == {"Z2": ham.form}  # Single term expression should remain unchanged
-    assert len(m_gates) == 1 and m_gates[0].name == "measure"  # Single measurement gate, no basis rotation
-
-    ham = SymbolicHamiltonian(Z(0) + X(0))
     with pytest.raises(ValueError):
-        _ = _gc_measurement_mapping(ham.form, 2, "zc")
+        _ = _gc_measurement_mapping(
+            [Z(0)], {Z(0): (1.0, np.array([0, 1], dtype=np.uint8))}, "zc"
+        )
 
 
 @pytest.mark.parametrize(
-    "method,max_shots_per_term,expected",
+    ("method", "max_shots_per_term", "expected"),
     [
         ("u", None, [66, 67, 67]),  # Control test; i.e. working normally
         (None, None, [23, 168, 9]),  # Default arguments test
@@ -40,33 +36,42 @@ def test_gc_measurement_mapping():
     ],
 )
 def test_allocate_shots(method, max_shots_per_term, expected):
-    hamiltonian = SymbolicHamiltonian(94 * Z(0) + Y(1) + 5 * X(0))  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
-    grouped_terms = _measurement_basis_rotations(hamiltonian)
+    hamiltonian = SymbolicHamiltonian(
+        94 * Z(0) + Y(1) + 5 * X(0)
+    )  # Note that SymPy sorts the terms as X0 -> Z0 -> Z1
+    grouped_terms, _constant = _measurement_basis_rotations(hamiltonian, None, "sorted")
     n_shots = 200
     test_allocation = allocate_shots(
-        grouped_terms, method=method, n_shots=n_shots, max_shots_per_term=max_shots_per_term
+        grouped_terms,
+        method=method,
+        n_shots=n_shots,
+        max_shots_per_term=max_shots_per_term,
     )
-    # Might have the occasional off by one error, hence set the max allowed difference to be 1
-    assert max(abs(_i - _j) for _i, _j in zip(test_allocation, expected)) <= 1
+    # Might have occasional off by one error, hence set max allowed difference to be 1
+    assert (
+        max(abs(_i - _j) for _i, _j in zip(test_allocation, expected, strict=True)) <= 1
+    )
 
 
 def test_allocate_shots_coefficient_edge_case():
     """Edge cases of allocate_shots"""
     hamiltonian = SymbolicHamiltonian(Z(0) + X(0))
-    grouped_terms = _measurement_basis_rotations(hamiltonian)
+    grouped_terms, _constant = _measurement_basis_rotations(
+        hamiltonian, "qwc", "sorted"
+    )
     n_shots = 1
     assert allocate_shots(grouped_terms, n_shots=n_shots) in ([0, 1], [1, 0])
 
 
 def test_allocate_shots_input_validity():
     hamiltonian = SymbolicHamiltonian(94 * Z(0) + Z(1) + 5 * X(0))
-    grouped_terms = _measurement_basis_rotations(hamiltonian)
+    grouped_terms, _constant = _measurement_basis_rotations(hamiltonian, "gc", "sorted")
     with pytest.raises(NameError):
         _ = allocate_shots(grouped_terms, n_shots=1, method="wrong")
 
 
 @pytest.mark.parametrize(
-    "method,expected",
+    ("method", "expected"),
     [
         ("vmsa", [0, 20, 40]),
         ("vpsr", [0, 12, 24]),
@@ -76,5 +81,7 @@ def test_allocate_shots_by_variance(method, expected):
     total_shots = 120
     n_trial_shots = 20
     variance_values = [0.0, 16.0, 64.0]
-    test_allocation = allocate_shots_by_variance(total_shots, n_trial_shots, variance_values, method=method)
+    test_allocation = allocate_shots_by_variance(
+        total_shots, n_trial_shots, variance_values, method=method
+    )
     assert test_allocation == expected
